@@ -22,15 +22,16 @@ Spring Bootを用いて開発した在庫管理・注文管理システムです
 
 ## 🛠 使用技術
 
-| 技術 | バージョン |
+| 分類 | 技術 |
 |--------|--------|
-| Java | 17 |
-| Spring Boot | 3.5 |
-| Spring Web | - |
-| Spring Data JPA | - |
-| H2 Database | - |
-| Maven | - |
-| Lombok | - |
+| Language | Java 17 |
+| Framework | Spring Boot 3 |
+| ORM | Spring Data JPA |
+| Database | H2 Database |
+| Build Tool | Maven |
+| Utility | Lombok |
+| API Test | Apifox |
+| Version Control | Git / GitHub |
 
 ---
 
