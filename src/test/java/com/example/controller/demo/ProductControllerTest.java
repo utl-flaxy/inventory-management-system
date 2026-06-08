@@ -1,5 +1,6 @@
-package com.example.demo.controller;
+package com.example.controller.demo;
 
+import com.example.demo.controller.ProductController;
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
 import com.example.demo.service.ProductService;
