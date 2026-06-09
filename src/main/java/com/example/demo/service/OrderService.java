@@ -1,6 +1,6 @@
 package com.example.demo.service;
 
-import com.example.demo.controller.OrderRequest;
+import com.example.demo.dto.OrderRequest;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.Product;
@@ -25,11 +25,9 @@ public class OrderService {
     @Transactional
     public Order createOrder(OrderRequest request) {
 
-        // 商品取得
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new RuntimeException("商品が存在しません"));
 
-        // 在庫チェック
         if (product.getStock() < request.getQuantity()) {
             throw new OutOfStockException("在庫が不足しています");
         }
@@ -38,7 +36,7 @@ public class OrderService {
         product.setStock(product.getStock() - request.getQuantity());
         productRepository.save(product);
 
-        // 合計金額計算
+        // 合計金額
         int totalPrice = product.getPrice() * request.getQuantity();
 
         // 注文作成
@@ -47,7 +45,7 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        // 注文明細作成
+        // 注文明細
         OrderItem orderItem = new OrderItem();
         orderItem.setOrder(savedOrder);
         orderItem.setProduct(product);
@@ -59,7 +57,6 @@ public class OrderService {
         return savedOrder;
     }
 
-    // 注文一覧取得
     public List<Order> findAll() {
         return orderRepository.findAll();
     }
