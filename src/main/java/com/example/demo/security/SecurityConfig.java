@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -47,8 +46,11 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // Basic認証OFF
-                .httpBasic(Customizer.withDefaults());
+                // Basic認証を無効化
+                .httpBasic(httpBasic -> httpBasic.disable())
+
+                // フォームログイン無効化
+                .formLogin(form -> form.disable());
 
         // JWTフィルタ追加
         http.addFilterBefore(
