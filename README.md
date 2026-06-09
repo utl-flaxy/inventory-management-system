@@ -6,7 +6,7 @@ Spring Bootを用いて開発した在庫管理・注文管理システムです
 
 商品の登録・更新・削除だけでなく、注文時の在庫減算や合計金額計算などの業務ロジックを実装しています。
 
-実務を意識し、Controller・Service・Repositoryの責務分離、DTO、Validation、例外ハンドリング、トランザクション管理、テストコード、Docker、CI/CDを導入しています。
+実務を意識し、Controller・Service・Repositoryの責務分離、DTO、Validation、例外ハンドリング、トランザクション管理、テストコード、Docker、CI/CD、AWSデプロイを導入しています。
 
 ---
 
@@ -20,42 +20,45 @@ Spring Bootを用いて開発した在庫管理・注文管理システムです
 * テストコードの実装
 * Dockerによるコンテナ化
 * GitHub ActionsによるCI構築
+* AWS環境へのデプロイ
 
 ---
 
 # 🛠 使用技術
 
-| 分類              | 技術               |
-| --------------- | ---------------- |
-| Language        | Java17           |
-| Framework       | Spring Boot 3    |
-| ORM             | Spring Data JPA  |
-| Database        | MariaDB          |
-| Build Tool      | Maven            |
-| Utility         | Lombok           |
-| Validation      | Bean Validation  |
-| API Document    | Swagger(OpenAPI) |
-| Test            | JUnit5           |
-| Mock            | Mockito          |
-| API Test        | MockMvc          |
-| Container       | Docker           |
-| CI              | GitHub Actions   |
-| Version Control | Git / GitHub     |
+| 分類              | 技術                      |
+| --------------- | ----------------------- |
+| Language        | Java17                  |
+| Framework       | Spring Boot 3           |
+| ORM             | Spring Data JPA         |
+| Database        | MariaDB                 |
+| Build Tool      | Maven                   |
+| Utility         | Lombok                  |
+| Validation      | Bean Validation         |
+| API Document    | Swagger(OpenAPI)        |
+| Test            | JUnit5                  |
+| Mock            | Mockito                 |
+| API Test        | MockMvc                 |
+| Container       | Docker / Docker Compose |
+| CI              | GitHub Actions          |
+| Infrastructure  | AWS EC2                 |
+| OS              | Ubuntu                  |
+| Version Control | Git / GitHub            |
 
 ---
 
 # 🏗 システム構成
 
 ```text
-Client
- ↓
-Controller
- ↓
-Service
- ↓
-Repository
- ↓
-MariaDB
+Internet
+    ↓
+AWS EC2 (Ubuntu)
+    ↓
+Docker Compose
+ ├─ Spring Boot
+ └─ MariaDB
+    ↓
+Swagger UI
 ```
 
 ---
@@ -130,12 +133,12 @@ ORDER_ITEM {
 
 ## DTOを利用
 
-Entityをそのまま公開せず、
+Entityを直接公開せず、
 
 * ProductRequest
 * ProductResponse
 
-を用いて責務を分離しています。
+を利用して責務を分離しています。
 
 ---
 
@@ -160,7 +163,7 @@ public Order createOrder(OrderRequest request)
 
 # ⚠️ 例外ハンドリング
 
-@RestControllerAdvice を使用して例外を一元管理しています。
+@RestControllerAdviceを利用して例外を一元管理しています。
 
 ### 在庫不足
 
@@ -217,8 +220,16 @@ Bean Validationを利用して入力チェックを実装しています。
 
 # 📘 Swagger
 
+ローカル
+
 ```text
 http://localhost:8080/swagger-ui/index.html
+```
+
+AWS
+
+```text
+http://35.77.226.169:8080/swagger-ui/index.html
 ```
 
 ---
@@ -265,22 +276,25 @@ OrderServiceTest
 * 在庫不足
 * 商品不存在
 
+実行
+
 ```bash
 ./mvnw clean test
 ```
 
-実行結果
+結果
 
 ```text
 Tests run: 8
 Failures: 0
 Errors: 0
+
 BUILD SUCCESS
 ```
 
 ---
 
-# 🚀 CI/CD
+# 🚀 CI
 
 GitHub Actionsによってpush時に自動テストを実行しています。
 
@@ -289,6 +303,22 @@ GitHub Actionsによってpush時に自動テストを実行しています。
 ```
 
 ビルド失敗時にはGitHub上で検知できます。
+
+---
+
+# ☁ AWS構成
+
+```text
+Internet
+ ↓
+AWS EC2 (Ubuntu)
+ ↓
+Docker Compose
+ ├─ inventory-app
+ └─ inventory-db
+```
+
+EC2上でSpring BootとMariaDBをコンテナとして起動しています。
 
 ---
 
@@ -310,6 +340,18 @@ GitHub Actionsによってpush時に自動テストを実行しています。
 
 ![error](./out-of-stock.png)
 
+### H2 Console
+
+![h2](./h2-console.png)
+
+### AWS公開画面
+
+![aws](./aws-swagger.png)
+
+### GitHub Actions
+
+![actions](./github-actions.png)
+
 ---
 
 # 📚 学んだこと
@@ -324,16 +366,22 @@ GitHub Actionsによってpush時に自動テストを実行しています。
 * Mockitoによる単体テスト
 * MockMvcによるAPIテスト
 * Dockerによるコンテナ化
-* GitHub ActionsによるCI構築
+* GitHub ActionsによるCI
+* AWS EC2へのデプロイ
+* Linux(Ubuntu)上での運用
+* Dockerネットワーク
 
 ---
 
 # 🔮 今後の改善予定
 
 * 複数商品注文対応
-* AWS EC2デプロイ
-* Amazon RDS
+* Amazon RDS移行
 * Spring Security + JWT認証
 * Reactフロントエンド実装
+* Nginx導入
+* Route53 + 独自ドメイン化
+* HTTPS化
 * TerraformによるIaC化
-* ALB + Route53 + HTTPS化
+* GitHub Actionsによる自動デプロイ（CD）
+* S3による画像管理
