@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.OrderRequest;
+import com.example.demo.dto.SalesResponse;
 import com.example.demo.entity.Order;
 import com.example.demo.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +19,21 @@ public class OrderController {
     // 注文登録
     @PostMapping
     public Order create(@RequestBody OrderRequest request) {
+
         return orderService.createOrder(request);
     }
 
     // 注文一覧取得
     @GetMapping
     public List<Order> getAll() {
+
         return orderService.findAll();
+    }
+
+    // 売上集計
+    @GetMapping("/sales")
+    public SalesResponse getSales() {
+
+        return orderService.getSales();
     }
 }

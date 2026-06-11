@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.OrderRequest;
+import com.example.demo.dto.SalesResponse;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.Product;
@@ -45,7 +46,7 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        // 注文明細
+        // 注文明細作成
         OrderItem orderItem = new OrderItem();
         orderItem.setOrder(savedOrder);
         orderItem.setProduct(product);
@@ -57,7 +58,22 @@ public class OrderService {
         return savedOrder;
     }
 
+    // 注文一覧取得
     public List<Order> findAll() {
+
         return orderRepository.findAll();
+    }
+
+    // 売上集計
+    public SalesResponse getSales() {
+
+        Integer totalSales = orderRepository.getTotalSales();
+
+        Long totalOrders = orderRepository.count();
+
+        return new SalesResponse(
+                totalSales,
+                totalOrders
+        );
     }
 }
