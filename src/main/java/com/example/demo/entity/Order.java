@@ -24,6 +24,10 @@ public class Order {
 
     private Integer totalPrice;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderStatus status;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     @JsonManagedReference
     private List<OrderItem> orderItems = new ArrayList<>();

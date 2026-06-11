@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.entity.Order;
+import com.example.demo.entity.OrderStatus;
 import com.example.demo.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -35,5 +36,14 @@ public class OrderController {
     public SalesResponse getSales() {
 
         return orderService.getSales();
+    }
+
+    // ステータス変更
+    @PutMapping("/{id}/status")
+    public Order updateStatus(
+            @PathVariable Long id,
+            @RequestParam OrderStatus status) {
+
+        return orderService.updateStatus(id, status);
     }
 }

@@ -4,6 +4,7 @@ import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
+import com.example.demo.entity.OrderStatus;
 import com.example.demo.entity.Product;
 import com.example.demo.exception.OutOfStockException;
 import com.example.demo.repository.OrderItemRepository;
@@ -44,6 +45,9 @@ public class OrderService {
         Order order = new Order();
         order.setTotalPrice(totalPrice);
 
+        // 初期ステータス
+        order.setStatus(OrderStatus.PENDING);
+
         Order savedOrder = orderRepository.save(order);
 
         // 注文明細作成
@@ -75,5 +79,17 @@ public class OrderService {
                 totalSales,
                 totalOrders
         );
+    }
+
+    // 注文ステータス更新
+    @Transactional
+    public Order updateStatus(Long id, OrderStatus status) {
+
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("注文が存在しません"));
+
+        order.setStatus(status);
+
+        return orderRepository.save(order);
     }
 }
