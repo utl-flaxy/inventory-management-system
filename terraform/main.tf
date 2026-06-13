@@ -30,7 +30,7 @@ resource "aws_key_pair" "inventory_key" {
 
 resource "aws_instance" "app" {
 
-  ami = "ami-0c1638aa346a43fe8"
+  ami           = "ami-0c1638aa346a43fe8"
   instance_type = "t3.micro"
 
   key_name = aws_key_pair.inventory_key.key_name
@@ -38,6 +38,9 @@ resource "aws_instance" "app" {
   vpc_security_group_ids = [
     aws_security_group.app_sg.id
   ]
+
+  # ★追加
+  user_data = file("${path.module}/userdata.sh")
 
   tags = {
     Name = "inventory-app"
