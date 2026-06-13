@@ -16,12 +16,18 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // ユーザー名
     @Column(nullable = false, unique = true)
     private String username;
 
+    // パスワード（BCryptで暗号化）
     @Column(nullable = false)
     private String password;
 
+    // 権限
+    // ROLE_USER
+    // ROLE_ADMIN
     @Column(nullable = false)
     private String role;
+
 }
