@@ -5,10 +5,10 @@ import com.example.demo.dto.ProductResponse;
 import com.example.demo.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/products")
@@ -17,14 +17,26 @@ public class ProductController {
 
     private final ProductService productService;
 
-    // 商品一覧取得（ログイン済みユーザーなら誰でも）
+    // 商品一覧取得（ページング対応）
     @GetMapping
-    public List<ProductResponse> getAll() {
+    public Page<ProductResponse> getAll(Pageable pageable) {
 
-        return productService.findAll();
+        return productService.findAll(pageable);
     }
 
-    // 商品詳細取得（ログイン済みユーザーなら誰でも）
+    // 商品検索（ページング対応）
+    @GetMapping("/search")
+    public Page<ProductResponse> search(
+            @RequestParam String keyword,
+            Pageable pageable) {
+
+        return productService.search(
+                keyword,
+                pageable
+        );
+    }
+
+    // 商品詳細取得
     @GetMapping("/{id}")
     public ProductResponse getById(@PathVariable Long id) {
 

@@ -11,6 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,7 +45,6 @@ class ProductControllerTest {
     @MockBean
     private ProductService productService;
 
-    // Security関連をモック化
     @MockBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -63,15 +65,46 @@ class ProductControllerTest {
                         .stock(10)
                         .build();
 
-        when(productService.findAll())
-                .thenReturn(List.of(product));
+        Page<ProductResponse> page =
+                new PageImpl<>(List.of(product));
+
+        when(productService.findAll(any(Pageable.class)))
+                .thenReturn(page);
 
         mockMvc.perform(get("/products"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].name").value("りんご"))
-                .andExpect(jsonPath("$[0].price").value(300))
-                .andExpect(jsonPath("$[0].stock").value(10));
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("りんご"))
+                .andExpect(jsonPath("$.content[0].price").value(300))
+                .andExpect(jsonPath("$.content[0].stock").value(10));
+    }
+
+    @Test
+    void 商品検索成功() throws Exception {
+
+        ProductResponse product =
+                ProductResponse.builder()
+                        .id(1L)
+                        .name("ゲーミングPC")
+                        .price(150000)
+                        .stock(5)
+                        .build();
+
+        Page<ProductResponse> page =
+                new PageImpl<>(List.of(product));
+
+        when(productService.search(
+                eq("PC"),
+                any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/products/search")
+                        .param("keyword", "PC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("ゲーミングPC"))
+                .andExpect(jsonPath("$.content[0].price").value(150000))
+                .andExpect(jsonPath("$.content[0].stock").value(5));
     }
 
     @Test

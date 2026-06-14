@@ -1,15 +1,20 @@
 name: Deploy to EC2
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Spring Boot CI"]
+    types:
+      - completed
 
 jobs:
   deploy:
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
