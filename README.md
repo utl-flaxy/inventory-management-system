@@ -1,74 +1,172 @@
 # 在庫管理・注文システム（Spring Boot）
 
-## Features
+## ✅ このプロジェクトで証明できるスキル
 
-* JWT認証（Spring Security + JWT）
-* ADMIN / USER 権限制御
-* 商品CRUD
-* 商品検索（部分一致）
-* ページング機能
-* 注文処理（在庫減算）
-* 注文キャンセル（在庫復元）
-* 注文ステータス管理
-* 売上集計
-* CSV出力
-* Swagger(OpenAPI)
-* Docker / Docker Compose
-* JUnit5 / Mockito / MockMvc
-* GitHub Actions CI/CD
-* AWS EC2デプロイ
-* Terraform(IaC)
+* レイヤードアーキテクチャを用いた実務レベルのバックエンド設計
+* DTOによる責務分離と保守性を意識した設計
+* Spring Security + JWTによる認証・認可
+* トランザクション管理によるデータ整合性の維持
+* Dockerを用いたコンテナ化
+* GitHub ActionsによるCI/CD構築
+* TerraformによるInfrastructure as Code
+* AWS EC2上でのデプロイ・運用経験
 
 ---
 
 # 📌 概要
 
-Spring Bootを用いて開発した在庫管理・注文管理システムです。
+Spring Bootを用いて開発した在庫管理・注文システムです。
 
-商品の登録・更新・削除だけでなく、注文時の在庫減算や合計金額計算、売上集計、注文ステータス管理、JWT認証によるセキュリティ機能を実装しています。
+単純なCRUDではなく、
 
-実務を意識し、Controller・Service・Repositoryの責務分離、DTO、Validation、例外ハンドリング、トランザクション管理、テストコード、Docker、CI/CD、Terraform、AWSデプロイを導入しています。
-
----
-
-# 🎯 開発目的
-
-* Spring BootによるREST API開発
-* レイヤードアーキテクチャの理解
-* DTOを用いた責務分離
-* トランザクション管理による整合性維持
-* JPAによるデータ操作
-* Spring Security + JWT認証
-* テストコードの実装
-* Dockerによるコンテナ化
-* GitHub ActionsによるCI/CD構築
+* 注文時の在庫減算
+* 注文キャンセル時の在庫復元
+* 売上集計
+* JWT認証
+* CSV出力
+* Docker化
+* CI/CD
 * TerraformによるIaC
-* AWS環境へのデプロイ
+
+などを実装し、実務を意識した構成としています。
 
 ---
 
-# 🛠 使用技術
+# 🎯 開発背景
 
-| 分類              | 技術                      |
-| --------------- | ----------------------- |
-| Language        | Java17                  |
-| Framework       | Spring Boot 3           |
-| Security        | Spring Security + JWT   |
-| ORM             | Spring Data JPA         |
-| Database        | MariaDB                 |
-| Build Tool      | Maven                   |
-| Utility         | Lombok                  |
-| Validation      | Bean Validation         |
-| API Document    | Swagger(OpenAPI)        |
-| Test            | JUnit5                  |
-| Mock            | Mockito                 |
-| API Test        | MockMvc                 |
-| Container       | Docker / Docker Compose |
-| CI/CD           | GitHub Actions          |
-| IaC             | Terraform               |
-| Infrastructure  | AWS EC2                 |
-| OS              | Ubuntu                  |
-| Version Control | Git / GitHub            |
+注文システムでは、
+
+* 在庫と注文の整合性維持
+* 商品価格変更時の過去注文データの保全
+* 処理途中での異常終了によるデータ不整合
+
+といった課題があります。
+
+これらを解決するため、
+
+「データ整合性を重視した在庫管理・注文システム」
+
+をテーマとして開発しました。
+
+---
+
+# 🛠 技術選定理由
+
+| 技術                    | 採用理由                               |
+| --------------------- | ---------------------------------- |
+| Spring Boot           | 実務での利用実績が多く、保守性の高いアプリケーションを構築できるため |
+| Spring Data JPA       | SQLを意識しすぎずドメイン中心の実装が可能なため          |
+| Spring Security + JWT | ステートレスな認証を実現できるため                  |
+| MariaDB               | MySQL互換であり学習コストが低いため               |
+| Docker                | 開発環境と本番環境の差異をなくすため                 |
+| GitHub Actions        | 自動テストと自動デプロイを実現するため                |
+| Terraform             | インフラをコード化し再現性を担保するため               |
+| AWS EC2               | 実際のサーバー上で運用経験を得るため                 |
+
+---
+
+# 🧠 コア設計（重要）
+
+本システムは「データ整合性」を最優先に設計しています。
+
+---
+
+## ■ 注文処理の整合性
+
+注文処理は単一トランザクションで実行しています。
+
+```text
+商品取得
+ ↓
+在庫確認
+ ↓
+在庫減算
+ ↓
+注文作成
+ ↓
+注文明細作成
+ ↓
+COMMIT
+```
+
+途中で例外が発生した場合はロールバックされ、データ不整合を防止します。
+
+```java
+@Transactional
+public Order createOrder(OrderRequest request)
+```
+
+---
+
+## ■ Order と OrderItem を分離
+
+1つの注文に複数の商品が紐づくことを想定し、
+
+* Order
+* OrderItem
+
+を分離して正規化しています。
+
+```text
+Order
+ ↓
+OrderItem
+ ↓
+Product
+```
+
+---
+
+## ■ 過去注文データの不変性
+
+注文時の価格を OrderItem に保持することで、
+
+商品価格変更後も過去データが変わらないようにしています。
+
+```text
+商品A 100円
+ ↓
+注文
+ ↓
+商品A 200円へ変更
+
+過去注文は100円のまま保持
+```
+
+---
+
+## ■ 注文キャンセル時の在庫復元
+
+キャンセル時のみ在庫を戻すようにしています。
+
+```text
+PENDING
+ ↓
+CANCELLED
+
+在庫復元
+```
+
+一方、
+
+```text
+SHIPPED
+COMPLETED
+```
+
+状態の注文はキャンセル不可としています。
+
+---
+
+## ■ totalPriceを保持
+
+売上集計時の計算コスト削減のため、
+
+注文時に合計金額を保持しています。
+
+```java
+private Integer totalPrice;
+```
 
 ---
 
@@ -82,8 +180,6 @@ AWS EC2 (Ubuntu)
 Docker Compose
  ├─ inventory-app (Spring Boot)
  └─ inventory-db (MariaDB)
-    ↓
-Swagger UI
 ```
 
 ---
@@ -96,13 +192,13 @@ src
 │  └─java
 │      └─com.example.demo
 │          ├─controller
-│          ├─dto
-│          ├─entity
-│          ├─exception
+│          ├─service
 │          ├─repository
+│          ├─entity
+│          ├─dto
 │          ├─security
-│          ├─config
-│          └─service
+│          ├─exception
+│          └─config
 │
 └─test
     └─java
@@ -142,174 +238,41 @@ ORDER_ITEM {
     INT price
 }
 ```
+# 🚀 主な機能
+
+## 認証機能
+
+* ユーザー登録
+* ログイン
+* JWT発行
+* 認証・認可
+* ADMIN / USER 権限制御
 
 ---
 
-# 💡 設計上の工夫
+## 商品管理
 
-## OrderとOrderItemを分離
-
-1つの注文に複数の商品が紐付く構造を想定し、OrderとOrderItemを分離して正規化を行っています。
-
----
-
-## 注文時価格を保持
-
-商品価格変更後も過去注文の金額が変わらないよう、OrderItemに価格を保持しています。
-
-```text
-商品A 100円
- ↓
-注文
- ↓
-商品A 200円へ変更
-
-→ 過去注文は100円のまま保持
-```
+* 商品一覧取得
+* 商品詳細取得
+* 商品登録
+* 商品更新
+* 商品削除
+* 商品検索（部分一致）
+* ページング
 
 ---
 
-## totalPriceを保持
+## 注文管理
 
-集計計算を毎回行わず、注文時に合計金額を保存することでパフォーマンスを向上させています。
-
-```java
-private Integer totalPrice;
-```
-
----
-
-## DTOを利用
-
-Entityを直接公開せず、
-
-* ProductRequest
-* ProductResponse
-* OrderRequest
-* SalesResponse
-* LoginRequest
-* LoginResponse
-* StatusUpdateRequest
-
-などのDTOを利用して責務を分離しています。
+* 注文作成
+* 注文一覧取得
+* 注文詳細取得
+* 注文ステータス変更
+* 注文キャンセル（在庫復元）
+* 売上集計
+* CSV出力
 
 ---
-
-## Enumによる状態管理
-
-注文状態をEnumで管理しています。
-
-```text
-PENDING
- ↓
-SHIPPED
- ↓
-COMPLETED
-
-PENDING
- ↓
-CANCELLED
-```
-
-これにより状態管理を明確化しています。
-
----
-
-# 🔐 Spring Security + JWT認証
-
-Spring SecurityとJWTを利用し、認証済みユーザーのみが商品API・注文APIへアクセスできるようにしています。
-
-認証不要
-
-* /auth/**
-* /swagger-ui/**
-* /v3/api-docs/**
-
-その他のAPIはJWT認証が必要です。
-
----
-
-## JWT認証フロー
-
-```text
-POST /auth/login
-        ↓
-ユーザー認証
-        ↓
-JWT発行
-        ↓
-Authorization: Bearer {token}
-        ↓
-商品API・注文API
-```
-
----
-
-## Security構成
-
-```text
-Request
-   ↓
-JwtAuthenticationFilter
-   ↓
-SecurityContext
-   ↓
-Controller
-   ↓
-Service
-   ↓
-Repository
-   ↓
-MariaDB
-```
-
----
-
-# 🔄 トランザクション管理
-
-注文処理を1つのトランザクションで実行しています。
-
-### 処理フロー
-
-1. 商品取得
-
-2. 在庫確認
-
-3. 在庫減算
-
-4. 注文作成
-
-5. 注文明細作成
-
-```java
-@Transactional
-public Order createOrder(OrderRequest request)
-```
-
-途中で例外が発生した場合はロールバックされ、データ不整合を防止します。
-
----
-
-## トランザクションイメージ
-
-```text
-商品取得
- ↓
-在庫確認
- ↓
-在庫減算
- ↓
-注文作成
- ↓
-注文明細作成
- ↓
-COMMIT
-
-(途中でエラー)
-
-↓
-ROLLBACK
-```
 
 # 💰 売上集計機能
 
@@ -317,13 +280,13 @@ ROLLBACK
 
 ## API
 
-```text
+```text id="t0xqof"
 GET /orders/sales
 ```
 
 ## レスポンス例
 
-```json
+```json id="3slpfe"
 {
   "totalSales": 15000,
   "totalOrders": 8
@@ -336,7 +299,7 @@ GET /orders/sales
 
 注文状態をEnumで管理しています。
 
-```text
+```text id="v0u0lp"
 PENDING
  ↓
 SHIPPED
@@ -348,17 +311,19 @@ PENDING
 CANCELLED
 ```
 
-## API
+---
 
-```text
+## ステータス変更API
+
+```text id="r7l8qo"
 PATCH /orders/{id}/status
 ```
 
-## リクエスト例
+リクエスト例
 
-```json
+```json id="8r92lw"
 {
-  "status":"SHIPPED"
+  "status": "SHIPPED"
 }
 ```
 
@@ -366,17 +331,17 @@ PATCH /orders/{id}/status
 
 # ❌ 注文キャンセル機能
 
-注文キャンセル時に在庫を自動で戻すようにしています。
+注文キャンセル時に在庫を自動で復元します。
 
 ## API
 
-```text
+```text id="zyrjng"
 PATCH /orders/{id}/cancel
 ```
 
 ## 処理フロー
 
-```text
+```text id="b1otai"
 注文取得
  ↓
 キャンセル可能判定
@@ -390,15 +355,6 @@ CANCELLEDへ変更
 
 発送済み・完了済みの注文はキャンセルできません。
 
-```text
-SHIPPED
-COMPLETED
-
-↓
-
-キャンセル不可
-```
-
 ---
 
 # 📄 CSV出力機能
@@ -407,7 +363,7 @@ COMPLETED
 
 ## API
 
-```text
+```text id="1r7fxn"
 GET /orders/export
 ```
 
@@ -420,7 +376,7 @@ GET /orders/export
 * 合計金額
 * ステータス
 
-Excelで開くことが可能です。
+Excelで利用可能です。
 
 ---
 
@@ -430,23 +386,21 @@ Excelで開くことが可能です。
 
 ## API
 
-```text
+```text id="wnw58q"
 GET /products/search
 ```
 
 ### 使用例
 
-```text
+```text id="7z7qyy"
 /products/search?keyword=PC
 ```
 
 ## Repository
 
-```java
+```java id="wqjlwm"
 List<Product> findByNameContaining(String keyword);
 ```
-
-部分一致検索に対応しています。
 
 ---
 
@@ -456,30 +410,17 @@ List<Product> findByNameContaining(String keyword);
 
 ## API
 
-```text
+```text id="6v2sxt"
 GET /products?page=0&size=10
 ```
 
-### 使用例
+### レスポンス例
 
-```text
-GET /products?page=0&size=5
-```
-
-## レスポンス例
-
-```json
+```json id="sngt1l"
 {
-  "content":[
-    {
-      "id":1,
-      "name":"りんご",
-      "price":100,
-      "stock":10
-    }
-  ],
-  "totalElements":20,
-  "totalPages":4
+  "content": [],
+  "totalElements": 20,
+  "totalPages": 4
 }
 ```
 
@@ -491,15 +432,15 @@ GlobalExceptionHandlerを利用して例外を共通化しています。
 
 ## 在庫不足
 
-```java
+```java id="jlpzdb"
 throw new OutOfStockException("在庫が不足しています");
 ```
 
 レスポンス
 
-```json
+```json id="klczlf"
 {
-  "message":"在庫が不足しています"
+  "message": "在庫が不足しています"
 }
 ```
 
@@ -507,9 +448,9 @@ throw new OutOfStockException("在庫が不足しています");
 
 ## 商品不存在
 
-```json
+```json id="1qjlwm"
 {
-  "message":"商品が存在しません"
+  "message": "商品が存在しません"
 }
 ```
 
@@ -517,9 +458,9 @@ throw new OutOfStockException("在庫が不足しています");
 
 ## 注文不存在
 
-```json
+```json id="tlv52w"
 {
-  "message":"注文が存在しません"
+  "message": "注文が存在しません"
 }
 ```
 
@@ -529,9 +470,7 @@ throw new OutOfStockException("在庫が不足しています");
 
 Bean Validationを利用しています。
 
-## ProductRequest
-
-```java
+```java id="q7m1wp"
 @NotBlank
 private String name;
 
@@ -542,9 +481,9 @@ private Integer price;
 private Integer stock;
 ```
 
-不正なリクエストの場合
+不正なリクエストの場合、
 
-```text
+```text id="3e3m18"
 400 Bad Request
 ```
 
@@ -594,31 +533,33 @@ private Integer stock;
 
 Swagger UIからAPIを確認できます。
 
-```text
+```text id="lq6q7w"
 http://EC2_IP:8080/swagger-ui/index.html
 ```
 
-認証後にJWTトークンを設定することで、各APIを実行できます。
+認証後にJWTトークンを設定することで各APIを実行できます。
 
 ---
 
 # 🐳 Docker
 
+Docker Composeを利用してアプリケーションとDBをコンテナ化しています。
+
 ## 起動
 
-```bash
+```bash id="lf6mws"
 docker compose up -d
 ```
 
 ## 停止
 
-```bash
+```bash id="55ezc7"
 docker compose down
 ```
 
 ## コンテナ構成
 
-```text
+```text id="j8ns8q"
 Docker Compose
  ├── inventory-app
  │      Spring Boot
@@ -626,14 +567,13 @@ Docker Compose
  └── inventory-db
         MariaDB
 ```
-
-アプリケーションとDBをコンテナ化することで、環境差異を抑えた開発を実現しています。
-
 # 🧪 テスト
 
 JUnit5、Mockito、MockMvcを利用してテストを実装しています。
 
-## ProductControllerTest
+## テスト対象
+
+### Controller層
 
 * 商品一覧取得
 * 商品詳細取得
@@ -644,13 +584,21 @@ JUnit5、Mockito、MockMvcを利用してテストを実装しています。
 * ページング
 * バリデーション
 
----
-
-## OrderServiceTest
+### Service層
 
 * 注文作成
-* 在庫不足
-* 売上計算
+* 在庫不足時の例外
+* 売上集計
+
+---
+
+## 主な検証内容
+
+* 正常系
+* 異常系
+* バリデーション
+* 在庫不足時の例外
+* 注文処理の整合性
 
 ---
 
@@ -668,7 +616,7 @@ BUILD SUCCESS
 
 # 🚀 CI/CD
 
-GitHub Actionsを利用して自動テストと自動デプロイを構築しています。
+GitHub Actionsを利用して自動テスト・自動デプロイを実現しています。
 
 ## CI
 
@@ -682,6 +630,8 @@ mvn test
 BUILD SUCCESS
 ```
 
+---
+
 ## CD
 
 ```text
@@ -693,6 +643,8 @@ BUILD SUCCESS
  ↓
 Deploy to EC2
  ↓
+SSH
+ ↓
 git pull
  ↓
 mvn package
@@ -701,23 +653,6 @@ docker build
  ↓
 docker compose up -d
 ```
-
----
-
-## GitHub Actions構成
-
-### ci.yml
-
-* Java17セットアップ
-* Maven Test実行
-
-### deploy.yml
-
-* EC2へSSH接続
-* git pull
-* Maven package
-* Docker build
-* docker compose up
 
 ---
 
@@ -748,9 +683,7 @@ Terraformを利用してインフラをコード化しています。
 * Security Group
 * Key Pair
 
----
-
-## ディレクトリ
+## ディレクトリ構成
 
 ```text
 terraform
@@ -764,105 +697,82 @@ terraform
 
 ---
 
-# 🔄 注文処理シーケンス
+# ⚠️ 考慮した課題と対策
 
-```text
-User
- ↓
-OrderController
- ↓
-OrderService
- ↓
-ProductRepository
+## データ不整合
 
-在庫確認
- ↓
-在庫減算
- ↓
-OrderRepository
+注文処理を単一トランザクションで実行することで整合性を維持しています。
 
-注文作成
- ↓
-OrderItemRepository
-
-注文明細作成
- ↓
-COMMIT
+```java
+@Transactional
 ```
-
-エラー発生時はロールバックされ、データ整合性を維持しています。
 
 ---
 
-# 🔐 Security構成
+## 不正アクセス
 
-```text
-Request
- ↓
-JwtAuthenticationFilter
- ↓
-SecurityContext
- ↓
-Controller
- ↓
-Service
- ↓
-Repository
- ↓
-MariaDB
-```
+Spring Security + JWT認証を利用し、認証済みユーザーのみAPIを利用可能としています。
 
-JWT認証により認証済みユーザーのみAPIへアクセス可能です。
+さらにADMIN / USERの権限制御を実装しています。
 
 ---
 
-# 🐳 Docker構成
+## パフォーマンス
 
-```text
-Docker Compose
- ├── inventory-app
- │
- └── inventory-db
+売上集計時の計算コスト削減のため、注文時に合計金額を保持しています。
+
+```java
+private Integer totalPrice;
 ```
-
-## inventory-app
-
-* Spring Boot
-* Java17
-
-## inventory-db
-
-* MariaDB
 
 ---
 
-# 🔁 CI/CD構成図
+## 保守性
 
-```text
-Developer
- ↓
-GitHub
- ↓
-GitHub Actions
- ↓
-Spring Boot CI
- ↓
-mvn test
- ↓
-Deploy to EC2
- ↓
-SSH
- ↓
-git pull
- ↓
-docker build
- ↓
-docker compose up -d
- ↓
-Spring Boot
- ↓
-MariaDB
-```
+Entityを直接公開せず、
+
+* Request DTO
+* Response DTO
+
+を利用することで責務を分離しています。
+
+---
+
+# 📷 デモ
+
+## Swagger
+
+![Swagger](swagger.png)
+
+---
+
+## 商品一覧
+
+![商品一覧](product-list.png)
+
+---
+
+## 商品詳細
+
+![商品詳細](product-detail.png)
+
+---
+
+## 注文成功
+
+![注文成功](order-success.png)
+
+---
+
+## 在庫不足
+
+![在庫不足](out-of-stock.png)
+
+---
+
+## CSV出力
+
+![CSV出力](order-export.png)
 
 ---
 
@@ -876,7 +786,7 @@ MariaDB
 * JPAによるデータ操作
 * 例外ハンドリング
 * Validation
-* テストコード(JUnit5、Mockito、MockMvc)
+* JUnit5 / Mockito / MockMvc
 * Dockerによるコンテナ化
 * GitHub ActionsによるCI/CD
 * TerraformによるIaC
@@ -890,8 +800,9 @@ MariaDB
 * Spring BatchによるCSV一括取込
 * S3画像アップロード
 * ECSデプロイ
-* CloudFront導入
-* Prometheus + Grafanaによる監視
+* CloudFront
+* Prometheus + Grafana
+* WebSocket通知
 * マイクロサービス化
 
 ---
@@ -904,8 +815,8 @@ Spring Bootを用いて、認証機能・商品管理・注文管理・売上集
 
 * JWT認証
 * トランザクション管理
-* ページング
 * 商品検索
+* ページング
 * 注文キャンセル時の在庫復元
 * Docker
 * テストコード
