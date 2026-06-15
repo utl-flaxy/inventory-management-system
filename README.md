@@ -238,6 +238,35 @@ ORDER_ITEM {
     INT price
 }
 ```
+# 🔄 注文処理シーケンス図
+
+```mermaid
+sequenceDiagram
+
+actor User
+
+User->>OrderController: 注文リクエスト
+
+OrderController->>OrderService: createOrder()
+
+OrderService->>ProductRepository: 商品取得
+ProductRepository-->>OrderService: Product
+
+OrderService->>OrderService: 在庫チェック
+
+OrderService->>ProductRepository: 在庫減算
+
+OrderService->>OrderRepository: 注文作成
+
+OrderService->>OrderItemRepository: 注文明細作成
+
+OrderRepository-->>OrderService: Order
+
+OrderService-->>OrderController: 注文完了
+
+OrderController-->>User: Response
+```
+
 # 🚀 主な機能
 
 ## 認証機能
@@ -356,6 +385,32 @@ CANCELLEDへ変更
 発送済み・完了済みの注文はキャンセルできません。
 
 ---
+
+## シーケンス図
+
+```mermaid
+sequenceDiagram
+
+actor User
+
+User->>OrderController: cancel()
+
+OrderController->>OrderService: cancelOrder()
+
+OrderService->>OrderRepository: 注文取得
+
+OrderService->>OrderService: キャンセル可否判定
+
+loop 注文明細
+    OrderService->>ProductRepository: 在庫復元
+end
+
+OrderService->>OrderRepository: CANCELLED更新
+
+OrderService-->>OrderController: Order
+
+OrderController-->>User: Response
+```
 
 # 📄 CSV出力機能
 
@@ -529,6 +584,28 @@ private Integer stock;
 
 ---
 
+# 🔐 JWT認証フロー
+
+```mermaid
+flowchart TD
+
+LoginRequest --> AuthController
+
+AuthController --> AuthService
+
+AuthService --> UserRepository
+
+UserRepository --> User
+
+AuthService --> JWT
+
+JWT --> Client
+
+Client --> JwtAuthenticationFilter
+
+JwtAuthenticationFilter --> Controller
+```
+
 # 📖 Swagger(OpenAPI)
 
 Swagger UIからAPIを確認できます。
@@ -559,14 +636,17 @@ docker compose down
 
 ## コンテナ構成
 
-```text id="j8ns8q"
-Docker Compose
- ├── inventory-app
- │      Spring Boot
- │
- └── inventory-db
-        MariaDB
+```mermaid
+flowchart LR
+
+DockerCompose
+
+DockerCompose --> inventory-app["Spring Boot"]
+
+DockerCompose --> inventory-db["MariaDB"]
 ```
+
+
 # 🧪 テスト
 
 JUnit5、Mockito、MockMvcを利用してテストを実装しています。
@@ -620,14 +700,36 @@ GitHub Actionsを利用して自動テスト・自動デプロイを実現して
 
 ## CI
 
-```text
-Push
- ↓
-GitHub Actions
- ↓
-mvn test
- ↓
-BUILD SUCCESS
+## CI/CD構成図
+
+```mermaid
+flowchart TD
+
+Developer
+
+Developer --> GitHub
+
+GitHub --> GitHubActions
+
+GitHubActions --> Test["mvn test"]
+
+Test --> Success{Success?}
+
+Success -->|Yes| Deploy
+
+Deploy --> SSH
+
+SSH --> EC2
+
+EC2 --> Pull["git pull"]
+
+Pull --> Build["docker build"]
+
+Build --> DockerCompose["docker compose up -d"]
+
+DockerCompose --> SpringBoot
+
+SpringBoot --> MariaDB
 ```
 
 ---
@@ -658,17 +760,24 @@ docker compose up -d
 
 # ☁️ AWS構成
 
-```text
+```mermaid
+flowchart TD
+
 Internet
-    ↓
-AWS EC2(Ubuntu)
-    ↓
-Docker Compose
- ├─ inventory-app
- │      Spring Boot
- │
- └─ inventory-db
-        MariaDB
+
+Internet --> EC2
+
+subgraph EC2 Ubuntu
+
+DockerCompose
+
+DockerCompose --> App["Spring Boot"]
+
+DockerCompose --> DB["MariaDB"]
+
+end
+
+User --> Internet
 ```
 
 ---
