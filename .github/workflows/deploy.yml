@@ -1,44 +1,48 @@
 name: Deploy to EC2
 
 on:
-  workflow_run:
-    workflows: ["Spring Boot CI"]
-    types:
-      - completed
+workflow_run:
+workflows:
+  - Spring Boot CI
+types:
+  - completed
 
 jobs:
-  deploy:
+deploy:
 
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  ```
+if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
-    runs-on: ubuntu-latest
+runs-on: ubuntu-latest
 
-    steps:
+steps:
 
-      - name: Checkout
-        uses: actions/checkout@v4
+  - name: Checkout
+    uses: actions/checkout@v4
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+  - name: Deploy to EC2
+    uses: appleboy/ssh-action@v1.2.0
+    with:
+      host: ${{ secrets.EC2_HOST }}
+      username: ${{ secrets.EC2_USER }}
+      key: ${{ secrets.EC2_SSH_KEY }}
 
-          script: |
-            cd ~/inventory-management-system
+      script: |
+        cd ~/inventory-management-system
 
-            git pull origin main
+        git pull origin main
 
-            chmod +x mvnw
+        chmod +x mvnw
 
-            export JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto
-            export PATH=$JAVA_HOME/bin:$PATH
+        export JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto
+        export PATH=$JAVA_HOME/bin:$PATH
 
-            ./mvnw clean package -DskipTests
+        ./mvnw clean package -DskipTests
 
-            docker compose down
+        docker compose down
 
-            docker build -t inventory-management-system-app .
+        docker build -t inventory-management-system-app .
 
-            docker compose up -d
+        docker compose up -d
+
+        docker ps

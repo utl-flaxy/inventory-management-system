@@ -1,34 +1,39 @@
 #!/bin/bash
 
-apt-get update -y
+dnf update -y
 
 # Git
-apt-get install -y git
+
+dnf install -y git
 
 # Docker
-apt-get install -y docker.io
+
+dnf install -y docker
 
 # Docker起動
+
 systemctl enable docker
 systemctl start docker
 
-# ubuntuユーザーをdockerグループに追加
-usermod -aG docker ubuntu
+# ec2-user を docker グループに追加
 
-# Docker Composeプラグイン
+usermod -aG docker ec2-user
+
+# Docker Compose plugin
+
 mkdir -p /usr/local/lib/docker/cli-plugins
 
-curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 
 -o /usr/local/lib/docker/cli-plugins/docker-compose
 
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 # リポジトリ取得
-cd /home/ubuntu
+
+cd /home/ec2-user
 
 git clone https://github.com/utl-flaxy/inventory-management-system.git
 
 cd inventory-management-system
 
-# rootで起動
 docker compose up -d
