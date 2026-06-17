@@ -1015,6 +1015,7 @@ Spring Security + JWTを利用し、
 
 ---
 
+````md
 # 💡 このプロジェクトで特に意識したこと
 
 「動けば良い」ではなく、
@@ -1033,7 +1034,8 @@ Spring Security + JWTを利用し、
 を1トランザクションで管理することで、
 
 実務でも重要となる整合性を意識した設計を行っています。
-````
+
+---
 
 # 🐳 Docker構成
 
@@ -1061,7 +1063,7 @@ Docker Compose
 └── inventory-db
        MariaDB 12.2
        Port 3306
-```
+````
 
 ---
 
@@ -1121,39 +1123,15 @@ AWS EC2
 
 # AWS環境
 
-|項目|内容|
-|---|---|
-|Cloud|AWS|
-|Service|EC2|
-|Instance Type|t3.micro|
-|OS|Amazon Linux 2023|
-|Java|17|
-|Container|Docker|
-|Database|MariaDB|
-
----
-
-# 🌎 本番アーキテクチャ
-
-```text
-Internet
-
-↓
-
-AWS EC2
-
-↓
-
-Docker Compose
-
-↓
-
-Spring Boot
-
-↓
-
-MariaDB
-```
+| 項目            | 内容                |
+| ------------- | ----------------- |
+| Cloud         | AWS               |
+| Service       | EC2               |
+| Instance Type | t3.micro          |
+| OS            | Amazon Linux 2023 |
+| Java          | 17                |
+| Container     | Docker            |
+| Database      | MariaDB           |
 
 ---
 
@@ -1163,38 +1141,30 @@ Infrastructure as Code により、
 
 AWS環境をコードで管理しています。
 
----
-
 ## 作成しているリソース
 
 ### EC2
 
 Spring Bootアプリケーションを配置。
 
----
-
 ### Security Group
 
 許可ポート
 
-- 22 (SSH)
-- 8080 (Application)
-
----
+* 22 (SSH)
+* 8080 (Application)
 
 ### Key Pair
 
 SSH接続用秘密鍵。
 
----
-
 ### User Data
 
 初期セットアップ
 
-- Git
-- Docker
-- Docker Compose
+* Git
+* Docker
+* Docker Compose
 
 を自動構築。
 
@@ -1213,31 +1183,9 @@ terraform
 
 ---
 
-# Terraform構成図
-
-```text
-Terraform
-
-│
-
-├── Provider
-
-├── Security Group
-
-├── Key Pair
-
-└── EC2
-      │
-      └── User Data
-```
-
----
-
 # ⚙ GitHub Actions
 
 CI/CD環境を構築しています。
-
----
 
 ## CI
 
@@ -1249,12 +1197,10 @@ CI/CD環境を構築しています。
 
 実施内容
 
-- Checkout
-- Javaセットアップ
-- Maven Build
-- Test
-
----
+* Checkout
+* Javaセットアップ
+* Maven Build
+* Test
 
 ## CD
 
@@ -1266,11 +1212,11 @@ CI/CD環境を構築しています。
 
 実施内容
 
-- EC2へSSH接続
-- Git同期
-- Maven Build
-- Docker再起動
-- 自動デプロイ
+* EC2へSSH接続
+* Git同期
+* Maven Build
+* Docker再起動
+* 自動デプロイ
 
 ---
 
@@ -1281,44 +1227,23 @@ git push
 
 ↓
 
-GitHub
-
-↓
-
 GitHub Actions
 
 ↓
 
-CI
-
-・Build
-・Test
+Build
 
 ↓
 
-CD
+Test
 
-SSH
+↓
+
+Deploy
 
 ↓
 
 AWS EC2
-
-↓
-
-git reset --hard origin/main
-
-↓
-
-./mvnw clean package
-
-↓
-
-docker compose down
-
-↓
-
-docker build
 
 ↓
 
@@ -1330,118 +1255,6 @@ Deploy Complete
 ```
 
 ---
-
-# 🔄 デプロイ手順
-
-## 1. ソース修正
-
-```bash
-git add .
-
-git commit -m "update"
-
-git push origin main
-```
-
----
-
-## 2. GitHub Actions起動
-
-CI
-
-↓
-
-Build
-
-↓
-
-Test
-
----
-
-## 3. CD実行
-
-EC2へSSH接続
-
-↓
-
-最新コード取得
-
-↓
-
-Maven Build
-
-↓
-
-Docker Build
-
-↓
-
-Container Restart
-
----
-
-## 4. デプロイ完了
-
-アプリケーションが自動更新されます。
-
----
-
-# ⭐ インフラ面で工夫したポイント
-
-## Docker化
-
-開発環境と本番環境の差異をなくし、
-
-再現性を向上させています。
-
----
-
-## Terraform
-
-インフラをコード管理し、
-
-環境構築を再現可能にしています。
-
----
-
-## GitHub Actions
-
-Pushだけでデプロイできる仕組みを構築しています。
-
----
-
-## Infrastructure as Code
-
-手作業ではなくコードによる構築を実現しています。
-
----
-
-## CI/CD自動化
-
-Build〜Deployを自動化することで、
-
-運用負荷を削減しています。
-
----
-
-# 💡 このプロジェクトで学んだこと
-
-アプリケーション開発だけでなく、
-
-- Docker
-- AWS
-- Terraform
-- GitHub Actions
-
-を利用し、
-
-「作って終わり」ではなく
-
-「運用まで考慮したシステム構築」
-
-を経験することができました。
-
 
 # ⭐ 工夫したポイント
 
@@ -1467,9 +1280,9 @@ Database
 
 注文処理では、
 
-- 在庫確認
-- 在庫減算
-- 注文作成
+* 在庫確認
+* 在庫減算
+* 注文作成
 
 を1トランザクションで実行しています。
 
@@ -1483,8 +1296,8 @@ Database
 
 Entityを直接返却せず、
 
-- Request DTO
-- Response DTO
+* Request DTO
+* Response DTO
 
 を利用することで、
 
@@ -1496,8 +1309,8 @@ APIとドメインモデルを分離しています。
 
 例外処理を共通化し、
 
-- 在庫不足
-- バリデーションエラー
+* 在庫不足
+* バリデーションエラー
 
 などを統一したレスポンス形式で返しています。
 
@@ -1508,14 +1321,6 @@ APIとドメインモデルを分離しています。
 Spring Security + JWTを利用し、
 
 ステートレスな認証を実装しています。
-
----
-
-## Docker化
-
-Spring BootとMariaDBをコンテナ化し、
-
-環境差異のない開発・本番環境を実現しています。
 
 ---
 
@@ -1537,139 +1342,17 @@ Build〜Deployまで自動化しています。
 
 # 🔥 技術選定理由
 
-|技術|採用理由|
-|---|---|
-|Spring Boot|実務で利用される標準的なJavaフレームワークであるため|
-|Spring Security|認証・認可機能を実装するため|
-|JWT|ステートレス認証を実現するため|
-|Spring Data JPA|Repository層をシンプルに実装するため|
-|MariaDB|MySQL互換で実務利用が多いため|
-|Docker|環境差異をなくすため|
-|AWS EC2|クラウド環境で公開するため|
-|Terraform|Infrastructure as Codeを学習するため|
-|GitHub Actions|CI/CDを構築するため|
-
----
-
-# 📈 今後の改善
-
-今後は以下の機能追加・改善を予定しています。
-
-## Redis
-
-キャッシュ機能の追加。
-
----
-
-## AWS RDS
-
-DBをコンテナから分離し、
-
-マネージドサービス化。
-
----
-
-## Nginx
-
-リバースプロキシ導入。
-
----
-
-## HTTPS対応
-
-SSL証明書による暗号化。
-
----
-
-## AWS S3
-
-画像ファイル管理。
-
----
-
-## CloudWatch
-
-ログ監視。
-
----
-
-## ECS化
-
-コンテナオーケストレーション。
-
----
-
-## テスト強化
-
-- Unit Test
-- Integration Test
-
-の充実。
-
----
-
-# 📚 学んだこと
-
-本プロジェクトを通して、
-
-## バックエンド
-
-- Spring Boot
-- REST API設計
-- DTO設計
-- Spring Security
-- JWT認証
-- 例外処理
-
----
-
-## データベース
-
-- MariaDB
-- Spring Data JPA
-
----
-
-## コンテナ技術
-
-- Docker
-- Docker Compose
-
----
-
-## クラウド
-
-- AWS EC2
-
----
-
-## インフラ
-
-- Terraform
-- Security Group
-- UserData
-
----
-
-## DevOps
-
-- GitHub Actions
-- CI/CD
-
-について学習しました。
-
----
-
-# 🚀 今後学習したい技術
-
-- Redis
-- AWS RDS
-- ECS
-- S3
-- CloudWatch
-- Nginx
-- HTTPS
-- Kubernetes
+| 技術              | 採用理由                          |
+| --------------- | ----------------------------- |
+| Spring Boot     | 実務で利用される標準的なJavaフレームワークであるため  |
+| Spring Security | 認証・認可機能を実装するため                |
+| JWT             | ステートレス認証を実現するため               |
+| Spring Data JPA | Repository層をシンプルに実装するため       |
+| MariaDB         | MySQL互換で実務利用が多いため             |
+| Docker          | 環境差異をなくすため                    |
+| AWS EC2         | クラウド環境で公開するため                 |
+| Terraform       | Infrastructure as Codeを学習するため |
+| GitHub Actions  | CI/CDを構築するため                  |
 
 ---
 
@@ -1677,14 +1360,14 @@ SSL証明書による暗号化。
 
 本プロジェクトでは、単なるCRUDアプリではなく、
 
-- データ整合性を考慮した設計
-- トランザクション管理
-- レイヤードアーキテクチャ
-- JWT認証・認可
-- Dockerによるコンテナ化
-- AWS環境構築
-- TerraformによるInfrastructure as Code
-- GitHub ActionsによるCI/CD
+* データ整合性を考慮した設計
+* トランザクション管理
+* レイヤードアーキテクチャ
+* JWT認証・認可
+* Dockerによるコンテナ化
+* AWS環境構築
+* TerraformによるInfrastructure as Code
+* GitHub ActionsによるCI/CD
 
 まで一貫して設計・実装しました。
 
@@ -1708,9 +1391,7 @@ SSL証明書による暗号化。
 
 を経験することができました。
 
-今後も新しい技術を積極的に学習しながら、
-
-保守性・拡張性を意識した開発に取り組んでいきたいと考えています。
+今後も保守性・拡張性を意識した開発に取り組んでいきたいと考えています。
 
 ---
 
@@ -1724,8 +1405,7 @@ MIT License
 
 最後までご覧いただきありがとうございます。
 
-もし興味を持っていただけましたら、
-
-ぜひお気軽にご覧ください。
-
 ⭐ Star や Feedback をいただけると励みになります。
+
+```
+```
