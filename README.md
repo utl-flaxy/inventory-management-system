@@ -764,7 +764,7 @@ COMPLETED
 
 不正な状態変更を防止できる構成です。
 
----
+
 
 # 🗃 ER図
 
@@ -803,11 +803,11 @@ ORDER_ITEM {
 }
 ```
 
----
+
 
 # 🔄 注文処理シーケンス図
 
-```mermaid
+
 sequenceDiagram
 
 actor User
