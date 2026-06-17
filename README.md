@@ -767,6 +767,7 @@ COMPLETED
 ---
 
 # 🗃 ER図
+
 ```mermaid
 erDiagram
 
@@ -801,7 +802,7 @@ ORDER_ITEM {
     Integer quantity
     Integer price
 }
-
+```
 
 ---
 
@@ -839,6 +840,7 @@ OrderRepository-->>OrderService: Order
 OrderService-->>User: Success
 
 end
+```
 
 ---
 
