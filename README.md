@@ -1,89 +1,63 @@
+```md
 # 📦 在庫管理・注文管理システム
 
-Spring Bootを用いて開発した、商品管理・注文管理・在庫管理を行う業務システムです。
+Spring Bootを用いて開発した、在庫管理・注文管理を行う業務システムです。
 
 単なるCRUDアプリではなく、
 
-- 商品管理
-- 注文処理
-- 在庫管理
+- データ整合性を考慮した設計
+- トランザクション管理
 - JWT認証
-- CSV出力
-- Docker化
-- AWSデプロイ
+- Dockerによるコンテナ化
+- AWSへのデプロイ
 - TerraformによるInfrastructure as Code
 - GitHub ActionsによるCI/CD
 
-まで含めた、実務を意識したバックエンドポートフォリオとして開発しました。
+まで含めて一貫して構築しました。
 
 ---
 
-![Java](https://img.shields.io/badge/Java-17-orange)
-![Spring Boot](https://img.shields.io/badge/SpringBoot-3.5-green)
-![Spring Security](https://img.shields.io/badge/SpringSecurity-6-green)
-![MariaDB](https://img.shields.io/badge/MariaDB-12-blue)
-![Docker](https://img.shields.io/badge/Docker-25-blue)
-![Terraform](https://img.shields.io/badge/Terraform-IaC-purple)
-![AWS](https://img.shields.io/badge/AWS-EC2-orange)
-![GitHub Actions](https://img.shields.io/badge/GitHubActions-CI/CD-blue)
+## ✅ このプロジェクトで証明できること
+
+- トランザクションを用いた在庫・注文の整合性設計
+- Spring Bootによる実務レベルのREST API設計
+- JWT認証・認可の実装
+- Docker / AWS / Terraform / CI/CDを含めた本番運用構成
+- レイヤードアーキテクチャによる責務分離
 
 ---
 
-# 📚 目次
+# 🎯 開発背景
 
-- 概要
-- 技術スタック
-- システム構成
-- 主な機能
-- スクリーンショット
-- API一覧
-- ER図
-- シーケンス図
-- Docker構成
-- AWS構成
-- Terraform構成
-- GitHub Actions
-- CI/CD
-- 工夫したポイント
-- 今後の改善
-- 採用担当者の方へ
+ECサイト開発では、
 
----
+- 在庫と注文の整合性が崩れるリスク
+- 複数処理の途中失敗による不整合
+- 商品価格変更による過去データへの影響
 
-# 🌟 プロジェクト概要
+などの課題が存在します。
 
-在庫管理と注文処理を行うREST APIシステムです。
+これらを解決するため、
 
-商品管理だけでなく、
-
-- 注文時の在庫減算
-- 売上計算
-- JWT認証
-- CSV出力
-- Dockerによるコンテナ化
-- AWS EC2へのデプロイ
-- Terraformによるインフラ構築
-- GitHub Actionsによる自動デプロイ
-
-まで一貫して構築しています。
+「データ整合性」を重視した在庫管理・注文管理システムを開発しました。
 
 ---
 
 # 🚀 技術スタック
 
-| 分類 | 技術 |
-|------|------|
-| Language | Java17 |
-| Framework | Spring Boot 3.5 |
-| Security | Spring Security + JWT |
-| ORM | Spring Data JPA |
-| Database | MariaDB |
-| Build Tool | Maven |
-| API Document | Swagger(OpenAPI3) |
-| Container | Docker / Docker Compose |
-| Cloud | AWS EC2 |
-| IaC | Terraform |
-| CI/CD | GitHub Actions |
+|分類|技術|
+|---|---|
+|Language|Java17|
+|Framework|Spring Boot 3.5|
+|Security|Spring Security + JWT|
+|ORM|Spring Data JPA|
+|Database|MariaDB|
+|Build Tool|Maven|
+|API Document|Swagger(OpenAPI3)|
+|Container|Docker / Docker Compose|
+|Cloud|AWS EC2|
+|IaC|Terraform|
+|CI/CD|GitHub Actions|
 
 ---
 
@@ -120,7 +94,7 @@ Spring Bootを用いて開発した、商品管理・注文管理・在庫管理
 
 ## CSV出力
 
-- 注文データ出力
+- 注文データCSV出力
 
 ---
 
@@ -128,31 +102,32 @@ Spring Bootを用いて開発した、商品管理・注文管理・在庫管理
 
 - Docker化
 - AWS EC2デプロイ
-- Terraform構築
+- Terraformによる環境構築
 - GitHub Actionsによる自動デプロイ
 
 ---
 
-# 🔥 このプロジェクトで学習した技術
+# 📚 目次
 
-- REST API設計
-- Spring Boot
-- Spring Security
-- JWT認証
-- Spring Data JPA
-- DTO設計
-- Service層による業務ロジック分離
-- 例外処理
-- Docker
-- MariaDB
-- AWS EC2
-- Terraform
+- システム構成
+- スクリーンショット
+- API一覧
+- コア設計
+- ER図
+- シーケンス図
+- Docker構成
+- Terraform構成
 - GitHub Actions
 - CI/CD
-
+- 工夫したポイント
+- 技術選定理由
+- 今後の改善
+- 採用担当者の方へ
+```
+````md
 # 🏗 システム構成
 
-本システムは、Spring Boot・Docker・AWS・Terraform・GitHub Actionsを利用して構築しています。
+本システムは Spring Boot・Docker・AWS・Terraform・GitHub Actions を利用して構築しています。
 
 ```text
 GitHub
@@ -204,23 +179,23 @@ MariaDB
 
 ## Swagger UI
 
-API仕様を確認できるようSwagger(OpenAPI)を導入しています。
+OpenAPI により API ドキュメントを自動生成しています。
 
 ![Swagger UI](docs/images/swagger-ui.png)
 
 ---
 
-## 商品一覧
+## 商品一覧取得
 
-商品情報の一覧表示。
+商品一覧 API の実行結果。
 
 ![Product List](docs/images/product-list.png)
 
 ---
 
-## 商品詳細
+## 商品詳細取得
 
-商品詳細情報の取得。
+商品詳細 API の実行結果。
 
 ![Product Detail](docs/images/product-detail.png)
 
@@ -236,7 +211,7 @@ API仕様を確認できるようSwagger(OpenAPI)を導入しています。
 
 ## 注文成功
 
-注文処理成功時の画面。
+正常に注文できた場合のレスポンス。
 
 ![Order Success](docs/images/order-success.png)
 
@@ -244,7 +219,7 @@ API仕様を確認できるようSwagger(OpenAPI)を導入しています。
 
 ## 在庫不足
 
-在庫不足時は独自例外によりエラーを返します。
+独自例外による在庫不足エラー。
 
 ![Out Of Stock](docs/images/out-of-stock.png)
 
@@ -252,39 +227,31 @@ API仕様を確認できるようSwagger(OpenAPI)を導入しています。
 
 ## JWT認証
 
-Spring Security + JWTを利用した認証機能。
+Spring Security + JWT による認証。
 
 ![JWT Auth](docs/images/jwt-auth.png)
 
 ---
 
-## 売上集計API
+## 売上集計 API
 
-売上情報の取得機能。
+売上情報の取得。
 
 ![Sales API](docs/images/sales-api.png)
 
 ---
 
-## 注文CSV出力
+## CSV出力
 
-注文データをCSV形式で出力可能。
+注文データをCSV形式で出力。
 
 ![Order Export](docs/images/order-export.png)
 
 ---
 
-## H2 Console
-
-開発時のデータ確認用。
-
-![H2 Console](docs/images/h2-console.png)
-
----
-
 ## Dockerコンテナ
 
-Spring BootとMariaDBをDocker Composeで管理。
+Spring Boot + MariaDB を Docker Compose で管理。
 
 ![Docker](docs/images/docker-ps.png)
 
@@ -292,7 +259,7 @@ Spring BootとMariaDBをDocker Composeで管理。
 
 ## Terraform
 
-Infrastructure as CodeによるAWS環境構築。
+AWS環境をコード管理。
 
 ![Terraform](docs/images/terraform-main.png)
 
@@ -300,7 +267,7 @@ Infrastructure as CodeによるAWS環境構築。
 
 ## GitHub Actions
 
-CI/CDによる自動デプロイ。
+CI/CD による自動デプロイ。
 
 ![GitHub Actions](docs/images/github-actions-success.png)
 
@@ -308,59 +275,9 @@ CI/CDによる自動デプロイ。
 
 ## AWS EC2
 
-本番環境はAWS EC2上で稼働。
+本番環境。
 
 ![AWS EC2](docs/images/aws-ec2-running.png)
-
----
-
-# 🚀 デプロイ構成
-
-### CI
-
-GitHub Push
-
-↓
-
-GitHub Actions
-
-↓
-
-Build
-
-↓
-
-Test
-
----
-
-### CD
-
-GitHub Actions
-
-↓
-
-SSH接続
-
-↓
-
-EC2
-
-↓
-
-git reset --hard origin/main
-
-↓
-
-Maven Build
-
-↓
-
-Docker Build
-
-↓
-
-docker compose up -d
 
 ---
 
@@ -380,38 +297,54 @@ docker compose up -d
 
 ---
 
-# ⭐ アピールポイント
+# 🚀 デプロイフロー
 
-- Dockerによるコンテナ化
-- AWS EC2へのデプロイ
-- Terraformによるインフラ構築
-- GitHub Actionsによる自動デプロイ
-- CI/CD環境構築
-- 実務を意識した構成
-
+```text
+git push
+   ↓
+GitHub Actions
+   ↓
+Build & Test
+   ↓
+SSH
+   ↓
+AWS EC2
+   ↓
+git reset --hard origin/main
+   ↓
+./mvnw clean package
+   ↓
+docker compose up -d
+   ↓
+Deploy Complete
+```
+````
+````md
 # 📋 主な機能
 
-本システムは、在庫管理・注文管理を中心としたREST APIシステムです。
+本システムは、商品管理・注文管理・認証機能を中心とした REST API システムです。
 
 ---
 
 # 📦 商品管理機能
 
-商品情報のCRUD操作を実装しています。
+商品のCRUD操作を実装しています。
 
-### 商品登録
+## 商品登録
+
+```http
+POST /products
+```
+
+登録項目
 
 - 商品名
 - 価格
 - 在庫数
 
-を登録可能です。
-
 ---
 
-### 商品一覧取得
-
-全商品を取得できます。
+## 商品一覧取得
 
 ```http
 GET /products
@@ -419,9 +352,7 @@ GET /products
 
 ---
 
-### 商品詳細取得
-
-商品IDから詳細情報を取得します。
+## 商品詳細取得
 
 ```http
 GET /products/{id}
@@ -429,9 +360,9 @@ GET /products/{id}
 
 ---
 
-### 商品検索
+## 商品検索
 
-キーワード検索に対応しています。
+キーワードによる検索が可能です。
 
 ```http
 GET /products/search?keyword=apple
@@ -439,9 +370,7 @@ GET /products/search?keyword=apple
 
 ---
 
-### 商品更新
-
-商品情報を更新します。
+## 商品更新
 
 ```http
 PUT /products/{id}
@@ -449,9 +378,7 @@ PUT /products/{id}
 
 ---
 
-### 商品削除
-
-商品を削除します。
+## 商品削除
 
 ```http
 DELETE /products/{id}
@@ -461,11 +388,7 @@ DELETE /products/{id}
 
 # 🛒 注文管理機能
 
-注文作成時に在庫数を自動減算します。
-
----
-
-### 注文作成
+## 注文作成
 
 ```http
 POST /orders
@@ -476,23 +399,18 @@ POST /orders
 - 商品ID
 - 数量
 
-を受け取り、在庫を確認します。
+を受け取り、
+
+- 在庫確認
+- 在庫減算
+- 合計金額計算
+- 注文保存
+
+を行います。
 
 ---
 
-### 在庫不足判定
-
-在庫が不足している場合は
-
-```java
-OutOfStockException
-```
-
-を発生させます。
-
----
-
-### 注文一覧取得
+## 注文一覧取得
 
 ```http
 GET /orders
@@ -500,7 +418,7 @@ GET /orders
 
 ---
 
-### 注文詳細取得
+## 注文詳細取得
 
 ```http
 GET /orders/{id}
@@ -508,7 +426,7 @@ GET /orders/{id}
 
 ---
 
-### ステータス変更
+## 注文ステータス変更
 
 ```http
 PATCH /orders/{id}/status
@@ -533,8 +451,8 @@ GET /orders/sales
 
 取得内容
 
-- 売上合計
 - 注文数
+- 売上合計
 
 ---
 
@@ -548,9 +466,9 @@ GET /orders/export
 
 ---
 
-# 🔐 認証機能
+# 🔐 JWT認証
 
-Spring Security + JWTを利用しています。
+Spring Security + JWT によりステートレス認証を実装しています。
 
 ---
 
@@ -564,8 +482,8 @@ POST /auth/register
 
 ```json
 {
-  "username":"admin",
-  "password":"password"
+  "username": "admin",
+  "password": "password"
 }
 ```
 
@@ -581,18 +499,16 @@ POST /auth/login
 
 ```json
 {
-  "username":"admin",
-  "password":"password"
+  "username": "admin",
+  "password": "password"
 }
 ```
-
----
 
 ### Response
 
 ```json
 {
-  "token":"eyJhbGciOiJIUzI1NiJ9..."
+  "token": "eyJhbGciOiJIUzI1NiJ9..."
 }
 ```
 
@@ -601,7 +517,7 @@ POST /auth/login
 # 📚 API一覧
 
 |Method|Endpoint|内容|
-|--------|--------|--------|
+|---|---|---|
 |POST|/auth/register|ユーザー登録|
 |POST|/auth/login|ログイン|
 |GET|/products|商品一覧|
@@ -623,197 +539,236 @@ POST /auth/login
 
 ## 商品一覧取得
 
+### Request
+
+```http
+GET /products
+```
+
+### Response
+
 ```json
 [
   {
-    "id":1,
-    "name":"Apple",
-    "price":100,
-    "stock":50
+    "id": 1,
+    "name": "Apple",
+    "price": 100,
+    "stock": 50
   },
   {
-    "id":2,
-    "name":"Orange",
-    "price":200,
-    "stock":20
+    "id": 2,
+    "name": "Orange",
+    "price": 200,
+    "stock": 20
   }
 ]
 ```
 
 ---
 
-# ⚠️ エラーハンドリング
+# 📝 注文作成例
 
-GlobalExceptionHandlerを利用して例外を共通化しています。
-
-## 在庫不足
+### Request
 
 ```json
 {
-  "message":"在庫が不足しています"
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 2
+    }
+  ]
+}
+```
+
+### Response
+
+```json
+{
+  "id": 1,
+  "totalPrice": 200,
+  "status": "PENDING"
 }
 ```
 
 ---
 
-# ⭐ 実装した技術
+# ⚠ エラーハンドリング
 
+GlobalExceptionHandler を利用して例外処理を共通化しています。
+
+---
+
+## 在庫不足
+
+独自例外
+
+```java
+OutOfStockException
+```
+
+### Response
+
+```json
+{
+  "message": "在庫が不足しています"
+}
+```
+
+---
+
+## 不正な認証
+
+JWT認証エラー時
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+---
+
+# 🧩 採用担当者向けポイント
+
+本システムでは、
+
+- DTOによる責務分離
 - REST API設計
-- DTOパターン
-- Service層への業務ロジック集約
-- Spring Data JPA
-- Spring Security
-- JWT認証
+- Spring Security + JWT
 - GlobalExceptionHandler
-- CSV出力
 - 独自例外処理
+- CSV出力機能
 
-# 🏗 システム設計
+を実装し、
 
-本システムは、Controller → Service → Repository の3層構造を採用しています。
+単なるCRUDではなく、実務を意識したAPI設計を行っています。
+````
+````md
+# 🧠 コア設計
 
-```text
-Controller
-    ↓
-Service
-    ↓
-Repository
-    ↓
-MariaDB
-```
+本システムは「データ整合性」を最重要として設計しています。
 
-業務ロジックはService層へ集約し、Controllerを薄くすることで保守性と拡張性を高めています。
+単なるCRUDではなく、
+
+- 在庫数
+- 注文情報
+- 商品価格
+- ステータス管理
+
+を一貫性を保ちながら処理できるよう設計しています。
 
 ---
 
-# 📂 ディレクトリ構成
+# 🔥 トランザクション管理
 
-```text
-.
-├── src
-│   ├── controller
-│   ├── service
-│   ├── repository
-│   ├── entity
-│   ├── dto
-│   ├── security
-│   ├── config
-│   └── exception
-│
-├── docs
-│   └── images
-│
-├── .github
-│   └── workflows
-│       ├── ci.yml
-│       └── deploy.yml
-│
-├── terraform
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── provider.tf
-│   └── userdata.sh
-│
-├── Dockerfile
-├── docker-compose.yml
-├── pom.xml
-└── README.md
+注文処理では、
+
+1. 在庫確認
+2. 在庫減算
+3. 合計金額計算
+4. 注文作成
+
+を1トランザクションで実行しています。
+
+途中でエラーが発生した場合はロールバックされ、不整合を防止します。
+
+```java
+@Transactional
+public Order createOrder(OrderRequest request) {
+
+    // 在庫確認
+
+    // 在庫減算
+
+    // 注文作成
+
+    // 保存
+
+}
 ```
 
 ---
 
-# 📦 パッケージ構成
+# 📦 データ整合性
 
-## controller
+## ■ 注文時価格を保持
 
-REST APIのエンドポイントを提供
+OrderItemに価格を保持しています。
 
-- AuthController
-- ProductController
-- OrderController
+そのため商品価格変更後でも、
 
----
+過去の注文データの金額は変わりません。
 
-## service
+### 商品
 
-業務ロジックを担当
+```text
+Apple 100円
+↓
+価格変更
+↓
+Apple 150円
+```
 
-- AuthService
-- ProductService
-- OrderService
+でも、
 
----
+過去注文は
 
-## repository
+```text
+100円
+```
 
-DBアクセス
-
-- UserRepository
-- ProductRepository
-- OrderRepository
-- OrderItemRepository
-
----
-
-## entity
-
-データモデル
-
-- User
-- Product
-- Order
-- OrderItem
-- OrderStatus
+のまま保持されます。
 
 ---
 
-## dto
+## ■ 在庫管理
 
-リクエスト・レスポンスを管理
+注文時
 
-- LoginRequest
-- LoginResponse
-- ProductRequest
-- ProductResponse
-- OrderRequest
-- OrderItemRequest
-- SalesResponse
-- StatusUpdateRequest
+```text
+在庫確認
 
----
+↓
 
-## security
+在庫減算
 
-認証処理
+↓
 
-- SecurityConfig
-- JwtUtil
-- JwtAuthenticationFilter
-- CustomUserDetailsService
+注文保存
+```
+
+を同時に実行しています。
+
+途中で失敗した場合はロールバックされます。
 
 ---
 
-## exception
+## ■ 状態管理
 
-例外処理
+OrderStatusによって状態を管理しています。
 
-- GlobalExceptionHandler
-- OutOfStockException
+```text
+PENDING
 
----
+↓
 
-## config
+PAID
 
-設定クラス
+↓
 
-- OpenApiConfig
+SHIPPED
+
+↓
+
+COMPLETED
+```
+
+不正な状態変更を防止できる構成です。
 
 ---
 
 # 🗃 ER図
-
-商品、注文、注文詳細、ユーザーを分離した実務を意識した設計。
 
 ```mermaid
 erDiagram
@@ -860,7 +815,7 @@ sequenceDiagram
 
 actor User
 
-User->>OrderController: 注文リクエスト
+User->>OrderController: 注文作成
 
 OrderController->>OrderService: createOrder()
 
@@ -884,7 +839,7 @@ OrderService->>OrderRepository: 注文保存
 
 OrderRepository-->>OrderService: Order
 
-OrderService-->>User: 注文完了
+OrderService-->>User: Success
 
 end
 ```
@@ -915,35 +870,107 @@ AuthService-->>User: Token
 
 ---
 
-# 🧩 クラス構成
+# 📂 ディレクトリ構成
 
 ```text
-Controller
-│
-├── ProductController
-├── OrderController
-└── AuthController
-
-Service
-│
-├── ProductService
-├── OrderService
-└── AuthService
-
-Repository
-│
-├── ProductRepository
-├── OrderRepository
-├── OrderItemRepository
-└── UserRepository
-
-Entity
-│
-├── Product
-├── Order
-├── OrderItem
-└── User
+.
+├── src
+├── docs
+│   └── images
+├── terraform
+├── .github
+│   └── workflows
+├── Dockerfile
+├── docker-compose.yml
+├── pom.xml
+└── README.md
 ```
+
+---
+
+# 📦 パッケージ構成
+
+## controller
+
+APIエンドポイント
+
+- AuthController
+- ProductController
+- OrderController
+
+---
+
+## service
+
+業務ロジック
+
+- AuthService
+- ProductService
+- OrderService
+
+---
+
+## repository
+
+DBアクセス
+
+- UserRepository
+- ProductRepository
+- OrderRepository
+- OrderItemRepository
+
+---
+
+## entity
+
+エンティティ
+
+- User
+- Product
+- Order
+- OrderItem
+
+---
+
+## dto
+
+リクエスト・レスポンス
+
+- LoginRequest
+- LoginResponse
+- ProductRequest
+- ProductResponse
+- OrderRequest
+- OrderItemRequest
+- SalesResponse
+
+---
+
+## security
+
+認証処理
+
+- SecurityConfig
+- JwtUtil
+- JwtAuthenticationFilter
+- CustomUserDetailsService
+
+---
+
+## exception
+
+例外処理
+
+- GlobalExceptionHandler
+- OutOfStockException
+
+---
+
+## config
+
+設定
+
+- OpenApiConfig
 
 ---
 
@@ -951,45 +978,74 @@ Entity
 
 ### Controllerを薄くする
 
-HTTPリクエストの受け渡しのみを担当。
+ControllerにはHTTP処理のみを記述し、
 
----
-
-### Service層へ業務ロジックを集約
-
-- 在庫確認
-- 売上計算
-- 注文処理
-
-をServiceに実装。
+業務ロジックはService層へ集約しています。
 
 ---
 
 ### DTOを利用
 
-Entityを直接返さない設計。
+Entityを直接公開せず、
+
+Request / Response DTOによって責務を分離しています。
 
 ---
 
-### Repository層でDBアクセスを分離
+### Repository層を分離
 
-Spring Data JPAを利用し、永続化処理を抽象化。
+Spring Data JPAを利用し、
 
----
-
-### GlobalExceptionHandler
-
-例外処理を共通化。
+永続化処理をRepositoryへ集約しています。
 
 ---
 
-### Spring Security + JWT
+### 例外処理を共通化
 
-認証・認可を分離し、ステートレスなAPIを実現。
+GlobalExceptionHandlerによって
 
+エラーレスポンスを統一しています。
+
+---
+
+### JWT認証
+
+Spring Security + JWTを利用し、
+
+ステートレスな認証を実現しています。
+
+---
+
+# 💡 このプロジェクトで特に意識したこと
+
+「動けば良い」ではなく、
+
+- データ整合性
+- 保守性
+- 責務分離
+- 拡張性
+
+を意識して設計しました。
+
+特に、
+
+**「在庫確認 → 在庫減算 → 注文作成」**
+
+を1トランザクションで管理することで、
+
+実務でも重要となる整合性を意識した設計を行っています。
+````
+````md id="p2pt7m"
 # 🐳 Docker構成
 
-本システムは Docker Compose を利用して Spring Boot と MariaDB をコンテナ化しています。
+本システムは Docker Compose を利用して、
+
+- Spring Boot
+- MariaDB
+
+をコンテナ化しています。
+
+環境差異をなくし、ローカル環境と本番環境で同じ構成を再現できるようにしています。
 
 ---
 
@@ -1010,33 +1066,15 @@ Docker Compose
 
 ---
 
-# docker-compose.yml
+# 使用イメージ
 
-起動コンテナ
-
-- Spring Boot
-- MariaDB
-
-永続化
-
-- Volumeによるデータ保存
-
-ポート
-
-- 8080 → Spring Boot
-- 3306 → MariaDB
-
----
-
-# Dockerイメージ
-
-### Application
+## Application
 
 ```text
 eclipse-temurin:17-jdk
 ```
 
-### Database
+## Database
 
 ```text
 mariadb:12.2
@@ -1044,22 +1082,24 @@ mariadb:12.2
 
 ---
 
-# コンテナ起動
+# コンテナ操作
+
+起動
 
 ```bash
 docker compose up -d
-```
-
-確認
-
-```bash
-docker ps
 ```
 
 停止
 
 ```bash
 docker compose down
+```
+
+確認
+
+```bash
+docker ps
 ```
 
 ---
@@ -1069,15 +1109,13 @@ docker compose down
 本番環境は AWS EC2 上で稼働しています。
 
 ```text
-AWS
+AWS EC2
 │
-└── EC2
-      │
-      ├── Docker
-      │
-      ├── Spring Boot
-      │
-      └── MariaDB
+├── Docker
+│
+├── inventory-app
+│
+└── inventory-db
 ```
 
 ---
@@ -1088,18 +1126,43 @@ AWS
 |---|---|
 |Cloud|AWS|
 |Service|EC2|
-|Instance|t3.micro|
+|Instance Type|t3.micro|
 |OS|Amazon Linux 2023|
 |Java|17|
 |Container|Docker|
 |Database|MariaDB|
-|Port|8080|
 
 ---
 
-# Terraform構成
+# 🌎 本番アーキテクチャ
 
-Infrastructure as Code によりAWS環境をコード管理しています。
+```text
+Internet
+
+↓
+
+AWS EC2
+
+↓
+
+Docker Compose
+
+↓
+
+Spring Boot
+
+↓
+
+MariaDB
+```
+
+---
+
+# 🏗 Terraform
+
+Infrastructure as Code により、
+
+AWS環境をコードで管理しています。
 
 ---
 
@@ -1107,7 +1170,7 @@ Infrastructure as Code によりAWS環境をコード管理しています。
 
 ### EC2
 
-Spring Bootアプリケーションを実行。
+Spring Bootアプリケーションを配置。
 
 ---
 
@@ -1128,13 +1191,26 @@ SSH接続用秘密鍵。
 
 ### User Data
 
-初期設定。
+初期セットアップ
 
 - Git
 - Docker
 - Docker Compose
 
-を自動セットアップ。
+を自動構築。
+
+---
+
+# Terraform構成
+
+```text
+terraform
+├── provider.tf
+├── variables.tf
+├── main.tf
+├── outputs.tf
+└── userdata.sh
+```
 
 ---
 
@@ -1142,34 +1218,23 @@ SSH接続用秘密鍵。
 
 ```text
 Terraform
+
 │
+
 ├── Provider
-│
-├── Key Pair
-│
+
 ├── Security Group
-│
+
+├── Key Pair
+
 └── EC2
-       │
-       └── UserData
+      │
+      └── User Data
 ```
 
 ---
 
-# Terraformディレクトリ
-
-```text
-terraform
-├── provider.tf
-├── main.tf
-├── variables.tf
-├── outputs.tf
-└── userdata.sh
-```
-
----
-
-# GitHub Actions
+# ⚙ GitHub Actions
 
 CI/CD環境を構築しています。
 
@@ -1188,7 +1253,7 @@ CI/CD環境を構築しています。
 - Checkout
 - Javaセットアップ
 - Maven Build
-- Test実行
+- Test
 
 ---
 
@@ -1202,7 +1267,7 @@ CI/CD環境を構築しています。
 
 実施内容
 
-- SSH接続
+- EC2へSSH接続
 - Git同期
 - Maven Build
 - Docker再起動
@@ -1210,18 +1275,20 @@ CI/CD環境を構築しています。
 
 ---
 
-# CI/CDフロー
+# 🚀 CI/CDフロー
 
 ```text
 git push
 
 ↓
 
+GitHub
+
+↓
 
 GitHub Actions
 
 ↓
-
 
 CI
 
@@ -1230,105 +1297,44 @@ CI
 
 ↓
 
-
 CD
 
 SSH
 
 ↓
 
-
 AWS EC2
 
 ↓
-
 
 git reset --hard origin/main
 
 ↓
 
-
 ./mvnw clean package
 
 ↓
-
 
 docker compose down
 
 ↓
 
-
 docker build
 
 ↓
 
-
 docker compose up -d
 
 ↓
-
 
 Deploy Complete
 ```
 
 ---
 
-# GitHub Actions構成図
+# 🔄 デプロイ手順
 
-```text
-GitHub
-
-↓
-
-
-Push
-
-↓
-
-
-GitHub Actions
-
-↓
-
-
-CI
-
-↓
-
-
-CD
-
-↓
-
-
-SSH
-
-↓
-
-
-AWS EC2
-
-↓
-
-
-Docker
-
-↓
-
-
-Spring Boot
-
-↓
-
-
-MariaDB
-```
-
----
-
-# デプロイ手順
-
-### 1. コード修正
+## 1. ソース修正
 
 ```bash
 git add .
@@ -1340,98 +1346,150 @@ git push origin main
 
 ---
 
-### 2. GitHub Actions起動
+## 2. GitHub Actions起動
 
 CI
 
 ↓
 
-CD
+Build
+
+↓
+
+Test
 
 ---
 
-### 3. EC2へ自動デプロイ
+## 3. CD実行
 
-```bash
-./mvnw clean package
+EC2へSSH接続
 
-docker compose down
+↓
 
-docker build
+最新コード取得
 
-docker compose up -d
-```
+↓
+
+Maven Build
+
+↓
+
+Docker Build
+
+↓
+
+Container Restart
 
 ---
 
-### 4. アプリ起動
+## 4. デプロイ完了
 
-Spring Boot
-
-```text
-localhost:8080
-```
+アプリケーションが自動更新されます。
 
 ---
 
 # ⭐ インフラ面で工夫したポイント
 
-### Docker化
+## Docker化
 
-環境差異をなくし再現性を向上。
+開発環境と本番環境の差異をなくし、
 
----
-
-### Terraform
-
-AWS環境をコード管理。
+再現性を向上させています。
 
 ---
 
-### GitHub Actions
+## Terraform
 
-Pushだけでデプロイ可能。
+インフラをコード管理し、
 
----
-
-### EC2上でコンテナ運用
-
-本番環境を意識した構成。
+環境構築を再現可能にしています。
 
 ---
 
-### Infrastructure as Code
+## GitHub Actions
 
-手作業ではなくコードによる環境構築を実現。
+Pushだけでデプロイできる仕組みを構築しています。
 
 ---
 
-### CI/CD自動化
+## Infrastructure as Code
 
-Build〜Deployを自動化し、運用負荷を削減。
+手作業ではなくコードによる構築を実現しています。
 
+---
+
+## CI/CD自動化
+
+Build〜Deployを自動化することで、
+
+運用負荷を削減しています。
+
+---
+
+# 💡 このプロジェクトで学んだこと
+
+アプリケーション開発だけでなく、
+
+- Docker
+- AWS
+- Terraform
+- GitHub Actions
+
+を利用し、
+
+「作って終わり」ではなく
+
+「運用まで考慮したシステム構築」
+
+を経験することができました。
+````
+````md
 # ⭐ 工夫したポイント
 
-## Service層へ業務ロジックを集約
+## レイヤードアーキテクチャ
 
-Controllerを薄くし、
+Controller → Service → Repository の責務を分離し、
 
-- 在庫確認
-- 売上計算
-- 注文処理
+保守性・拡張性を意識した構成にしています。
 
-などの業務ロジックをService層へ集約することで、保守性と拡張性を向上させています。
+```text
+Controller
+    ↓
+Service
+    ↓
+Repository
+    ↓
+Database
+```
 
 ---
 
-## DTOを利用
+## トランザクション管理
 
-Entityを直接公開せず、
+注文処理では、
+
+- 在庫確認
+- 在庫減算
+- 注文作成
+
+を1トランザクションで実行しています。
+
+途中で例外が発生した場合はロールバックされるため、
+
+データ不整合を防止できます。
+
+---
+
+## DTOを利用した責務分離
+
+Entityを直接返却せず、
 
 - Request DTO
 - Response DTO
 
-を利用することで責務を分離しています。
+を利用することで、
+
+APIとドメインモデルを分離しています。
 
 ---
 
@@ -1442,49 +1500,39 @@ Entityを直接公開せず、
 - 在庫不足
 - バリデーションエラー
 
-などを統一したレスポンス形式で返すように実装しています。
+などを統一したレスポンス形式で返しています。
 
 ---
 
 ## JWT認証
 
-Spring Security + JWT を利用し、
+Spring Security + JWTを利用し、
 
-ステートレスな認証機構を実現しています。
+ステートレスな認証を実装しています。
 
 ---
 
 ## Docker化
 
-Spring Boot + MariaDB をコンテナ化することで、
+Spring BootとMariaDBをコンテナ化し、
 
-環境差異のない開発環境・本番環境を構築しています。
-
----
-
-## TerraformによるInfrastructure as Code
-
-AWS環境をコードで管理することで、
-
-インフラ構築を再現可能にしています。
+環境差異のない開発・本番環境を実現しています。
 
 ---
 
-## GitHub ActionsによるCI/CD
+## Infrastructure as Code
 
-Pushをトリガーに、
+Terraformを利用して、
 
-Build
+AWS環境をコードで管理しています。
 
-↓
+---
 
-Test
+## CI/CD
 
-↓
+GitHub Actionsによって、
 
-Deploy
-
-までを自動化しています。
+Build〜Deployまで自動化しています。
 
 ---
 
@@ -1492,13 +1540,13 @@ Deploy
 
 |技術|採用理由|
 |---|---|
-|Spring Boot|Javaの標準的なWebフレームワークであり実務利用が多いため|
+|Spring Boot|実務で利用される標準的なJavaフレームワークであるため|
 |Spring Security|認証・認可機能を実装するため|
 |JWT|ステートレス認証を実現するため|
-|Spring Data JPA|Repository層の実装を簡潔にするため|
-|MariaDB|MySQL互換で軽量かつ実務利用が多いため|
+|Spring Data JPA|Repository層をシンプルに実装するため|
+|MariaDB|MySQL互換で実務利用が多いため|
 |Docker|環境差異をなくすため|
-|AWS EC2|クラウド上でアプリケーションを公開するため|
+|AWS EC2|クラウド環境で公開するため|
 |Terraform|Infrastructure as Codeを学習するため|
 |GitHub Actions|CI/CDを構築するため|
 
@@ -1506,7 +1554,9 @@ Deploy
 
 # 📈 今後の改善
 
-## Redis導入
+今後は以下の機能追加・改善を予定しています。
+
+## Redis
 
 キャッシュ機能の追加。
 
@@ -1514,7 +1564,9 @@ Deploy
 
 ## AWS RDS
 
-DBをコンテナから分離し、マネージドサービス化。
+DBをコンテナから分離し、
+
+マネージドサービス化。
 
 ---
 
@@ -1530,21 +1582,21 @@ SSL証明書による暗号化。
 
 ---
 
-## ECS化
+## AWS S3
 
-コンテナオーケストレーション。
-
----
-
-## S3
-
-画像管理。
+画像ファイル管理。
 
 ---
 
 ## CloudWatch
 
 ログ監視。
+
+---
+
+## ECS化
+
+コンテナオーケストレーション。
 
 ---
 
@@ -1557,49 +1609,42 @@ SSL証明書による暗号化。
 
 ---
 
-## Blue-Green Deploy
-
-ダウンタイムのないデプロイ。
-
----
-
 # 📚 学んだこと
 
 本プロジェクトを通して、
 
-### バックエンド
+## バックエンド
 
-- REST API設計
 - Spring Boot
+- REST API設計
+- DTO設計
 - Spring Security
 - JWT認証
-- JPA
-- DTO設計
 - 例外処理
 
 ---
 
-### データベース
+## データベース
 
 - MariaDB
-- Repositoryパターン
+- Spring Data JPA
 
 ---
 
-### コンテナ技術
+## コンテナ技術
 
 - Docker
 - Docker Compose
 
 ---
 
-### クラウド
+## クラウド
 
 - AWS EC2
 
 ---
 
-### インフラ
+## インフラ
 
 - Terraform
 - Security Group
@@ -1607,7 +1652,7 @@ SSL証明書による暗号化。
 
 ---
 
-### DevOps
+## DevOps
 
 - GitHub Actions
 - CI/CD
@@ -1616,11 +1661,11 @@ SSL証明書による暗号化。
 
 ---
 
-# 🚀 今後取り組みたい技術
+# 🚀 今後学習したい技術
 
 - Redis
-- AWS ECS
 - AWS RDS
+- ECS
 - S3
 - CloudWatch
 - Nginx
@@ -1629,32 +1674,60 @@ SSL証明書による暗号化。
 
 ---
 
-# まとめ
+# 👨‍💻 採用担当者の方へ
 
-本プロジェクトは、単なるCRUDアプリではなく、
+本プロジェクトでは、単なるCRUDアプリではなく、
 
-- 商品管理
-- 注文管理
-- 在庫管理
-- JWT認証
-- CSV出力
+- データ整合性を考慮した設計
+- トランザクション管理
+- レイヤードアーキテクチャ
+- JWT認証・認可
+- Dockerによるコンテナ化
+- AWS環境構築
+- TerraformによるInfrastructure as Code
+- GitHub ActionsによるCI/CD
 
-といった業務機能に加え、
+まで一貫して設計・実装しました。
 
-- Docker
-- AWS
-- Terraform
-- GitHub Actions
-- CI/CD
+特に、
 
-まで含めて一貫して構築しました。
+「在庫確認 → 在庫減算 → 注文作成」
 
-Controller、Service、Repositoryによる責務分離やDTO設計など、保守性や拡張性を意識した設計を心掛けています。
+を1トランザクションで管理することで、
 
-また、インフラ構築から自動デプロイまで自ら構築することで、アプリケーションだけでなく運用面も含めた開発を経験しました。
+実務でも重要となるデータ整合性を意識した設計を行っています。
 
-今後も新しい技術を積極的に学習しながら、保守性・拡張性を意識した開発に取り組んでいきたいと考えています。
+また、
 
-もし興味を持っていただけましたら、ぜひお気軽にご覧ください。
+アプリケーション開発だけでなく、
+
+インフラ構築から自動デプロイまで自ら構築することで、
+
+「作って終わり」ではなく、
+
+「運用まで考慮したシステム開発」
+
+を経験することができました。
+
+今後も新しい技術を積極的に学習しながら、
+
+保守性・拡張性を意識した開発に取り組んでいきたいと考えています。
+
+---
+
+# 📄 License
+
+MIT License
+
+---
+
+# 🙏 Thank you for visiting!
+
+最後までご覧いただきありがとうございます。
+
+もし興味を持っていただけましたら、
+
+ぜひお気軽にご覧ください。
 
 ⭐ Star や Feedback をいただけると励みになります。
+````
