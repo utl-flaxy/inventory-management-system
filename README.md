@@ -767,7 +767,7 @@ COMPLETED
 ---
 
 # 🗃 ER図
-
+```mermaid
 erDiagram
 
 USER ||--o{ ORDER : places
@@ -807,7 +807,7 @@ ORDER_ITEM {
 
 # 🔄 注文処理シーケンス図
 
-
+```mermaid
 sequenceDiagram
 
 actor User
