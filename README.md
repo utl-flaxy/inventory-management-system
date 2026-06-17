@@ -764,7 +764,7 @@ COMPLETED
 
 不正な状態変更を防止できる構成です。
 
-
+---
 
 # 🗃 ER図
 
@@ -801,9 +801,9 @@ ORDER_ITEM {
     Integer quantity
     Integer price
 }
-```
 
 
+---
 
 # 🔄 注文処理シーケンス図
 
@@ -839,9 +839,9 @@ OrderRepository-->>OrderService: Order
 OrderService-->>User: Success
 
 end
-```
 
 ---
+
 
 # 🔐 認証処理シーケンス図
 
