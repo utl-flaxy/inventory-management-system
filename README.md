@@ -123,7 +123,7 @@ ECサイト開発では、
 - 今後の改善
 - 採用担当者の方へ
 ```
-````md
+
 # 🏗 システム構成
 
 本システムは Spring Boot・Docker・AWS・Terraform・GitHub Actions を利用して構築しています。
@@ -317,7 +317,6 @@ docker compose up -d
    ↓
 Deploy Complete
 ```
-````
 
 # 📋 主な機能
 
@@ -769,7 +768,6 @@ COMPLETED
 
 # 🗃 ER図
 
-```mermaid
 erDiagram
 
 USER ||--o{ ORDER : places
@@ -1034,7 +1032,7 @@ Spring Security + JWTを利用し、
 
 実務でも重要となる整合性を意識した設計を行っています。
 ````
-````md id="p2pt7m"
+
 # 🐳 Docker構成
 
 本システムは Docker Compose を利用して、
