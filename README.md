@@ -149,19 +149,23 @@ ECサイト開発では、
 
 本システムは Spring Boot・Docker・AWS・Terraform・GitHub Actions を利用して構築しています。
 
-
+````md
 ```text
 GitHub
-   ↓
-GitHub Actions
-(CI/CD)
-   ↓
+   │
+   ▼
+GitHub Actions (CI/CD)
+   │
+   ▼
 AWS EC2
-   ↓
-Docker
-   ↓
+   │
+   ▼
+Docker Compose
+   │
+   ▼
 Spring Boot
-   ↓
+   │
+   ▼
 MariaDB
 ```
 
