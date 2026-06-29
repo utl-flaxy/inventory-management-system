@@ -149,7 +149,6 @@ ECサイト開発では、
 
 本システムは Spring Boot・Docker・AWS・Terraform・GitHub Actions を利用して構築しています。
 
-````md
 ```text
 GitHub
    │
