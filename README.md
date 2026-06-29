@@ -1428,7 +1428,7 @@ Build〜Deployまで自動化しています。
 
 ---
 
-# 📄 License
+# 📄 ライセンス
 
 MIT License
 
