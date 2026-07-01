@@ -3,8 +3,10 @@ package com.example.demo.controller;
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
 import com.example.demo.service.ProductService;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,7 +21,8 @@ public class ProductController {
 
     // 商品一覧取得（ページング対応）
     @GetMapping
-    public Page<ProductResponse> getAll(Pageable pageable) {
+    public Page<ProductResponse> getAll(
+            @ParameterObject Pageable pageable) {
 
         return productService.findAll(pageable);
     }
@@ -28,7 +31,7 @@ public class ProductController {
     @GetMapping("/search")
     public Page<ProductResponse> search(
             @RequestParam String keyword,
-            Pageable pageable) {
+            @ParameterObject Pageable pageable) {
 
         return productService.search(
                 keyword,
