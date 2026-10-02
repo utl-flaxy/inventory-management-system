@@ -3,7 +3,7 @@ package com.example.demo.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -13,54 +13,57 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    // 本番では application.properties に切り出す
-    private static final String SECRET =
-            "mySecretKeymySecretKeymySecretKeymySecretKey";
+    private static final int MIN_SECRET_BYTES = 32;
 
-    // 有効期限（1時間）
-    private static final long EXPIRATION = 1000 * 60 * 60;
+    private final SecretKey key;
+    private final String issuer;
+    private final long expirationMs;
 
-    private SecretKey key;
+    public JwtUtil(
+            @Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.issuer:inventory-management-system}") String issuer,
+            @Value("${app.jwt.expiration-ms:3600000}") long expirationMs) {
 
-    @PostConstruct
-    public void init() {
-        key = Keys.hmacShaKeyFor(
-                SECRET.getBytes(StandardCharsets.UTF_8)
-        );
+        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalArgumentException(
+                    "app.jwt.secret must be at least 32 bytes for HS256");
+        }
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalArgumentException("app.jwt.issuer must not be blank");
+        }
+        if (expirationMs <= 0) {
+            throw new IllegalArgumentException("app.jwt.expiration-ms must be positive");
+        }
+
+        this.key = Keys.hmacShaKeyFor(secretBytes);
+        this.issuer = issuer;
+        this.expirationMs = expirationMs;
     }
 
-    // JWT生成
     public String generateToken(String username) {
+
+        Date now = new Date();
 
         return Jwts.builder()
                 .subject(username)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + EXPIRATION))
+                .issuer(issuer)
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + expirationMs))
                 .signWith(key)
                 .compact();
     }
 
-    // ユーザー名取得
     public String extractUsername(String token) {
-
-        Claims claims = Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getSubject();
+        return parseClaims(token).getSubject();
     }
 
-    // トークン有効期限チェック
-    public boolean isTokenValid(String token) {
-
-        Claims claims = Jwts.parser()
+    private Claims parseClaims(String token) {
+        return Jwts.parser()
                 .verifyWith(key)
+                .requireIssuer(issuer)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
-        return claims.getExpiration().after(new Date());
     }
 }
