@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,17 +26,13 @@ public class SecurityConfig {
             throws Exception {
 
         http
-                // CSRF無効
                 .csrf(csrf -> csrf.disable())
-
-                // セッションを使用しない
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // 認可設定
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
-
-                        // 認証不要
                         .requestMatchers(
                                 "/auth/**",
                                 "/swagger-ui/**",
@@ -43,24 +40,16 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/h2-console/**"
                         ).permitAll()
-
-                        // その他は認証必須
                         .anyRequest().authenticated()
                 )
-
-                // Basic認証無効
                 .httpBasic(httpBasic -> httpBasic.disable())
-
-                // Formログイン無効
                 .formLogin(form -> form.disable());
 
-        // JWTフィルタ追加
         http.addFilterBefore(
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class
         );
 
-        // H2コンソール用
         http.headers(headers ->
                 headers.frameOptions(frame -> frame.disable()));
 
@@ -69,7 +58,6 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-
         return new BCryptPasswordEncoder();
     }
 
