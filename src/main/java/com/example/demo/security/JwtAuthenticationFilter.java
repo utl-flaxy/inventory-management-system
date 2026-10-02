@@ -29,75 +29,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        System.out.println("PATH = " + request.getServletPath());
-
-        // auth系はJWTチェックしない
         if (request.getServletPath().startsWith("/auth")) {
-
-            System.out.println("SKIP AUTH");
-
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Authorizationヘッダ取得
         String authHeader = request.getHeader("Authorization");
 
-        // Bearerトークンが無ければ次へ
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-
-            System.out.println("NO TOKEN");
-
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-
-            System.out.println("JWT FILTER START");
-
-            // Bearer を除去
             String token = authHeader.substring(7);
-
-            // username取得
             String username = jwtUtil.extractUsername(token);
 
-            System.out.println("USERNAME = " + username);
-
-            // 未認証なら認証情報セット
             if (username != null
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                System.out.println("LOAD USER");
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(username);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities());
 
-                if (jwtUtil.isTokenValid(token)) {
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    System.out.println("TOKEN VALID");
-
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities());
-
-                    authentication.setDetails(
-                            new WebAuthenticationDetailsSource()
-                                    .buildDetails(request));
-
-                    SecurityContextHolder.getContext()
-                            .setAuthentication(authentication);
-
-                    System.out.println("AUTH SUCCESS");
-                }
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
         } catch (Exception e) {
-
-            System.out.println("JWT ERROR");
-            e.printStackTrace();
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
