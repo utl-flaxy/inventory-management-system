@@ -5,6 +5,7 @@ import com.example.demo.dto.SalesResponse;
 import com.example.demo.dto.StatusUpdateRequest;
 import com.example.demo.entity.Order;
 import com.example.demo.service.OrderService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -24,7 +25,7 @@ public class OrderController {
 
     // 注文登録
     @PostMapping
-    public Order create(@RequestBody OrderRequest request) {
+    public Order create(@Valid @RequestBody OrderRequest request) {
 
         return orderService.createOrder(request);
     }
