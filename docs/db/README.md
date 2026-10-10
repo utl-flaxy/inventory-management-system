@@ -138,8 +138,8 @@ legacy SQLだけでは新しいV1の全制約を満たさないため、適用�
 
 ## 検証
 
-Java 17とDockerで `./mvnw clean test`（Windows: `mvnw.cmd clean test`）。
-既存CIの `./mvnw test` もSurefireの `*IT` 対象により全テストを実行する。Docker未起動時はskipしない。
+Java 17とDockerで `./mvnw clean verify`（Windows: `mvnw.cmd clean verify`）。
+CIも `./mvnw verify` でSurefireとFailsafeの全テストを実行する。Docker未起動時はskipしない。
 Issue #15では既存344件を維持し、schema制約41件・空DB/起動5件・既存DB preflight 28件を追加した
 全418件がJava 17で成功している（failures/errors/skipped=0）。
 
@@ -149,7 +149,7 @@ Issue #15では既存344件を維持し、schema制約41件・空DB/起動5件�
   再起動、不在migration/適用後schema driftでのvalidate失敗、未確認非空DBの自動baseline拒否、確認済み手動baseline。
 - LegacyDatabasePreflightIT: 不完全な旧DBに負在庫・非正数量・孤児・未補完履歴・合計不一致等を作り、
   データとschema_historyを変更せずpreflightが停止することを確認する。
-- AuthorizationMatrixITとInventoryConcurrencyMariaDbTestもV1+validateに切替え、実DBで回帰する。
+- AuthorizationMatrixITとInventoryConcurrencyMariaDbITもV1+validateに切替え、実DBで回帰する。
 - H2の既存JPA fixture 3クラスだけは明示的にFlyway無効/create-drop。
   H2の成功をMariaDB migrationの検証結果として扱わない。Controller/unitの設計は維持する。
 

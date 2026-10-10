@@ -67,8 +67,8 @@ customer_idのNOT NULL/FKとidの主キーはIssue #14で導入済み。
 
 ## テスト
 
-Java 17とDockerを使用し、`./mvnw clean test`（Windows: `mvnw.cmd clean test`）を実行する。
-Surefireの既定Testパターンに `*IT` を追加したため、既存CIの `mvn test` でも統合テストが実行される。
+Java 17とDockerを使用し、`./mvnw clean verify`（Windows: `mvnw.cmd clean verify`）を実行する。
+Issue #4でUnitはSurefire、`*IT` はFailsafeへ分離した。CIとPR前の品質ゲートは `verify`。
 Issue #5では既存247件を維持し、認可84件・所有者Service 7件・MariaDB回帰6件を加えた全344件が成功している。
 
 - AuthorizationMatrixIT: 実SecurityFilterChain・JWT filter・UserDetailsService・MariaDB 12.2.2。
@@ -78,7 +78,7 @@ Issue #5では既存247件を維持し、認可84件・所有者Service 7件・M
 - 同じ統合テストで実DBの一覧・詳細・所有者付きlock queryと既存indexを検証する。
 - 実JWTでowner cancelとADMIN shipを同時実行し、200/409、所有者、最終状態・在庫・versionを3回検証する。
 - OrderOwnershipServiceTest: scoped queryだけを使い、他人/不存在でProduct更新を行わないことを確認する。
-- InventoryConcurrencyMariaDbTest: 独立DB接続でowner cancel対ADMIN shipを5回検証し、他人のcancelも拒否する。
+- InventoryConcurrencyMariaDbIT（旧InventoryConcurrencyMariaDbTest）: 独立DB接続でowner cancel対ADMIN shipを5回検証し、他人のcancelも拒否する。
   従来の20/100同時注文、20同時cancel、逆順商品ロック、Product version競合を維持する。
 - Issue #9〜#14のJWT、Validation、不変条件、全16状態遷移、集約、snapshot、DB制約、rollbackを維持する。
 

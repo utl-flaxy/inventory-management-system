@@ -1,0 +1,96 @@
+# テスト品質ゲート
+
+## Java 17・実行コマンド
+
+高速なローカル回帰（Docker不要）:
+
+```bash
+./mvnw test
+```
+
+完全検証（PR前必須・GitHub CIと同じ品質ゲート）:
+
+```bash
+./mvnw verify
+```
+
+Windowsでは `mvnw.cmd test` / `mvnw.cmd verify`。Java 17をJAVA_HOMEで選択する。
+古いレポートを消して件数を比較する場合は `clean test` / `clean verify` を使う。
+`test` の成功だけではmerge可能とは判断しない。
+
+## 命名と実行phase
+
+| 分類 | 命名 | plugin / phase | 対象 |
+|---|---|---|---|
+| Unit / lightweight | `Test*`, `*Test`, `*Tests`, `*TestCase` | Surefire / test | domain、Mockito、JWT、Controller slice、H2 JPA補助 |
+| Integration | `*IT` | Failsafe / integration-test + verify | MariaDB、Flyway、実Security + JWT + DB、実lock/Transaction |
+
+Surefire/FailsafeのversionはSpring Boot parent管理（現行3.5.5）を使う。
+標準[Failsafeのライフサイクル](https://maven.apache.org/surefire/maven-failsafe-plugin/usage.html)を使用し、
+ITの失敗はverify goalで非zero終了にする。独自runnerやfailure-ignoreは使わない。
+CIはJava 17で `./mvnw verify` を実行し、timeoutは10分を維持する。
+
+Unit tests: Surefire、Integration tests: Failsafe。両方の件数・failure/error/skippedはMavenログに表示される。
+レポートは `target/surefire-reports` / `target/failsafe-reports`（標準配置）。
+`verify` はcompile → Unit → package → Integration → verifyを実行する。
+
+## 必須MariaDB統合テスト
+
+起動済みDockerとMariaDB 12.2.2イメージの取得が必要。CIはDockerが使えるrunnerを前提とする。
+TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗はbuild失敗となる。
+本番DB・EC2・本番秘密値は使わず、各classの使い捨てMariaDBを使う。
+
+| class | 回帰対象 |
+|---|---|
+| AuthorizationMatrixIT | 実SecurityFilterChain、JWT、DB role、所有者/ADMIN境界、DB不変、並行操作 |
+| InventoryConcurrencyMariaDbIT | 旧InventoryConcurrencyMariaDbTest。実lock、同時注文/cancel、version、rollback |
+| SchemaConstraintIT | Flyway + validate、MariaDB NOT NULL/CHECK/FK/UNIQUE/index |
+| EmptyDatabaseMigrationIT | 空DB migration、実起動・再起動、schema drift、baseline拒否 |
+| LegacyDatabasePreflightIT | 既存DBの不正データ/不足履歴での停止とDB不変 |
+| AuthApiIT | register/login、BCrypt、資格情報非露出、role注入拒否、DB role優先 |
+| SalesQueryIT | 実Service/RepositoryのSUMとCOUNT、全4状態 |
+
+既存463件を維持し、MariaDB並行実行classだけを改名する。H2補助テストはSurefireに残す。
+H2の成功でMariaDB CHECK・lock・Flywayの正しさを代用しない。
+DeploymentWorkflowTest / DeploymentScriptTestはYAML/Bashの静的・mock制御テストであり、
+本番Docker配備を行わないためSurefireに残す。Deployの運用上の無効化状態は変更しない。
+
+ITだけを開発中に選択する場合:
+
+```bash
+./mvnw verify -Dit.test=AuthApiIT,SalesQueryIT
+```
+
+このコマンドもUnitを実行するが、PR前には絞り込みなしのverifyを必ず実行する。
+各ITのDBはclass単位で分離し、Authは毎回ユーザーを削除、SalesはTransaction rollbackで破棄する。
+実行順への依存やstatic共有レコードは作らず、既存の並行実行timeoutも維持する。
+
+## Authの固定する挙動と残る課題
+
+登録はROLE_USERを強制し、clientのADMIN指定を無視する。DBのpasswordは実BCrypt hash。
+User.passwordのJSON出力だけを抑止し、登録のpassword/hash非露出を保証する。
+loginは署名・issuer・有効期限を持つJWTだけを返す。JWT payloadにpassword/hash/署名鍵は含めない。
+認可にはJWTのrole claimを使わず、毎回usernameから取得した現在のDB roleを使う。
+
+Issue #4ではAuthの入力Validation/例外設計を変更しないため、以下は現行挙動のcharacterization testとする。
+これらを安全な最終仕様とは扱わず、別のAuth入力Validation/エラー応答Issueで修正すべき課題として残す。
+
+- 重複username、registerのnull username/passwordは500（SYSTEM_ERROR）。ユーザーは追加されない。
+- blank username/passwordは現状登録可能。BCrypt保存とレスポンス非露出を確認する。
+- wrong password、存在しないuser、loginのnull/blank入力は現行500。JWT/資格情報を返さない。
+
+将来Authの仕様を改善する際は、そのIssueでHTTP status/Validationのテストも更新する。
+
+## Salesの現行仕様
+
+`SUM(o.totalPrice)` はPENDING / SHIPPED / COMPLETED / **CANCELLEDをすべて含む**。
+空なら0、totalOrdersは明細数ではなく注文数。0円注文も件数に含む。
+SalesQueryITはこの現行仕様を固定し、CANCELLED除外等は将来のsales Issueで変更する。
+このIssueでは売上の実装・仕様を変更しない。
+
+## 別Issueへ分離した内容
+
+注文冪等性とProblemDetailはIssue #4から別Issueへ分離済み。
+現行APIにIdempotency-Key契約がないため、機能実装が先に必要であり、偽のIdempotentOrderITやskipを追加しない。
+GlobalExceptionHandlerは現行Map形式のまま。ProblemDetail導入と契約テストはその機能Issueで扱う。
+coverage/scanner gate、branch protection変更、Deploy有効化、JWT_SECRET設定、EC2操作も対象外。

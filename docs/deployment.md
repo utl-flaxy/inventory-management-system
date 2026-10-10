@@ -104,7 +104,7 @@ rollback成功でも配備jobは失敗終了する。target成功と扱わず、
 
 ## 自動検証
 
-`./mvnw test` が既存JWT/Validation/状態遷移/並行制御/集約/認可/DB migration全テストと新規DeploymentWorkflowTest/DeploymentScriptTestを実行する。YAMLはBoot依存のSnakeYAMLで構造を解析し、triggerの全8組み合わせ、SHA伝達、concurrency、権限、Compose tag、禁止操作を検証する。runnerの不足secretガードもBashで実行する。
+`./mvnw verify` が既存JWT/Validation/状態遷移/並行制御/集約/認可/DB migration全テストとDeploymentWorkflowTest/DeploymentScriptTestを実行する。Deploymentテストは本番配備を行わない静的・mockテストのためSurefireに残し、`./mvnw test` でも実行する。YAMLはBoot依存のSnakeYAMLで構造を解析し、triggerの全8組み合わせ、SHA伝達、concurrency、権限、Compose tag、禁止操作を検証する。runnerの不足secretガードもBashで実行する。
 
 shellのモックはGit/Docker/curl/Java/Maven/flock/sleepを隔離したPATHで置き換え、invalid/missing SHA、secret不足/弱い鍵、host lock、取得失敗、HEAD不一致、DB停止、Maven/config/Docker失敗、成功/初回成功、リトライ、起動失敗、HTTP失敗、rollback失敗、初回失敗、ログ伏せ字を検証する。EC2接続や本物のDocker変更は実行しない。
 

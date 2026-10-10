@@ -99,7 +99,7 @@ HAVING COUNT(i.id) = 0 OR o.total_price IS NULL OR o.total_price <> SUM(i.price 
 
 ## 検証
 
-Java 17とDockerを使って `./mvnw clean test`（Windows: `mvnw.cmd clean test`）を実行する。
+Java 17とDockerを使って `./mvnw clean verify`（Windows: `mvnw.cmd clean verify`）を実行する。
 JWT・入力Validation・DB制約・全16状態遷移・cancel rollback・商品version競合の回帰を維持する。
 MariaDB 12.2.2 Testcontainersで従来の100接続同時注文に加え、逆順の複数商品注文/取消、
 複数商品失敗時の不変、履歴snapshot、段階的SQL移行を検証する。Docker未起動時にskipしない。

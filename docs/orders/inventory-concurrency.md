@@ -58,7 +58,7 @@ version未指定/null/負数は400、現在versionと不一致なら409。
 
 ## 実MariaDB回帰テスト
 
-Dockerが必要。Java 17で `./mvnw clean test` を実行するとMariaDB 12.2.2のTestcontainersも必ず実行する。
+Dockerが必要。Java 17で `./mvnw clean verify` を実行するとMariaDB 12.2.2のTestcontainersも必ず実行する。
 Docker非稼働時はskipせず失敗する。CIの同じコマンドでも実DBテストを行う。
 
 各workerはREQUIRES_NEW/READ_COMMITTEDで独立Transactionを持つ。

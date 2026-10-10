@@ -1,5 +1,6 @@
 package com.example.demo.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Check;
@@ -23,6 +24,8 @@ public class User {
     private String username;
 
     // パスワード（BCryptで暗号化）
+    // 登録APIがUserを返しても、認証用ハッシュはJSONへ出力しない。
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 

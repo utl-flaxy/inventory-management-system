@@ -29,5 +29,5 @@ jobs:
       - name: Grant execute permission
         run: chmod +x mvnw
 
-      - name: Run Tests (including MariaDB concurrency)
-        run: ./mvnw test
+      - name: Verify (Surefire + Failsafe, including MariaDB)
+        run: ./mvnw verify
