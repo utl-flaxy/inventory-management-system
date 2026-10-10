@@ -52,7 +52,15 @@ class DeploymentWorkflowTest {
         assertEquals(Map.of("contents", "read"), workflow.get("permissions"));
         assertFalse(job().containsKey("permissions"), "The job must not grant extra permissions");
         var ci = yaml(".github/workflows/ci.yml");
-        assertTrue(ci.toString().contains("./mvnw test"), "CI must run the whole Surefire suite");
+        var ciJob = map(map(ci.get("jobs")).get("test"));
+        @SuppressWarnings("unchecked")
+        var ciSteps = (List<Map<String, Object>>) ciJob.get("steps");
+        var qualityGate = ciSteps.stream()
+                .filter(step -> "./mvnw verify".equals(step.get("run"))).findFirst().orElseThrow();
+        assertFalse(qualityGate.containsKey("if"), "The quality gate must run unconditionally");
+        assertFalse(qualityGate.containsKey("continue-on-error"), "IT failures must fail CI");
+        assertFalse(ciJob.containsKey("continue-on-error"), "The test job must propagate failures");
+        assertEquals(10, ciJob.get("timeout-minutes"));
     }
 
     static Stream<Arguments> triggerEvents() {

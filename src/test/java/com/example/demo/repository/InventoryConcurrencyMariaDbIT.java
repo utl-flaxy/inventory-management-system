@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @Timeout(120)
-class InventoryConcurrencyMariaDbTest {
+class InventoryConcurrencyMariaDbIT {
     @Container
     static final MariaDBContainer database = new MariaDBContainer("mariadb:12.2.2")
             .withDatabaseName("inventory_concurrency")
