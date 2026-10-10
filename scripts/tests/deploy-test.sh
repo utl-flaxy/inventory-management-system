@@ -12,6 +12,8 @@ export OLD_IMAGE="sha256:$(printf '%064d' 1)" NEW_IMAGE="sha256:$(printf '%064d'
 export JWT_SECRET='new-test-secret-only-012345678901234567890'
 export OLD_SECRET='old-test-secret-only-012345678901234567890'
 export DB_PASSWORD='test-password-never-print'
+export DB_NAME=asset_management DB_USERNAME=inventory_app
+export DB_ROOT_PASSWORD='root-test-password-never-print'
 if [[ "$SCENARIO" == multiline-secret ]]; then
   JWT_SECRET=$'new-test-secret-only-012345678901234567890\nnew-line-private\n'
   OLD_SECRET=$'old-test-secret-only-012345678901234567890\nold-line-private\n'
@@ -51,16 +53,31 @@ case "$tool" in
   curl)
     [[ -f "$MOCK_ROOT/active" ]] || exit 96
     active=$(cat "$MOCK_ROOT/active")
+    url="${!#}"
+    output=''
+    while (( $# )); do
+      if [[ "$1" == --output ]]; then output="$2"; shift; fi
+      shift
+    done
     case "$SCENARIO" in
-      health-failure|rollback-start-failure|first-health-failure|multiline-secret)
-        [[ "$active" == previous ]] ;;
+      health-failure|rollback-start-failure|first-health-failure|multiline-secret|modern-rollback)
+        [[ "$active" == previous ]] || exit 22 ;;
       rollback-health-failure) exit 22 ;;
+      modern-rollback-failure) exit 22 ;;
       health-retry)
         count=0; [[ ! -f "$MOCK_ROOT/checks" ]] || count=$(cat "$MOCK_ROOT/checks")
         echo "$((count+1))" >"$MOCK_ROOT/checks"
-        ((count >= 2)) ;;
+        ((count >= 2)) || exit 22 ;;
       *) : ;;
-    esac ;;
+    esac
+    if [[ "$url" == */v3/api-docs ]]; then
+      [[ "$active" == previous ]] || exit 88
+      printf '{"openapi":"3.0.1"}' >"$output"
+    elif [[ "$active" == target && "$SCENARIO" == health-status-down ]]; then
+      printf '{"status":"DOWN"}' >"$output"
+    elif [[ "$active" == target && "$SCENARIO" == health-details ]]; then
+      printf '{"status":"UP","private":"%s"}' "$DB_PASSWORD" >"$output"
+    else printf '{"status":"UP"}' >"$output"; fi ;;
   docker)
     case "$1" in
       info) : ;;
@@ -82,13 +99,17 @@ case "$tool" in
         else exit 94; fi ;;
       image)
         if [[ "$3" == "$OLD_IMAGE" ]]; then
-          [[ "$*" != *revision* ]] || echo "$OLD_SHA"
+          if [[ "$*" == *health-path* ]]; then
+            case "$SCENARIO" in modern-rollback|modern-rollback-failure) echo /actuator/health ;; esac
+          elif [[ "$*" == *revision* ]]; then echo "$OLD_SHA"; fi
+        elif [[ "$*" == *health-path* ]]; then
+          echo /actuator/health
         elif [[ "$*" == *revision* ]]; then
           [[ "$SCENARIO" == image-mismatch ]] && echo "$OLD_SHA" || echo "$DEPLOY_SHA"
         elif [[ "$*" == *'{{.Id}}'* ]]; then echo "$NEW_IMAGE"
         else exit 93; fi ;;
       build) [[ "$SCENARIO" != docker-failure ]] ;;
-      logs) printf 'diagnostic JWT=%s old=%s db=%s\n' "$JWT_SECRET" "$OLD_SECRET" "$DB_PASSWORD" ;;
+      logs) printf 'diagnostic JWT=%s old=%s db=%s root=%s\n' "$JWT_SECRET" "$OLD_SECRET" "$DB_PASSWORD" "$DB_ROOT_PASSWORD" ;;
       compose)
         if [[ "$*" == *' config' ]]; then
           [[ "$SCENARIO" != config-failure ]] || exit 1
@@ -122,6 +143,13 @@ case "$SCENARIO" in
   missing-sha) unset DEPLOY_SHA ;;
   missing-secret) unset JWT_SECRET ;;
   weak-secret) JWT_SECRET=short ;;
+  missing-db-name) unset DB_NAME ;;
+  missing-db-user) unset DB_USERNAME ;;
+  missing-db-password) unset DB_PASSWORD ;;
+  missing-db-root-password) unset DB_ROOT_PASSWORD ;;
+  root-db-user) DB_USERNAME=root ;;
+  bad-db-name) DB_NAME='unsafe name' ;;
+  bad-db-user) DB_USERNAME='unsafe user' ;;
   first-success|first-health-failure) rm "$DEPLOY_DIR/.deploy/current"* ;;
   legacy-success|multiline-secret) rm "$DEPLOY_DIR/.deploy/current-compose.yml" ;;
 esac
@@ -135,7 +163,7 @@ check_not() { if "$@"; then echo "Unexpected match: $*" >&2; exit 1; fi; }
 # Never print any test secret, including secret-bearing container diagnostics.
 for secret in 'new-test-secret-only-012345678901234567890' \
     'old-test-secret-only-012345678901234567890' 'test-password-never-print' \
-    'new-line-private' 'old-line-private' 'db-line-private'; do
+    'new-line-private' 'old-line-private' 'db-line-private' 'root-test-password-never-print'; do
   check_not grep -Fq "$secret" "$fixture/output"
   check_not grep -Fq "$secret" "$TRACE"
 done
@@ -162,7 +190,7 @@ case "$SCENARIO" in
     check test "$config_line" -lt "$build_line"
     check grep -Fq "$NEW_IMAGE" "$DEPLOY_DIR/.deploy/current-image"
     ;;
-  health-failure|startup-failure|rollback-start-failure|rollback-health-failure|multiline-secret)
+  health-failure|startup-failure|rollback-start-failure|rollback-health-failure|multiline-secret|modern-rollback|modern-rollback-failure|health-status-down|health-details)
     check test "$result" -ne 0
     check test "$(cat "$DEPLOY_DIR/.deploy/current")" = "$OLD_SHA"
     check test "$(cat "$DEPLOY_DIR/.deploy/current-image")" = "$OLD_IMAGE"
@@ -172,7 +200,7 @@ case "$SCENARIO" in
     snapshot=$(find "$DEPLOY_DIR/.deploy" -type d -name 'pending.*')
     check test -f "$snapshot/previous-compose.yml"
     check test "$(cat "$snapshot/previous-image")" = "$OLD_IMAGE"
-    if [[ "$SCENARIO" == rollback-start-failure || "$SCENARIO" == rollback-health-failure ]]; then
+    if [[ "$SCENARIO" == rollback-start-failure || "$SCENARIO" == rollback-health-failure || "$SCENARIO" == modern-rollback-failure ]]; then
       check grep -Fq 'App rollback failed' "$fixture/output"
     else
       check test "$(cat "$MOCK_ROOT/active")" = previous
@@ -192,3 +220,15 @@ case "$SCENARIO" in
     check test "$(cat "$DEPLOY_DIR/.deploy/current")" = "$OLD_SHA"
     check test "$(cat "$DEPLOY_DIR/.deploy/current-image")" = "$OLD_IMAGE" ;;
 esac
+
+# 新targetは常にActuator。modern rollbackで旧Swaggerへfallbackしない。
+if [[ "$SCENARIO" == modern-rollback || "$SCENARIO" == modern-rollback-failure ]]; then
+  check_not grep -Fq 'http://127.0.0.1:8080/v3/api-docs' "$TRACE"
+fi
+if [[ "$SCENARIO" == health-failure ]]; then
+  check test "$(grep -c 'http://127.0.0.1:8080/actuator/health' "$TRACE")" -eq 30
+  check test "$(grep -c 'http://127.0.0.1:8080/v3/api-docs' "$TRACE")" -eq 1
+fi
+if [[ "$SCENARIO" != startup-failure ]] && grep -Fq ' up ' "$TRACE"; then
+  check grep -Fq 'http://127.0.0.1:8080/actuator/health' "$TRACE"
+fi

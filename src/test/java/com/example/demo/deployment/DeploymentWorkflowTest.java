@@ -102,7 +102,7 @@ class DeploymentWorkflowTest {
                 checkout.get("with"));
         var ssh = steps().stream().filter(s -> "appleboy/ssh-action@v1.2.0".equals(s.get("uses"))).findFirst().orElseThrow();
         var inputs = map(ssh.get("with"));
-        assertEquals("DEPLOY_SHA,JWT_SECRET", inputs.get("envs"));
+        assertEquals("DEPLOY_SHA,JWT_SECRET,DB_NAME,DB_USERNAME,DB_PASSWORD,DB_ROOT_PASSWORD", inputs.get("envs"));
         assertEquals("scripts/deploy.sh", inputs.get("script_path"));
         assertFalse(inputs.containsKey("script"));
         assertFalse(inputs.containsKey("debug"));
@@ -123,8 +123,9 @@ class DeploymentWorkflowTest {
                 "git cat-file -e \"${DEPLOY_SHA}^{commit}\"", "git checkout --detach \"$DEPLOY_SHA\"",
                 "[[ \"$ACTUAL_SHA\" == \"$DEPLOY_SHA\" ]]", "./mvnw clean package -DskipTests",
                 "org.opencontainers.image.revision=$DEPLOY_SHA", "inventory-management-system-app:$DEPLOY_SHA",
-                "attempt<=30", "--connect-timeout 2 --max-time 5", "http://127.0.0.1:8080/v3/api-docs",
-                "previous-image.yml", "&& health", "trap finish EXIT", "redact_logs")) {
+                "attempt<=30", "--connect-timeout 2 --max-time 5", "http://127.0.0.1:8080/actuator/health",
+                "previous-image.yml", "&& health", "trap finish EXIT", "redact_logs", "export SPRING_PROFILES_ACTIVE=prod",
+                "DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD", "inventory-management-system.health-path")) {
             assertTrue(script.contains(required), "Missing safety contract: " + required);
         }
         assertFalse(Pattern.compile("(?m)^\\s*(?:git .*reset|.*compose.*\\bdown\\b|.*volume.*\\b(?:rm|prune)\\b|docker system prune|set -x)\\s*.*")
@@ -148,8 +149,31 @@ class DeploymentWorkflowTest {
                 Files.readAllLines(Path.of(".dockerignore")));
     }
 
+    @Test
+    void composeAndWorkflowSeparateAppCredentialsFromRootSecret() throws Exception {
+        var services = map(yaml("docker-compose.yml").get("services"));
+        var app = map(map(services.get("app")).get("environment"));
+        var db = map(map(services.get("db")).get("environment"));
+        assertEquals("prod", app.get("SPRING_PROFILES_ACTIVE"));
+        assertEquals("jdbc:mariadb://db:3306/${DB_NAME:?DB_NAME is required}", app.get("SPRING_DATASOURCE_URL"));
+        assertEquals("${DB_USERNAME:?DB_USERNAME is required}", app.get("SPRING_DATASOURCE_USERNAME"));
+        assertEquals("${DB_PASSWORD:?DB_PASSWORD is required}", app.get("SPRING_DATASOURCE_PASSWORD"));
+        assertEquals("${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}", db.get("MARIADB_ROOT_PASSWORD"));
+        assertEquals("${DB_USERNAME:?DB_USERNAME is required}", db.get("MARIADB_USER"));
+        assertEquals("${DB_PASSWORD:?DB_PASSWORD is required}", db.get("MARIADB_PASSWORD"));
+        assertTrue(app.keySet().stream().noneMatch(key -> key.toString().contains("ROOT")));
+        var env = map(job().get("env"));
+        assertEquals("${{ vars.DB_NAME }}", env.get("DB_NAME"));
+        assertEquals("${{ vars.DB_USERNAME }}", env.get("DB_USERNAME"));
+        assertEquals("${{ secrets.DB_PASSWORD }}", env.get("DB_PASSWORD"));
+        assertEquals("${{ secrets.DB_ROOT_PASSWORD }}", env.get("DB_ROOT_PASSWORD"));
+        assertTrue(Files.readString(Path.of(".gitignore")).contains("!.env.example"));
+        assertTrue(Files.readString(Path.of(".gitignore")).contains(".env.*"));
+    }
+
     @ParameterizedTest(name = "runner input: {0}")
-    @ValueSource(strings = {"valid", "EC2_HOST", "EC2_USER", "EC2_SSH_KEY", "JWT_SECRET", "invalid-sha", "weak-secret"})
+    @ValueSource(strings = {"valid", "EC2_HOST", "EC2_USER", "EC2_SSH_KEY", "JWT_SECRET", "invalid-sha", "weak-secret",
+            "DB_NAME", "DB_USERNAME", "DB_PASSWORD", "DB_ROOT_PASSWORD", "root-user", "bad-db-name", "bad-db-user"})
     void runnerRejectsMissingSecretsBeforeAnySshStep(String scenario) throws Exception {
         var output = Files.createTempFile("deployment-input-", ".log");
         try {
@@ -160,6 +184,14 @@ class DeploymentWorkflowTest {
                 builder.environment().put(name, "test-only-value-012345678901234567890");
             }
             builder.environment().put("DEPLOY_SHA", "a".repeat(40));
+            builder.environment().put("DB_NAME", "asset_management");
+            builder.environment().put("DB_USERNAME", "inventory_app");
+            builder.environment().put("DB_PASSWORD", "test-only-value-012345678901234567890");
+            builder.environment().put("DB_ROOT_PASSWORD", "test-only-root-012345678901234567890");
+            if (scenario.startsWith("DB_")) builder.environment().put(scenario, "");
+            if (scenario.equals("root-user")) builder.environment().put("DB_USERNAME", "ROOT");
+            if (scenario.equals("bad-db-name")) builder.environment().put("DB_NAME", "bad name");
+            if (scenario.equals("bad-db-user")) builder.environment().put("DB_USERNAME", "bad user");
             if (scenario.startsWith("EC2_") || scenario.equals("JWT_SECRET")) builder.environment().put(scenario, "");
             if (scenario.equals("invalid-sha")) builder.environment().put("DEPLOY_SHA", "main");
             if (scenario.equals("weak-secret")) builder.environment().put("JWT_SECRET", "short");
@@ -173,7 +205,8 @@ class DeploymentWorkflowTest {
             assertEquals(scenario.equals("valid"), process.exitValue() == 0, Files.readString(output));
             String log = Files.readString(output);
             assertFalse(log.contains("test-only-value"));
-            if (scenario.startsWith("EC2_") || scenario.equals("JWT_SECRET")) {
+            assertFalse(log.contains("test-only-root"));
+            if (scenario.startsWith("EC2_") || scenario.equals("JWT_SECRET") || scenario.startsWith("DB_")) {
                 assertTrue(log.contains(scenario + " is required"), log);
             } else if (scenario.equals("invalid-sha")) {
                 assertTrue(log.contains("Invalid DEPLOY_SHA"), log);
