@@ -163,7 +163,7 @@ ProblemDetailContractITの旧Product未存在500の期待値は、テストを�
 ProductNotFoundITは実MariaDB12.2.2・JWT・Securityを通し、3操作の404 body完全一致、
 USERの既存/未存在PUT/DELETE403、ADMIN404、anonymous401、通常CRUD200を確認する。
 各失敗前後のproducts/orders/order_items全行を比較して副作用を検出する。
-missing + version123は404、staleは409、HTTP version null/負値・name/price/stock不正は400、
+missing + version123は404、staleは409、HTTP version null/負値・name/price不正は400 Validation、stock付きPUTは400 INVALID_REQUEST、
 malformed idは400、0/-1はlookup404、空の一覧/検索は200を固定する。
 注文の商品未存在400と失敗時key再利用、実FK削除失敗の安全な500、3操作のOpenAPI404も検証する。
 Flyway V1〜V4、JWT/Security policy、CI/CDは変更しない。
@@ -184,3 +184,32 @@ MariaDB12.2.2の専用user/init権限とV1〜V4も成功。配備回帰は28 Wor
 初期化script導入時のfocused verifyはGRANTのescape表示を旧assertが考慮せず3件失敗したが、
 対象DBのescape済みgrantだけを許可するassertへ直し、focused/full verifyとも成功した。
 実secret・既存本番DB・EC2は使用せず、Deploy workflowは無効のまま維持する。
+
+## 在庫調整・履歴（Issue #39）
+
+- InventoryMovementTest: Productのsigned調整、非0/非負/overflow、movement前後関係、reason/source、
+  actor・note・microsecond時刻のdomain防御（Docker不要）。
+- InventoryServiceTest: ADMIN/入力防御、既存Productロック/refresh、保存、fixed sort（Docker不要）。
+- ProductControllerTest: stock null/0/負数/数値/string/objectの注入を400で拒否。
+  既存Product PUT fixtureはmetadataだけへ更新し、stock不変を期待する。
+- InventoryApiIT: 実JWT/ADMIN境界、手動reason/差分/note、underflow/overflow、副作用なし、
+  Product POST/PUT/@Version、Page/同時刻の安定順序、ORDER_CREATED/ORDER_CANCELLED、
+  actual actor、replay/conflict/double cancel、ship/complete履歴なしを検証する。
+  履歴INSERT後flush→故障を注入し、manual/order/cancelの全行rollbackを検証する。
+  20 concurrent manual、manual/order、manual/cancelの実lockと連続before/after chainを検証する。
+  Hibernate dirty checkingで履歴が書き換わらないこと、削除FKと安全な500、local OpenAPIも確認する。
+- InventoryMovementMigrationIT: V4 legacyからV5、checksum/history/stock保持、raw SQL制約、
+  binary enums、INT境界、FK RESTRICT、複合index/EXPLAIN、再起動/Hibernate validate。
+- IdempotentOrderIT: 既存20 concurrent same-keyの3反復で1 movement/Productを追加検証し、
+  sequential replay/mismatchもinventory_movementsを含む全行snapshotで確認する。
+- ProductionProfilesIT: 対象DBだけに権限を持つ専用userでV1〜V5が成功し、
+  prod/default/localのSQL/Swagger/H2/Actuator契約を継続検証する。
+
+main基準の850件は削除しない。契約変更に必要な既存fixture・在庫期待値・Flyway最新versionを更新する。
+Java 17でDocker接続先を無効化した `mvnw.cmd clean test` は520件、
+failures/errors/skipped=0で成功した（mainのSurefire470件 + 50件追加）。
+`mvnw.cmd clean verify` はSurefire520件 + Failsafe468件 = **988件成功**、
+failures/errors/skipped=0。mainの850件 + 新規138件（Unit50 / IT88）を含む。
+新規InventoryMovementTest34件、InventoryServiceTest8件、InventoryApiIT53件、
+InventoryMovementMigrationIT35件に、既存Controller6件・ProblemDetail2件の追加を含む。
+V5追加でDB全体のFK数は3→6となるため、SchemaConstraintITの期待値も正式schemaへ更新する。

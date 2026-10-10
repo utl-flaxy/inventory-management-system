@@ -1,4 +1,4 @@
-# APIエラー契約（Issue #33 / #35）
+# APIエラー契約（Issue #33 / #35 / #39）
 
 主要REST APIのエラーはSpringの `org.springframework.http.ProblemDetail` をruntime responseに使う。
 Content-Typeは `application/problem+json`。ControllerAdvice、Security filter、method security、firewallで共通契約となる。
@@ -32,6 +32,7 @@ JSON propertyの順序は契約にしない。
 | 400 | INVALID_REQUEST | Invalid Request |
 | 400 | INVALID_IDEMPOTENCY_KEY | Invalid Idempotency Key |
 | 400 | INVALID_PRODUCT_UPDATE | Invalid Product Update |
+| 400 | INVALID_INVENTORY_ADJUSTMENT | Invalid Inventory Adjustment |
 | 400 | INVALID_ORDER_REQUEST | Invalid Order Request |
 | 400 | OUT_OF_STOCK | Out of Stock |
 | 401 | INVALID_CREDENTIALS | Invalid Credentials |
@@ -42,6 +43,7 @@ JSON propertyの順序は契約にしない。
 | 409 | USERNAME_ALREADY_EXISTS | Username Already Exists |
 | 409 | IDEMPOTENCY_KEY_CONFLICT | Idempotency Key Conflict |
 | 409 | CONCURRENT_UPDATE | Concurrent Update |
+| 409 | INVENTORY_ADJUSTMENT_CONFLICT | Inventory Adjustment Conflict |
 | 409 | ILLEGAL_ORDER_STATE_TRANSITION | Illegal Order State Transition |
 | 409 | ORDER_INVENTORY_RESTORATION_FAILED | Order Inventory Restoration Failed |
 | 415 | UNSUPPORTED_MEDIA_TYPE | Unsupported Media Type |
@@ -150,8 +152,34 @@ Docker不要のProblemDetailContractTestと、MariaDB12.2.2/実SecurityのProble
 既存AuthApiIT、AuthorizationMatrixIT、Idempotency等を削除せず、Map期待値を正式な契約へ更新する。
 Accept: application/jsonでも実responseはapplication/problem+jsonを優先する。
 
-Flyway V1〜V4・schema/型・注文Transaction・JWT/Security policy・CI/CD設定は変更しない。
+Issue #33/#35のエラー統一ではFlyway V1〜V4・schema/型・JWT/Security policy・CI/CD設定を変更していない。
 i18n、trace ID/structured logging（Issue #3）、例外階層の全面再設計、GraphQL、OAuth2/OIDC、特殊method全対応は対象外。
 
 参照: [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html)、
 [Spring Error Responses](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-rest-exceptions.html)。
+
+## 在庫調整・履歴（Issue #39）
+
+Product PUTはmetadataのみ。stockまたは未知field付きJSONは400 INVALID_REQUEST。
+Product POSTのinitial stock Validationは維持する。
+ADMIN手動調整でdelta null/0・reason欠落・note 501文字は400 VALIDATION_ERROR。
+注文reasonや未知enumは400 INVALID_REQUEST。Service直接呼出の不正入力は400 INVALID_INVENTORY_ADJUSTMENT。
+現在stockにdeltaを加算すると負数/overflowになる場合は409 INVENTORY_ADJUSTMENT_CONFLICT。
+
+~~~json
+{
+  "type": "https://inventory-management-system.example/problems/inventory-adjustment-conflict",
+  "title": "Inventory Adjustment Conflict",
+  "status": 409,
+  "detail": "現在の在庫にこの調整を適用できません",
+  "instance": "/api/v1/admin/products/1/inventory-adjustments",
+  "code": "INVENTORY_ADJUSTMENT_CONFLICT"
+}
+~~~
+
+調整・履歴ともADMINの商品未存在は404 PRODUCT_NOT_FOUND、USER403・未認証401をlookup前に返す。
+履歴保存失敗は安全な500 SYSTEM_ERRORとなり、business transaction全体をrollbackする。
+履歴ありProductのDELETEもFK RESTRICTにより既存の安全な500 SYSTEM_ERRORを維持する。
+注文参照を含む削除競合の409統一は別Issueとし、SQL/constraint名を公開しない。
+local OpenAPIにrequest/responseとProblemDetail 400/401/403/404/409を掲載し、prod docs404は維持する。
+詳細は[在庫仕様](inventory.md)を参照。
