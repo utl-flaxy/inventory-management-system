@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(OrderController.class)
+@WebMvcTest({AdminOrderController.class, SelfOrderController.class})
 @AutoConfigureMockMvc(addFilters = false)
 class OrderControllerTest {
     @Autowired
@@ -48,7 +48,7 @@ class OrderControllerTest {
         Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100, 10), quantity));
         when(orderService.createOrder(any())).thenReturn(order);
 
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request(1L, quantity))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.totalPrice").value(100 * quantity))
@@ -66,7 +66,7 @@ class OrderControllerTest {
     }
 
     private void invalid(OrderRequest request, String field, String message) throws Exception {
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$['items[0]." + field + "']").value(message));
@@ -98,7 +98,7 @@ class OrderControllerTest {
     @Test
     void 金額上限超過の業務エラーは400() throws Exception {
         when(orderService.createOrder(any())).thenThrow(new InvalidOrderRequestException("注文金額が上限を超えています"));
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2147483647}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_ORDER_REQUEST"));
     }
@@ -109,7 +109,7 @@ class OrderControllerTest {
             "{\"items\":[{\"productId\":9223372036854775808,\"quantity\":1}]}"
     })
     void 型の上限超過は400でServiceを呼ばない(String json) throws Exception {
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON).content(json))
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
         verifyNoInteractions(orderService);
     }
@@ -118,14 +118,14 @@ class OrderControllerTest {
     @ValueSource(strings = {"{}", "{\"items\":null}", "{\"items\":[]}", "{\"items\":[null]}",
             "{\"productId\":1,\"quantity\":1}"})
     void missingEmptyOrNullItemsAndLegacyInputReturn400(String json) throws Exception {
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON).content(json))
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(orderService);
     }
 
     @Test
     void laterInvalidLineIsValidatedBeforeCallingService() throws Exception {
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2},{\"productId\":2,\"quantity\":0}]}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$['items[1].quantity']").exists());
@@ -140,11 +140,11 @@ class OrderControllerTest {
         product.setPrice(900);
         when(orderService.findById(1L)).thenReturn(order);
         when(orderService.findAll()).thenReturn(java.util.List.of(order));
-        mvc.perform(get("/orders/1")).andExpect(status().isOk())
+        mvc.perform(get("/api/v1/admin/orders/1")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].productName").value("apple"))
                 .andExpect(jsonPath("$.items[0].unitPrice").value(100))
                 .andExpect(jsonPath("$.totalPrice").value(200));
-        mvc.perform(get("/orders")).andExpect(status().isOk())
+        mvc.perform(get("/api/v1/admin/orders")).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].items[0].productName").value("apple"));
     }
 }

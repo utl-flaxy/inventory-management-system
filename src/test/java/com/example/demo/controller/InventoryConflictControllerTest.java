@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest({ProductController.class, OrderController.class})
+@WebMvcTest({ProductController.class, AdminOrderController.class})
 @AutoConfigureMockMvc(addFilters = false)
 class InventoryConflictControllerTest {
     @Autowired
@@ -60,7 +60,7 @@ class InventoryConflictControllerTest {
         mvc.perform(put("/products/1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"apple\",\"price\":100,\"stock\":20,\"version\":0}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CONCURRENT_UPDATE"));
-        mvc.perform(post("/orders/1/cancel"))
+        mvc.perform(post("/api/v1/admin/orders/1/cancel"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CONCURRENT_UPDATE"));
     }
 

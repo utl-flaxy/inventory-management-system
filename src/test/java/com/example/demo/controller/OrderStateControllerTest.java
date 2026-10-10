@@ -27,7 +27,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(OrderController.class)
+@WebMvcTest(AdminOrderController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class OrderStateControllerTest {
 
@@ -44,10 +44,10 @@ class OrderStateControllerTest {
 
     private MockHttpServletRequestBuilder request(String operation) {
         return switch (operation) {
-            case "legacy-cancel" -> patch("/orders/1/cancel");
-            case "status" -> patch("/orders/1/status").contentType(MediaType.APPLICATION_JSON)
+            case "legacy-cancel" -> patch("/api/v1/admin/orders/1/cancel");
+            case "status" -> patch("/api/v1/admin/orders/1/status").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"status\":\"CANCELLED\"}");
-            default -> post("/orders/1/" + operation);
+            default -> post("/api/v1/admin/orders/1/" + operation);
         };
     }
 
@@ -95,7 +95,7 @@ class OrderStateControllerTest {
     void legacyStatusApiValidatesAndPassesTheTargetToService(OrderStatus target) throws Exception {
         when(orderService.updateStatus(1L, target)).thenReturn(responseOrder(target));
 
-        mockMvc.perform(patch("/orders/1/status").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(patch("/api/v1/admin/orders/1/status").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"" + target.name() + "\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value(target.name()));
 
@@ -123,7 +123,7 @@ class OrderStateControllerTest {
     @ParameterizedTest
     @ValueSource(strings = {"{}", "{\"status\":null}"})
     void missingOrNullStatusReturns400WithoutCallingService(String json) throws Exception {
-        mockMvc.perform(patch("/orders/1/status").contentType(MediaType.APPLICATION_JSON).content(json))
+        mockMvc.perform(patch("/api/v1/admin/orders/1/status").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("注文ステータスは必須です"));
 
@@ -132,7 +132,7 @@ class OrderStateControllerTest {
 
     @Test
     void unknownStatusReturns400WithoutCallingService() throws Exception {
-        mockMvc.perform(patch("/orders/1/status").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(patch("/api/v1/admin/orders/1/status").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"PAID\"}"))
                 .andExpect(status().isBadRequest());
 
@@ -143,7 +143,7 @@ class OrderStateControllerTest {
     void restorationOverflowReturns409() throws Exception {
         when(orderService.cancelOrder(1L)).thenThrow(new OrderInventoryRestorationException("在庫数の上限超過"));
 
-        mockMvc.perform(post("/orders/1/cancel")).andExpect(status().isConflict())
+        mockMvc.perform(post("/api/v1/admin/orders/1/cancel")).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ORDER_INVENTORY_RESTORATION_FAILED"));
     }
 
@@ -151,7 +151,7 @@ class OrderStateControllerTest {
     void existingOrderDetailAlsoReturns404ForMissingOrder() throws Exception {
         when(orderService.findById(1L)).thenThrow(new OrderNotFoundException());
 
-        mockMvc.perform(get("/orders/1")).andExpect(status().isNotFound())
+        mockMvc.perform(get("/api/v1/admin/orders/1")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
     }
 

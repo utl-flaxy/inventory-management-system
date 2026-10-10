@@ -1,6 +1,6 @@
 package com.example.demo.security;
 
-import com.example.demo.controller.OrderController;
+import com.example.demo.controller.SelfOrderController;
 import com.example.demo.service.OrderService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(OrderController.class)
+@WebMvcTest(SelfOrderController.class)
 @Import({SecurityConfig.class, JwtUtil.class})
 class JwtAuthenticationTest {
 
@@ -68,7 +68,7 @@ class JwtAuthenticationTest {
 
     @Test
     void unauthenticatedProtectedEndpointReturns401() throws Exception {
-        mockMvc.perform(get("/orders")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me/orders")).andExpect(status().isUnauthorized());
 
         verify(jwtUtil, never()).extractUsername(anyString());
         verifyNoInteractions(userDetailsService, orderService);
@@ -78,16 +78,16 @@ class JwtAuthenticationTest {
     void validJwtAuthenticatesAndIsParsedOnce() throws Exception {
         when(userDetailsService.loadUserByUsername("alice"))
                 .thenReturn(User.withUsername("alice").password("unused").roles("USER").build());
-        when(orderService.findAll()).thenReturn(List.of());
+        when(orderService.findMyOrders()).thenReturn(List.of());
         String token = token(SECRET, ISSUER, new Date(System.currentTimeMillis() + 3_600_000L));
 
-        mockMvc.perform(get("/orders").header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
 
         verify(jwtUtil, times(1)).extractUsername(token);
         verify(userDetailsService, times(1)).loadUserByUsername("alice");
-        verify(orderService, times(1)).findAll();
+        verify(orderService, times(1)).findMyOrders();
     }
 
     @ParameterizedTest
@@ -102,7 +102,7 @@ class JwtAuthenticationTest {
             default -> "malformed-token";
         };
 
-        mockMvc.perform(get("/orders").header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
 
         verify(jwtUtil, times(1)).extractUsername(token);
