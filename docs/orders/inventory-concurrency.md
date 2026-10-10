@@ -51,10 +51,10 @@ version未指定/null/負数は400、現在versionと不一致なら409。
 商品POSTの入力は変更しない。PUTのname/price/stockは既存形式を維持し、versionだけを追加する。
 在庫調整APIや履歴の全面設計は行わず、今回はversion付きPUTでサイレント上書きを防ぐ。
 
-既存DB用の限定的なDDLは[issue-12-product-version.sql](../db/issue-12-product-version.sql)。
+既存DB用の限定的なDDLは[issue-12-product-version.sql](../db/legacy/issue-12-product-version.sql)。
 既存行のversionを0で初期化し、stock・priceを変更しない。適用中に旧アプリがversionなしで更新しないよう、
-旧アプリを停止してDDL適用・新アプリ起動を行う。Flywayの導入や本番DBへの適用はこのPRでは行わない。
-現行のhibernate ddl-auto=updateでも追加できるよう、Entityのversion列にもDEFAULT 0を指定する。
+このSQLは旧DB向けの履歴アーカイブ。現行schemaのversion列はFlyway V1が管理し、Hibernateはvalidateのみ行う。
+既存DBは[Flyway移行手順](../db/README.md)に従い、旧SQLだけで移行済みと判断しない。本番DBへの適用は行わない。
 
 ## 実MariaDB回帰テスト
 

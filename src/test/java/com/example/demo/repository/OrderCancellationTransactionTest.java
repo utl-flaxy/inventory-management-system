@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+@DataJpaTest(showSql = false, properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false"})
 @Import({OrderService.class, com.example.demo.security.CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class OrderCancellationTransactionTest {

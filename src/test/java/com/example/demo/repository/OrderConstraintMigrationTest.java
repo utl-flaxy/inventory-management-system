@@ -49,7 +49,7 @@ class OrderConstraintMigrationTest {
     }
 
     private void migrate() {
-        new ResourceDatabasePopulator(new FileSystemResource("docs/db/issue-10-order-invariants.sql"))
+        new ResourceDatabasePopulator(new FileSystemResource("docs/db/legacy/issue-10-order-invariants.sql"))
                 .execute(dataSource);
     }
 

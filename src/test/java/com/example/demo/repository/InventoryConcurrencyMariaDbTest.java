@@ -56,7 +56,7 @@ import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+@DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({OrderService.class, ProductService.class, com.example.demo.security.CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -429,7 +429,7 @@ class InventoryConcurrencyMariaDbTest {
         jdbc.execute("CREATE TABLE issue12_existing_products (id BIGINT PRIMARY KEY, stock INT NOT NULL)");
         try {
             jdbc.update("INSERT INTO issue12_existing_products VALUES (1, 10), (2, 0)");
-            String sql = Files.readString(Path.of("docs/db/issue-12-product-version.sql"))
+            String sql = Files.readString(Path.of("docs/db/legacy/issue-12-product-version.sql"))
                     .replaceAll("\\bproducts\\b", "issue12_existing_products");
             var script = new ResourceDatabasePopulator(new ByteArrayResource(sql.getBytes(StandardCharsets.UTF_8)));
             script.execute(jdbc.getDataSource());
@@ -553,7 +553,7 @@ class InventoryConcurrencyMariaDbTest {
     }
 
     private void migrationScript(String phase) throws Exception {
-        String sql = Files.readString(Path.of("docs/db/issue-14-order-aggregate-" + phase + ".sql"))
+        String sql = Files.readString(Path.of("docs/db/legacy/issue-14-order-aggregate-" + phase + ".sql"))
                 .replace("fk_orders_customer", "fk_issue14_orders_customer");
         for (String table : List.of("order_items", "orders", "products", "users")) {
             sql = sql.replaceAll("\\b" + table + "\\b", "issue14_" + table);

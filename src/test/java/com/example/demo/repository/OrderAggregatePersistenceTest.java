@@ -35,7 +35,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+@DataJpaTest(showSql = false, properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false"})
 @Import({OrderService.class, CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class OrderAggregatePersistenceTest {
