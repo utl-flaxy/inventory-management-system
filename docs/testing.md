@@ -50,6 +50,7 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | AuthApiIT | Authの400/409/401契約、UTF-8/文字数境界、10件同時登録、BCrypt、非露出、OpenAPI、DB role優先 |
 | ProblemDetailContractIT | 実Security/DB、主要4xx、JWT/DB user、filter/method 403一致、firewall、在庫不変、OpenAPI Problem schema |
 | ProductNotFoundIT | 実MariaDB/SecurityのGET/PUT/DELETE未存在404、認可優先、DB不変、stale/Validation、注文冪等性、OpenAPI |
+| ProductDeletionIT | Product参照409、限定FK fallback・rollback、認可優先、delete/order/manual/cancel並行整合、OpenAPI |
 | SalesQueryIT | COMPLETEDのSUM/COUNT、全4状態、期間境界、legacy NULL、UTCマッピング |
 | MoneyApiIT | 高額Product/Order API、snapshot/CSV、OpenAPI int64、Long overflow時DB不変 |
 | MoneyMigrationIT | 既存値/V1履歴保持、V1→V2、BIGINT境界と制約、再実行なし |
@@ -63,7 +64,7 @@ Issue #37のProductionConfigurationTestは実prod設定を読み、DataSource/Fl
 blank、root、credential付きURL、弱いJWT鍵の停止と非露出を検証する。
 ConfigurationContractTestはsafe defaults/local差分・Boot管理Actuator・H2 test scopeを固定する。
 ProductionProfilesITはComposeと同じdb-init scriptで専用user権限を絞った実MariaDB12.2.2で
-V1〜V4 migrationとHibernate validate、3profileの実HTTP、health details非公開を検証する。
+V1〜V5 migrationとHibernate validate、3profileの実HTTP、health details非公開を検証する。
 既存OpenAPIテストだけlocalを明示し、production要件をtest profileで無効化しない。
 Deployment testsはActuator target、labelに基づくlegacy/modern rollback、DB設定不足、prod必須、
 root/不正identifier拒否、secret非出力と既存SHA/image/lock/app-only安全性を検証する。
@@ -162,10 +163,10 @@ ProblemDetailContractITの旧Product未存在500の期待値は、テストを�
 
 ProductNotFoundITは実MariaDB12.2.2・JWT・Securityを通し、3操作の404 body完全一致、
 USERの既存/未存在PUT/DELETE403、ADMIN404、anonymous401、通常CRUD200を確認する。
-各失敗前後のproducts/orders/order_items全行を比較して副作用を検出する。
+各失敗前後のproducts/orders/order_items/inventory_movements全行を比較して副作用を検出する。
 missing + version123は404、staleは409、HTTP version null/負値・name/price不正は400 Validation、stock付きPUTは400 INVALID_REQUEST、
 malformed idは400、0/-1はlookup404、空の一覧/検索は200を固定する。
-注文の商品未存在400と失敗時key再利用、実FK削除失敗の安全な500、3操作のOpenAPI404も検証する。
+注文の商品未存在400と失敗時key再利用、参照商品削除の安全な409（Issue #41）、3操作のOpenAPI404も検証する。
 Flyway V1〜V4、JWT/Security policy、CI/CDは変更しない。
 
 Java 17でDocker接続先を無効にした `mvnw.cmd clean test` はSurefire427件成功。
@@ -197,7 +198,7 @@ MariaDB12.2.2の専用user/init権限とV1〜V4も成功。配備回帰は28 Wor
   actual actor、replay/conflict/double cancel、ship/complete履歴なしを検証する。
   履歴INSERT後flush→故障を注入し、manual/order/cancelの全行rollbackを検証する。
   20 concurrent manual、manual/order、manual/cancelの実lockと連続before/after chainを検証する。
-  Hibernate dirty checkingで履歴が書き換わらないこと、削除FKと安全な500、local OpenAPIも確認する。
+  Hibernate dirty checkingで履歴が書き換わらないこと、削除FKと安全な409（Issue #41）、local OpenAPIも確認する。
 - InventoryMovementMigrationIT: V4 legacyからV5、checksum/history/stock保持、raw SQL制約、
   binary enums、INT境界、FK RESTRICT、複合index/EXPLAIN、再起動/Hibernate validate。
 - IdempotentOrderIT: 既存20 concurrent same-keyの3反復で1 movement/Productを追加検証し、
@@ -213,3 +214,30 @@ failures/errors/skipped=0。mainの850件 + 新規138件（Unit50 / IT88）を�
 新規InventoryMovementTest34件、InventoryServiceTest8件、InventoryApiIT53件、
 InventoryMovementMigrationIT35件に、既存Controller6件・ProblemDetail2件の追加を含む。
 V5追加でDB全体のFK数は3→6となるため、SchemaConstraintITの期待値も正式schemaへ更新する。
+
+## 商品削除競合（Issue #41）
+
+main基準988件は削除しない。ProductNotFoundITとInventoryApiITの参照商品DELETEだけ、
+旧500の期待値を正式な409 PRODUCT_DELETE_CONFLICTへ更新する。
+
+- ProductServiceTest: Product lock→参照チェック→delete→flushの順、参照ありで未delete/未flush、
+  missing時のチェック省略、cause内の1451と正確な2制約だけの変換を検証する。
+  別FK・constraint名のprefix/suffix・error code違い・構造のないmessage・SQL causeなしを誤変換しない。
+- ProductControllerTest / ProblemDetailContractTest: 新409の全field、content-typeと固定safe detail。
+- ProductDeletionIT: 実MariaDB12.2.2・JWTでOrderItemだけ、Movementだけ、両方の409と全行snapshot不変。
+  事前チェックをspyでfalseにして実flush FK失敗を409へ変換し、raw SQLでも1451と正確な制約名を確認する。
+  未知constraint・別FK・他code・connection/syntax障害は安全な500でrollbackする。
+  5種の存在/参照状態でUSER403・anonymous401がlookup前に確定すること、ADMIN missing404・未参照200、
+  OpenAPI409 ApiProblemを検証する。delete/orderとdelete/manualを各5反復、delete/cancelを3反復し、
+  整合するstatusと最終stock/history/order rowsだけを許可する。参照切れや500を許可しない。
+- ProductionProfilesIT: prod/default/localの専用DB userで未参照200・missing404・履歴参照409を確認する。
+  既存SELECT/DELETE権限で動作し、GRANTを増やさない。
+
+Flyway V1〜V5・FK RESTRICT・履歴immutability・Idempotency-Key・JWT/Security・production設定を維持する。
+
+Java 17 (Temurin 17.0.18)でDOCKER_HOSTを接続不能なローカルportへ向けた
+`mvnw.cmd clean test` は **535件成功**（Docker不要）、failures/errors/skipped=0。
+`mvnw.cmd clean verify` はSurefire535件 + Failsafe506件 = **1041件成功**、failures/errors/skipped=0。
+main988件 + Unit15件 + ProductDeletionIT38件であり、既存テストを削除していない。
+重点verify（Product Service/Controller/ProblemDetail、ProductDeletion/ProductNotFound/Inventory API/production profile）も
+Unit80件 + IT121件で全件成功した。

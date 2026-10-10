@@ -484,6 +484,12 @@ ADMIN履歴: GET /api/v1/admin/products/{id}/inventory-movements?page=0&size=20�
 DELETE /products/{id}
 ```
 
+ADMINのみ実行可能です。注文履歴または在庫履歴から参照される商品は、履歴保全のため
+409 `PRODUCT_DELETE_CONFLICT`（`application/problem+json`）で拒否します。
+参照のない商品の削除成功は200、商品未存在は404 `PRODUCT_NOT_FOUND`を維持します。
+USERは403、未認証は401です。履歴のcascade削除は行いません。
+詳細は[APIエラー契約](docs/api-errors.md#商品削除競合issue-41)を参照してください。
+
 ---
 
 # 🛒 注文管理機能

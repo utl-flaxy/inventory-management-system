@@ -1,4 +1,4 @@
-# APIエラー契約（Issue #33 / #35 / #39）
+# APIエラー契約（Issue #33 / #35 / #39 / #41）
 
 主要REST APIのエラーはSpringの `org.springframework.http.ProblemDetail` をruntime responseに使う。
 Content-Typeは `application/problem+json`。ControllerAdvice、Security filter、method security、firewallで共通契約となる。
@@ -44,6 +44,7 @@ JSON propertyの順序は契約にしない。
 | 409 | IDEMPOTENCY_KEY_CONFLICT | Idempotency Key Conflict |
 | 409 | CONCURRENT_UPDATE | Concurrent Update |
 | 409 | INVENTORY_ADJUSTMENT_CONFLICT | Inventory Adjustment Conflict |
+| 409 | PRODUCT_DELETE_CONFLICT | Product Delete Conflict |
 | 409 | ILLEGAL_ORDER_STATE_TRANSITION | Illegal Order State Transition |
 | 409 | ORDER_INVENTORY_RESTORATION_FAILED | Order Inventory Restoration Failed |
 | 415 | UNSUPPORTED_MEDIA_TYPE | Unsupported Media Type |
@@ -114,11 +115,11 @@ PUTはrequest/version Validation → 商品lookup → version一致確認 → �
 有効な非負versionを指定しても商品自体がなければ404、既存商品のversion不一致は409 CONCURRENT_UPDATE。
 versionのnull/負値はHTTPのBean Validationで400 VALIDATION_ERROR（errors.version）。
 Service直接呼び出しのrequest/version防御は従来の400 INVALID_PRODUCT_UPDATEを維持する。
-name/price/stockのValidationも400 VALIDATION_ERRORのまま。
+name/priceのValidationも400 VALIDATION_ERRORのまま。Issue #39からPUTへのstock注入は400 INVALID_REQUEST。
 
 数値に変換できないidは400 INVALID_REQUEST。0/-1には新しいpath制約を追加せずlookup結果で404とする。
 注文作成でのproductId未存在は従来の400 INVALID_ORDER_REQUESTを維持し、注文/在庫/冪等keyを変更しない。
-DELETEは同じTransactionで存在確認後にentityを削除する。新しいlockは追加せず、既存の競合409処理を使う。
+DELETEは同じTransactionでProduct行ロックと存在確認後、参照チェックを経てentityを削除・flushする（Issue #41）。
 外部キー制約等のRepository失敗をPRODUCT_NOT_FOUNDへ変換しない。
 
 ## Concurrency / 500
@@ -140,7 +141,8 @@ exception message/class/stack、SQL/constraint/DB URL/file path、password/hash/
 新しいSystem.out.printlnやcredential loggingは追加しない。
 
 ProductNotFoundExceptionだけを404 PRODUCT_NOT_FOUNDへ変換する。
-Product APIでも予期しないRuntimeException・制約違反は安全な500 SYSTEM_ERRORを維持する。
+Product APIでも予期しないRuntimeException・対象外の制約違反は安全な500 SYSTEM_ERRORを維持する。
+DELETEの2種類のProduct参照FK違反だけは、下記の409 PRODUCT_DELETE_CONFLICTへ限定変換する。
 
 ## OpenAPI / 検証 / 対象外
 
@@ -179,7 +181,38 @@ ADMIN手動調整でdelta null/0・reason欠落・note 501文字は400 VALIDATIO
 
 調整・履歴ともADMINの商品未存在は404 PRODUCT_NOT_FOUND、USER403・未認証401をlookup前に返す。
 履歴保存失敗は安全な500 SYSTEM_ERRORとなり、business transaction全体をrollbackする。
-履歴ありProductのDELETEもFK RESTRICTにより既存の安全な500 SYSTEM_ERRORを維持する。
-注文参照を含む削除競合の409統一は別Issueとし、SQL/constraint名を公開しない。
+履歴ありProductのDELETEはIssue #41から409 PRODUCT_DELETE_CONFLICTとなり、SQL/constraint名を公開しない。
 local OpenAPIにrequest/responseとProblemDetail 400/401/403/404/409を掲載し、prod docs404は維持する。
 詳細は[在庫仕様](inventory.md)を参照。
+
+## 商品削除競合（Issue #41）
+
+注文履歴または在庫履歴があるProductのADMIN DELETEは、従来の500 SYSTEM_ERRORから409へ変更する。
+両方から参照される場合も同じ固定detailを返し、どの参照があるかは公開しない。
+
+~~~json
+{
+  "type": "https://inventory-management-system.example/problems/product-delete-conflict",
+  "title": "Product Delete Conflict",
+  "status": 409,
+  "detail": "注文履歴または在庫履歴から参照されているため商品を削除できません",
+  "instance": "/products/123",
+  "code": "PRODUCT_DELETE_CONFLICT"
+}
+~~~
+
+USERは403、anonymousは401をProduct lookup前に返す。ADMINの商品未存在は参照チェック前に404、
+参照のない商品の削除成功は200を維持する。削除以外のAPI契約・Idempotency-Keyは変更しない。
+DELETEはREAD_COMMITTEDのTransaction内でProduct PESSIMISTIC_WRITE→OrderItem/InventoryMovementのexists check
+→delete→flushを行う。注文作成・手動調整・cancelと同じProduct lockで直列化し、stock/historyを保全する。
+
+FK RESTRICTは最終防御として維持する。delete/flushのDataIntegrityViolationExceptionは、cause内の
+SQLExceptionがMariaDB error 1451かつdriver messageの正確なconstraint名が
+`fk_order_items_product`または`fk_inventory_movement_product`の場合だけ専用例外へ変換する。
+未知constraint・別FK・他error code・connection/syntax failureは安全な500 SYSTEM_ERRORとなる。
+responseにSQL・SQLException・constraint名・内部table名・password/hashを含めない。
+409/失敗時にTransactionをrollbackし、Product/Order/OrderItem/InventoryMovementとstockを維持する。
+
+DELETE OpenAPIの409はapplication/problem+json・ApiProblemを使用する。
+Flyway V1〜V5不変、V6なし、cascade削除なし、新しいDB権限なし。
+soft delete・archive・商品状態追加・Product復元・履歴削除は対象外。

@@ -120,9 +120,11 @@ V4の既存stock・注文・Flyway historyを維持し、V5適用後の変動か
 
 ## 削除制限と対象外
 
-履歴があるProductはFKで削除できない。注文参照Productと同じ既存の安全な500 SYSTEM_ERRORを維持し、
-SQL・constraint名をresponseへ出さない。履歴だけをcascade削除する迂回は設けない。
-注文/履歴参照をまとめたPRODUCT_DELETE_CONFLICT等への409統一とsoft deleteは別Issue。
+履歴があるProductは監査情報保全のため削除できない。Issue #41で注文参照と在庫履歴参照を
+409 PRODUCT_DELETE_CONFLICTへ統一する。外部responseにSQL・constraint名を出さず、固定業務messageを返す。
+削除TransactionはProduct行ロック→参照チェック→delete→flushの順とし、FK RESTRICTも最終防御に残す。
+409時にProduct・Order・OrderItem・InventoryMovementとstockを変更しない。履歴のcascade削除は行わない。
+soft delete・archive・Product復元は対象外。
 
 手動調整POSTの冪等性は未導入。通信retryで同じPOSTを再送すると再度調整されるため、
 クライアントは成功済み操作を不用意に再送しない。将来のIdempotency-Key対応は別Issue。
