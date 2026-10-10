@@ -4,6 +4,8 @@ import com.example.demo.dto.InventoryAdjustmentRequest;
 import com.example.demo.dto.InventoryMovementResponse;
 import com.example.demo.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -22,8 +24,11 @@ public class InventoryController {
     @PostMapping("/inventory-adjustments")
     @Operation(summary = "現在在庫に差分を適用し履歴を記録する（ADMIN）")
     public InventoryMovementResponse adjust(@PathVariable Long id,
+            @Parameter(description = "認証済みactor単位のopaque key。同じkey/内容は初回履歴を返し、内容・商品違いは409。成功keyにTTLなし。",
+                    schema = @Schema(type = "string", pattern = "[A-Za-z0-9._:-]{1,128}", minLength = 1, maxLength = 128))
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody InventoryAdjustmentRequest request) {
-        return service.adjust(id, request);
+        return service.adjust(id, request, idempotencyKey);
     }
 
     @GetMapping("/inventory-movements")

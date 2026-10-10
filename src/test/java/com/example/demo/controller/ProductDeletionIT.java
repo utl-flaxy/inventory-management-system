@@ -279,6 +279,7 @@ class ProductDeletionIT {
 
     private ResultActions adjustment() throws Exception {
         return mvc.perform(post("/api/v1/admin/products/1/inventory-adjustments").header("Authorization", adminToken)
+                .header("Idempotency-Key", "product-delete-adjustment")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"delta\":2,\"reason\":\"RECEIPT\"}"));
     }
 

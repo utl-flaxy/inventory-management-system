@@ -62,15 +62,15 @@ class InventoryMovementMigrationIT {
     void insert(Map<String,Object> row) {
         jdbc.update("INSERT INTO inventory_movements(product_id,delta,stock_before,stock_after,reason,source_type,source_id,actor_user_id,note,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", row.values().toArray());
     }
-    @Test void onlyV5IsAppliedWithUnchangedLegacyRowsHashesAndFlywayHistory() throws Exception {
-        assertEquals(1, migrated); assertEquals(0, count());
+    @Test void v5AndV6AreAppliedWithUnchangedLegacyRowsHashesAndFlywayHistory() throws Exception {
+        assertEquals(2, migrated); assertEquals(0, count());
         assertEquals(legacyProducts, jdbc.queryForList("SELECT * FROM products ORDER BY id"));
         assertEquals(legacyHistory, jdbc.queryForList("SELECT * FROM flyway_schema_history WHERE version IN ('1','2','3','4') ORDER BY installed_rank"));
         assertEquals(migrationHashes, hashes()); assertEquals(4, migrationHashes.size());
         assertEquals("V5__create_inventory_movements.sql", jdbc.queryForObject("SELECT script FROM flyway_schema_history WHERE version='5'", String.class));
         assertNotNull(jdbc.queryForObject("SELECT checksum FROM flyway_schema_history WHERE version='5'", Integer.class));
         var flyway = Flyway.configure().dataSource(dataSource).load();
-        flyway.validate(); assertEquals("5", flyway.info().current().getVersion().getVersion());
+        flyway.validate(); assertEquals("6", flyway.info().current().getVersion().getVersion());
     }
     @Test void applicationRestartsValidateHibernateAndDoNotReapplyMigrationsOrCreateSnapshots() {
         var history = jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");
@@ -150,7 +150,7 @@ class InventoryMovementMigrationIT {
 
     @Test void columnsBinaryEnumsMicrosecondsChecksForeignKeysAndIndexMatchContract() {
         var columns = jdbc.queryForList("SELECT COLUMN_NAME,DATA_TYPE,COLLATION_NAME,DATETIME_PRECISION,IS_NULLABLE,CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='inventory_movements' ORDER BY ORDINAL_POSITION");
-        assertEquals(List.of("id","product_id","delta","stock_before","stock_after","reason","source_type","source_id","actor_user_id","note","created_at"),
+        assertEquals(List.of("id","product_id","delta","stock_before","stock_after","reason","source_type","source_id","actor_user_id","note","created_at","idempotency_key","request_fingerprint"),
                 columns.stream().map(c -> c.get("COLUMN_NAME")).toList());
         for (String name : List.of("delta", "stock_before", "stock_after")) {
             var column = columns.stream().filter(c -> c.get("COLUMN_NAME").equals(name)).findFirst().orElseThrow();
@@ -163,8 +163,8 @@ class InventoryMovementMigrationIT {
         var time = columns.get(10); assertEquals("datetime", time.get("DATA_TYPE"));
         assertEquals(6, ((Number) time.get("DATETIME_PRECISION")).intValue());
         assertEquals(500, ((Number) columns.get(9).get("CHARACTER_MAXIMUM_LENGTH")).intValue());
-        assertEquals(List.of("source_id","note"), columns.stream().filter(c -> c.get("IS_NULLABLE").equals("YES")).map(c -> c.get("COLUMN_NAME")).toList());
-        assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='inventory_movements' AND CONSTRAINT_TYPE='CHECK'", Integer.class));
+        assertEquals(List.of("source_id","note","idempotency_key","request_fingerprint"), columns.stream().filter(c -> c.get("IS_NULLABLE").equals("YES")).map(c -> c.get("COLUMN_NAME")).toList());
+        assertEquals(7, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='inventory_movements' AND CONSTRAINT_TYPE='CHECK'", Integer.class));
         var keys = jdbc.queryForList("SELECT DELETE_RULE,UPDATE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='inventory_movements'");
         assertEquals(3, keys.size()); keys.forEach(k -> { assertEquals("RESTRICT", k.get("DELETE_RULE")); assertEquals("RESTRICT", k.get("UPDATE_RULE")); });
         assertEquals(List.of("product_id","created_at","id"), jdbc.queryForList("SELECT COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='inventory_movements' AND INDEX_NAME='idx_inventory_movements_product_created_id' ORDER BY SEQ_IN_INDEX", String.class));
