@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Check;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -13,6 +16,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "orders")
+@Check(name = "ck_orders_total_nonnegative", constraints = "total_price >= 0")
+@Check(name = "ck_orders_status_allowed", constraints = "status IN ('PENDING', 'SHIPPED', 'COMPLETED', 'CANCELLED')")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order {
@@ -30,7 +35,8 @@ public class Order {
     private Integer totalPrice = 0;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 20)
     private OrderStatus status = OrderStatus.PENDING;
 
     @Column(nullable = false, updatable = false)

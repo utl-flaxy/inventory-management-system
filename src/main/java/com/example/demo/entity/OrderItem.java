@@ -9,6 +9,7 @@ import org.hibernate.annotations.Check;
 @Entity
 @Table(name = "order_items")
 @Check(name = "ck_order_items_quantity_positive", constraints = "quantity IS NOT NULL AND quantity > 0")
+@Check(name = "ck_order_items_price_nonnegative", constraints = "price >= 0")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderItem {

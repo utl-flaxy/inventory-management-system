@@ -8,6 +8,7 @@ import org.hibernate.annotations.Check;
 @Entity
 @Table(name = "products")
 @Check(name = "ck_products_stock_nonnegative", constraints = "stock IS NOT NULL AND stock >= 0")
+@Check(name = "ck_products_price_nonnegative", constraints = "price >= 0")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,8 +18,10 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false)
     private Integer price;
 
     @Column(nullable = false)

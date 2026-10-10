@@ -2,9 +2,11 @@ package com.example.demo.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Check;
 
 @Entity
 @Table(name = "users")
+@Check(name = "ck_users_role_allowed", constraints = "role IN ('ROLE_USER', 'ROLE_ADMIN')")
 @Getter
 @Setter
 @NoArgsConstructor
