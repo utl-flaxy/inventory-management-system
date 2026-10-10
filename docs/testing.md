@@ -51,6 +51,7 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | ProblemDetailContractIT | 実Security/DB、主要4xx、JWT/DB user、filter/method 403一致、firewall、在庫不変、OpenAPI Problem schema |
 | ProductNotFoundIT | 実MariaDB/SecurityのGET/PUT/DELETE未存在404、認可優先、DB不変、stale/Validation、注文冪等性、OpenAPI |
 | ProductDeletionIT | Product参照409、限定FK fallback・rollback、認可優先、delete/order/manual/cancel並行整合、OpenAPI |
+| ProductPagingIT | Product一覧/検索の実MariaDBで同値sortの安定ページ取得、id DESC、keyword保持、認可境界、上限100、型付きOpenAPI |
 | InventoryAdjustmentIdempotencyIT | 手動再送・20同時×3・mixed body/別商品/別actor、失敗key再利用、rollback、cancelロック順、非露出/OpenAPI |
 | InventoryAdjustmentMigrationIT | V5→V6、旧履歴/checksum保持、ascii_bin/UNIQUE/pair/ORDER/hash CHECK、validate・2回再起動 |
 | SalesQueryIT | COMPLETEDのSUM/COUNT、全4状態、期間境界、legacy NULL、UTCマッピング |
@@ -152,6 +153,14 @@ Issue #33のJava 17検証は、Docker接続先を無効にした `mvnw.cmd clean
 `mvnw.cmd clean verify` はSurefire408件 + Failsafe350件 = 758件成功（既存709件 + 契約49件追加）、
 failures/errors/skipped=0。新規ProblemDetailContractTest31件、ProblemDetailContractIT18件を含む。
 coverage/scanner gate、branch protection変更、Deploy有効化、JWT_SECRET設定、EC2操作も対象外。
+
+## Productページング契約（Issue #2）
+
+Issue #2のProductPagingServiceTestは両queryのsort許可・id補完・明示id方向・query前の拒否・keyword保持・直接呼び出し上限を確認する。
+ProductPagingControllerTestは実Serviceとmock Repositoryでdefault/explicit/max/複数sort/未知sort/標準数値fallback・固定7項目レスポンスを確認する。
+ProductPagingITはFailsafeで実MariaDB + JWT/Security + Flywayを使用し、同価格の商品をsize=1で繰り返し取得して重複・欠落がないことを確認する。
+上限100はProductのService normalizerだけで適用する。ProductPagingITでは在庫履歴のsize=500が500、size=5000が従来の上限2000となることも確認する。
+既存mainのテストは削除・skipしない。
 
 ## Product resource未存在（Issue #35）
 

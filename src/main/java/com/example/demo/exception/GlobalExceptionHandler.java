@@ -82,6 +82,11 @@ public class GlobalExceptionHandler {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_UPDATE", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidProductPageRequestException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidProductPageRequest(InvalidProductPageRequestException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", ApiProblemFactory.INVALID_REQUEST_DETAIL, request);
+    }
+
     @ExceptionHandler(IllegalOrderStateTransitionException.class)
     public ResponseEntity<ProblemDetail> handleIllegalOrderStateTransition(IllegalOrderStateTransitionException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.CONFLICT, "ILLEGAL_ORDER_STATE_TRANSITION", ex.getMessage(), request);

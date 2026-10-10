@@ -1,15 +1,16 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
 import com.example.demo.dto.ProductUpdateRequest;
 import com.example.demo.service.ProductService;
-import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,22 +23,21 @@ public class ProductController {
 
     // 商品一覧取得（ページング対応）
     @GetMapping
-    public Page<ProductResponse> getAll(
-            @ParameterObject Pageable pageable) {
+    public PageResponse<ProductResponse> getAll(
+            @ParameterObject @PageableDefault(page = 0, size = 20, sort = "id", direction = Sort.Direction.ASC)
+            Pageable pageable) {
 
-        return productService.findAll(pageable);
+        return PageResponse.from(productService.findAll(pageable));
     }
 
     // 商品検索（ページング対応）
     @GetMapping("/search")
-    public Page<ProductResponse> search(
+    public PageResponse<ProductResponse> search(
             @RequestParam String keyword,
-            @ParameterObject Pageable pageable) {
+            @ParameterObject @PageableDefault(page = 0, size = 20, sort = "id", direction = Sort.Direction.ASC)
+            Pageable pageable) {
 
-        return productService.search(
-                keyword,
-                pageable
-        );
+        return PageResponse.from(productService.search(keyword, pageable));
     }
 
     // 商品詳細取得

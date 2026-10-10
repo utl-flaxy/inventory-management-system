@@ -1,6 +1,7 @@
 package com.example.demo.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.MediaType;
@@ -53,6 +54,29 @@ public class OpenApiConfig {
                         io.swagger.v3.oas.models.PathItem.HttpMethod.PUT,
                         io.swagger.v3.oas.models.PathItem.HttpMethod.DELETE).contains(method))
                     responses.putIfAbsent("404", new ApiResponse().description("PRODUCT_NOT_FOUND"));
+                if (java.util.Set.of("/products", "/products/search").contains(path)
+                        && method == io.swagger.v3.oas.models.PathItem.HttpMethod.GET) {
+                    responses.putIfAbsent("400", new ApiResponse().description("INVALID_REQUEST: unsupported sort property"));
+                    operation.getParameters().forEach(parameter -> {
+                        switch (parameter.getName()) {
+                            case "page" -> {
+                                parameter.setDescription("0-based page number; default 0. Invalid/negative values resolve to 0.");
+                                parameter.setSchema(new IntegerSchema()._default(0).minimum(java.math.BigDecimal.ZERO));
+                            }
+                            case "size" -> {
+                                parameter.setDescription("Page size; default 20, max 100. Larger values clamp to 100; invalid/nonpositive values resolve to 20.");
+                                parameter.setSchema(new IntegerSchema()._default(20)
+                                        .minimum(java.math.BigDecimal.ONE).maximum(java.math.BigDecimal.valueOf(100)));
+                            }
+                            case "sort" -> {
+                                parameter.setDescription("Allowed fields: id,name,price,stock,version. Format: sort=price,asc. Multiple sort parameters supported (sort=price,asc&sort=name,desc). Default id,asc; append id ASC only when id is absent. Unsupported fields return 400 INVALID_REQUEST.");
+                                parameter.setSchema(new ArraySchema().items(new StringSchema())
+                                        ._default(java.util.List.of("id,asc")));
+                            }
+                            default -> { }
+                        }
+                    });
+                }
                 if (path.startsWith("/products") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.PUT)
                     responses.putIfAbsent("409", new ApiResponse().description("CONCURRENT_UPDATE"));
                 if (path.equals("/products/{id}") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.DELETE)

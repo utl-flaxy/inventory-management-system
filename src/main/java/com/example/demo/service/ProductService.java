@@ -39,7 +39,7 @@ public class ProductService {
     // 商品一覧取得（ページング対応）
     public Page<ProductResponse> findAll(Pageable pageable) {
 
-        return productRepository.findAll(pageable)
+        return productRepository.findAll(ProductPageableNormalizer.normalize(pageable))
                 .map(this::toResponse);
     }
 
@@ -49,7 +49,7 @@ public class ProductService {
             Pageable pageable) {
 
         return productRepository
-                .findByNameContaining(keyword, pageable)
+                .findByNameContaining(keyword, ProductPageableNormalizer.normalize(pageable))
                 .map(this::toResponse);
     }
 
