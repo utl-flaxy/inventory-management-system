@@ -95,7 +95,7 @@ spring.flyway.baseline-on-migrate=false
 spring.flyway.clean-disabled=true
 ```
 
-新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成し、V2が金額3列をBIGINTへ拡張し、V3が完了日時と期間検索索引、V4が注文冪等性の列とUNIQUEを追加します。
+新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が基本テーブルを作成し、V2が金額3列をBIGINTへ拡張し、V3が完了日時と期間検索索引、V4が注文冪等性の列とUNIQUE、V5が在庫変更履歴を追加します。
 既存DBはbackup・schema確認・data preflight・確認済み履歴の補完・schema照合を行い、
 手動baseline後にvalidateします。未確認DBの自動baselineは行いません。
 customer/日時/商品名snapshotを現在の値から推測で埋めないでください。
@@ -159,6 +159,8 @@ Money Value Object、小数、税・割引、多通貨は未導入です。売�
 - 商品検索
 - 商品更新
 - 商品削除
+- ADMIN手動在庫調整（signed差分・理由）
+- 注文・cancel・手動調整の在庫履歴取得
 
 ---
 
@@ -465,6 +467,15 @@ GET /products/search?keyword=apple
 PUT /products/{id}
 ```
 
+Issue #39から更新bodyはname・price・versionだけです。stockを含むJSONは400で拒否し、
+商品名・価格の更新では在庫を変えません。Product POSTのinitial stockは従来通り指定できます。
+以降の在庫変更は注文作成・cancel・ADMIN手動調整だけで履歴を残します。
+
+ADMIN手動調整: POST /api/v1/admin/products/{id}/inventory-adjustments
+（deltaはsigned非0整数、reasonはRECEIPT/DAMAGE/STOCKTAKE/CORRECTION、noteは任意500文字まで）。
+ADMIN履歴: GET /api/v1/admin/products/{id}/inventory-movements?page=0&size=20。
+詳細・Transaction・V5以前の履歴境界・履歴あり商品の削除制限は[在庫仕様](docs/inventory.md)を参照してください。
+
 ---
 
 ## 商品削除
@@ -646,7 +657,9 @@ POST /auth/login
 |GET|/products/{id}|商品詳細|
 |GET|/products/search|商品検索|
 |POST|/products|商品登録|
-|PUT|/products/{id}|商品更新|
+|PUT|/products/{id}|商品名・価格更新（stockは400で拒否）|
+|POST|/api/v1/admin/products/{id}/inventory-adjustments|ADMIN: 手動在庫調整|
+|GET|/api/v1/admin/products/{id}/inventory-movements|ADMIN: 在庫変更履歴Page|
 |DELETE|/products/{id}|商品削除|
 |POST|/api/v1/me/orders|USER/ADMIN: 自分の注文作成|
 |GET|/api/v1/me/orders|USER/ADMIN: 自分の注文一覧|

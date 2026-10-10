@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @DataJpaTest(showSql = false, properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false"})
-@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, CurrentUser.class})
+@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, com.example.demo.service.InventoryService.class, CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class OrderAggregatePersistenceTest {
     @Autowired
@@ -57,6 +57,7 @@ class OrderAggregatePersistenceTest {
 
     @AfterEach
     void cleanup() {
+        jdbc.update("DELETE FROM inventory_movements");
         jdbc.update("DELETE FROM order_items");
         jdbc.update("DELETE FROM orders");
         jdbc.update("DELETE FROM products");

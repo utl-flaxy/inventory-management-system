@@ -53,6 +53,8 @@ class ProblemDetailContractTest {
             Arguments.of(new ProductVersionConflictException(), 409, "CONCURRENT_UPDATE", "Concurrent Update"),
             Arguments.of(new CannotAcquireLockException("SQL password"), 409, "CONCURRENT_UPDATE", "Concurrent Update"),
             Arguments.of(new InvalidProductUpdateException(), 400, "INVALID_PRODUCT_UPDATE", "Invalid Product Update"),
+            Arguments.of(new InvalidInventoryAdjustmentException(), 400, "INVALID_INVENTORY_ADJUSTMENT", "Invalid Inventory Adjustment"),
+            Arguments.of(new InventoryAdjustmentConflictException(), 409, "INVENTORY_ADJUSTMENT_CONFLICT", "Inventory Adjustment Conflict"),
             Arguments.of(new IllegalOrderStateTransitionException(OrderStatus.CANCELLED, OrderStatus.PENDING), 409, "ILLEGAL_ORDER_STATE_TRANSITION", "Illegal Order State Transition"),
             Arguments.of(new OrderInventoryRestorationException("在庫の復元に失敗しました"), 409, "ORDER_INVENTORY_RESTORATION_FAILED", "Order Inventory Restoration Failed"),
             Arguments.of(new OrderNotFoundException(), 404, "ORDER_NOT_FOUND", "Order Not Found"),

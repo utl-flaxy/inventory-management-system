@@ -47,6 +47,8 @@ public final class ApiProblemFactory {
             case "ACCESS_DENIED" -> "Access Denied";
             case "CONCURRENT_UPDATE" -> "Concurrent Update";
             case "INVALID_PRODUCT_UPDATE" -> "Invalid Product Update";
+            case "INVALID_INVENTORY_ADJUSTMENT" -> "Invalid Inventory Adjustment";
+            case "INVENTORY_ADJUSTMENT_CONFLICT" -> "Inventory Adjustment Conflict";
             case "ILLEGAL_ORDER_STATE_TRANSITION" -> "Illegal Order State Transition";
             case "ORDER_INVENTORY_RESTORATION_FAILED" -> "Order Inventory Restoration Failed";
             case "ORDER_NOT_FOUND" -> "Order Not Found";

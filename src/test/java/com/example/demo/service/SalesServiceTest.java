@@ -18,6 +18,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SalesServiceTest {
+    @Mock private InventoryService inventoryService;
     @Mock private OrderRepository orders;
     @InjectMocks private OrderService service;
 

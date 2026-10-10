@@ -67,6 +67,7 @@ class ProblemDetailContractIT {
     @BeforeEach
     void fixtures() throws Exception {
         SecurityContextHolder.clearContext();
+        jdbc.update("DELETE FROM inventory_movements");
         jdbc.update("DELETE FROM order_items"); jdbc.update("DELETE FROM orders");
         jdbc.update("DELETE FROM products"); jdbc.update("DELETE FROM users");
         register("alice").andExpect(status().isOk()); register("admin").andExpect(status().isOk());
@@ -157,7 +158,7 @@ class ProblemDetailContractIT {
                 .andReturn().getResponse().getContentAsString();
         String path = "/products/" + productId;
         String method = mvc.perform(as(userToken, put(path).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"apple\",\"price\":100,\"stock\":10,\"version\":0}")))
+                        .content("{\"name\":\"apple\",\"price\":100,\"version\":0}")))
                 .andExpect(problem(403, "ACCESS_DENIED", "Access Denied", path))
                 .andReturn().getResponse().getContentAsString();
         ObjectNode first = (ObjectNode) json.readTree(filtered), second = (ObjectNode) json.readTree(method);
@@ -202,7 +203,7 @@ class ProblemDetailContractIT {
     void staleProductVersionIs409() throws Exception {
         String path = "/products/" + productId;
         mvc.perform(as(adminToken, put(path).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"apple\",\"price\":100,\"stock\":10,\"version\":999}")))
+                        .content("{\"name\":\"apple\",\"price\":100,\"version\":999}")))
                 .andExpect(problem(409, "CONCURRENT_UPDATE", "Concurrent Update", path));
     }
 

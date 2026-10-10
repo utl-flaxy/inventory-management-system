@@ -175,14 +175,13 @@ class ProductControllerTest {
         request.setVersion(0L);
         request.setName("みかん");
         request.setPrice(150L);
-        request.setStock(20);
 
         ProductResponse response =
                 ProductResponse.builder()
                         .id(1L)
                         .name("みかん")
                         .price(150L)
-                        .stock(20)
+                        .stock(10)
                         .version(1L)
                         .build();
 
@@ -195,7 +194,7 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("みかん"))
                 .andExpect(jsonPath("$.price").value(150))
-                .andExpect(jsonPath("$.stock").value(20))
+                .andExpect(jsonPath("$.stock").value(10))
                 .andExpect(jsonPath("$.version").value(1));
     }
 
@@ -211,6 +210,15 @@ class ProductControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "0", "-1", "999", "\"10\"", "{}"})
+    void stockInjectionIsRejectedBeforeService(String value) throws Exception {
+        mockMvc.perform(put("/products/1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"apple\",\"price\":100,\"version\":0,\"stock\":" + value + "}"))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/1"));
+        org.mockito.Mockito.verifyNoInteractions(productService);
     }
 
     @ParameterizedTest
@@ -254,7 +262,7 @@ class ProductControllerTest {
         return switch (method) {
             case "GET" -> get("/products/999");
             case "PUT" -> put("/products/999").contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"name\":\"apple\",\"price\":100,\"stock\":10,\"version\":0}");
+                    .content("{\"name\":\"apple\",\"price\":100,\"version\":0}");
             default -> delete("/products/999");
         };
     }

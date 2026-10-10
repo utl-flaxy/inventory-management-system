@@ -7,6 +7,7 @@ import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderIdempotency;
 import com.example.demo.entity.OrderStatus;
+import com.example.demo.entity.InventoryMovementReason;
 import com.example.demo.entity.Product;
 import com.example.demo.entity.User;
 import com.example.demo.exception.InvalidOrderRequestException;
@@ -50,6 +51,7 @@ public class OrderService {
     private final EntityManager entityManager;
     private final Clock clock;
     private final UserRepository userRepository;
+    private final InventoryService inventoryService;
 
     // 注文作成
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -103,13 +105,20 @@ public class OrderService {
             throw new InvalidOrderRequestException(ex.getMessage());
         }
 
+        Map<Long, Integer> beforeStocks = new TreeMap<>();
         for (Map.Entry<Long, Product> entry : products.entrySet()) {
+            beforeStocks.put(entry.getKey(), entry.getValue().getStock());
             entry.getValue().decreaseStock(quantities.get(entry.getKey()));
             productRepository.save(entry.getValue());
         }
         // 明細はOrderからcascade保存する。途中の永続化失敗も同じTransactionでrollbackする。
         try {
-            return responseReady(orderRepository.save(order));
+            Order saved = orderRepository.save(order);
+            for (Map.Entry<Long, Product> entry : products.entrySet()) {
+                inventoryService.recordOrderChange(entry.getValue(), beforeStocks.get(entry.getKey()),
+                        -quantities.get(entry.getKey()), saved, InventoryMovementReason.ORDER_CREATED, customer);
+            }
+            return responseReady(saved);
         } catch (DataIntegrityViolationException ex) {
             // rollback-onlyのTransaction内で再照会/replayしない。限定したUNIQUE違反だけ409。
             for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
@@ -237,6 +246,7 @@ public class OrderService {
     // self/adminの両方で、取得済みの注文ロック下で既存の復元処理を使う
     private Order cancelLockedOrder(Order order) {
         order.validateTransitionTo(OrderStatus.CANCELLED);
+        User actor = currentUser.requireUser();
 
         // Order -> ProductのID昇順。関連読み取りで先にロードされた商品もrefreshしてから計算する
         order.getOrderItems().stream().map(OrderItem::getProduct)
@@ -260,8 +270,12 @@ public class OrderService {
         }
 
         for (Map.Entry<Product, Integer> entry : restoredStocks.entrySet()) {
-            entry.getKey().setStock(entry.getValue());
+            int before = entry.getKey().getStock();
+            int quantity = entry.getValue() - before;
+            entry.getKey().increaseStock(quantity);
             productRepository.save(entry.getKey());
+            inventoryService.recordOrderChange(entry.getKey(), before, quantity, order,
+                    InventoryMovementReason.ORDER_CANCELLED, actor);
         }
         order.cancel();
         return responseReady(orderRepository.save(order));

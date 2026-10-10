@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest(showSql = false, properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false"})
-@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, com.example.demo.security.CurrentUser.class})
+@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, com.example.demo.service.InventoryService.class, com.example.demo.security.CurrentUser.class})
 class OrderDataIntegrityTest {
 
     @Autowired

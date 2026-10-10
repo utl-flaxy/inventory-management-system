@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, ProductService.class, com.example.demo.security.CurrentUser.class})
+@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, com.example.demo.service.InventoryService.class, ProductService.class, com.example.demo.security.CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
@@ -105,6 +105,7 @@ class InventoryConcurrencyMariaDbIT {
 
     @AfterEach
     void cleanup() {
+        jdbc.update("DELETE FROM inventory_movements");
         jdbc.update("DELETE FROM order_items");
         jdbc.update("DELETE FROM orders");
         jdbc.update("DELETE FROM products");
@@ -125,7 +126,6 @@ class InventoryConcurrencyMariaDbIT {
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName("orange");
         request.setPrice(200L);
-        request.setStock(20);
         request.setVersion(version);
         return request;
     }
@@ -322,7 +322,7 @@ class InventoryConcurrencyMariaDbIT {
             assertTrue(outcomes.get(0).failure() instanceof ProductVersionConflictException
                     || outcomes.get(0).failure() instanceof OptimisticLockingFailureException, outcomes.toString());
         }
-        assertEquals(updated ? 19 : 9, stock(1L));
+        assertEquals(9, stock(1L)); // metadata PUTはstockを上書きできない
         assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT price FROM products WHERE id = 1", Long.class));
         assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT price FROM order_items", Long.class));
         assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT total_price FROM orders", Long.class));
@@ -387,7 +387,7 @@ class InventoryConcurrencyMariaDbIT {
         }));
 
         successes(outcomes, 2);
-        assertEquals(19, stock(1L));
+        assertEquals(9, stock(1L));
         assertEquals(200, jdbc.queryForObject("SELECT price FROM order_items", Long.class));
         assertEquals(200, jdbc.queryForObject("SELECT total_price FROM orders", Long.class));
         assertEquals(2L, productService.findById(1L).getVersion());
@@ -447,7 +447,7 @@ class InventoryConcurrencyMariaDbIT {
         outcomes.stream().filter(outcome -> !outcome.succeeded()).forEach(outcome ->
                 assertTrue(outcome.failure() instanceof ProductVersionConflictException
                         || outcome.failure() instanceof OptimisticLockingFailureException, outcomes.toString()));
-        assertEquals(20, stock(1L));
+        assertEquals(10, stock(1L));
         assertEquals(1L, productService.findById(1L).getVersion());
     }
 
@@ -494,7 +494,7 @@ class InventoryConcurrencyMariaDbIT {
         }));
 
         successes(outcomes, 2);
-        assertEquals(25, stock(1L));
+        assertEquals(10, stock(1L));
         assertEquals("CANCELLED", orderStatus(existing.getId()));
         assertEquals(3L, productService.findById(1L).getVersion());
     }

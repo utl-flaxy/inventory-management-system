@@ -75,7 +75,7 @@ class SalesApiIT {
     @AfterEach
     void cleanup() {
         SecurityContextHolder.clearContext();
-        for (String table : List.of("order_items", "orders", "products", "users")) jdbc.update("DELETE FROM " + table);
+        for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users")) jdbc.update("DELETE FROM " + table);
     }
 
     @Test

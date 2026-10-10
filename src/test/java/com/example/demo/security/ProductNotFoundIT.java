@@ -66,6 +66,7 @@ class ProductNotFoundIT {
     @BeforeEach
     void fixtures() throws Exception {
         SecurityContextHolder.clearContext();
+        jdbc.update("DELETE FROM inventory_movements");
         jdbc.update("DELETE FROM order_items");
         jdbc.update("DELETE FROM orders");
         jdbc.update("DELETE FROM products");
@@ -180,9 +181,13 @@ class ProductNotFoundIT {
             default -> body.put("stock", -1);
         }
         var before = snapshot();
-        mvc.perform(as(adminToken, resource("PUT", Long.toString(productId), json.writeValueAsString(body))))
-                .andExpect(problem(400, "VALIDATION_ERROR", "Validation Error", "/products/" + productId))
-                .andExpect(jsonPath("$.errors." + field).isString());
+        var result = mvc.perform(as(adminToken, resource("PUT", Long.toString(productId), json.writeValueAsString(body))));
+        if (field.equals("stock")) {
+            result.andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/" + productId));
+        } else {
+            result.andExpect(problem(400, "VALIDATION_ERROR", "Validation Error", "/products/" + productId))
+                    .andExpect(jsonPath("$.errors." + field).isString());
+        }
         assertEquals(before, snapshot());
     }
 
@@ -282,7 +287,7 @@ class ProductNotFoundIT {
     }
 
     private String update(Long version) {
-        return "{\"name\":\"orange\",\"price\":200,\"stock\":20,\"version\":" + version + "}";
+        return "{\"name\":\"orange\",\"price\":200,\"version\":" + version + "}";
     }
 
     private String order(long id) {

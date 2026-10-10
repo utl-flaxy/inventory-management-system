@@ -73,7 +73,7 @@ class MoneyApiIT {
     @AfterEach
     void cleanup() {
         SecurityContextHolder.clearContext();
-        for (String table : List.of("order_items", "orders", "products", "users"))
+        for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users"))
             jdbc.update("DELETE FROM " + table);
     }
 
@@ -82,7 +82,7 @@ class MoneyApiIT {
     void productCreateAndUpdateAcceptLongPricesAndPreserveVersionConflict(long price) throws Exception {
         long id = product(price, 10);
         assertEquals(price, jdbc.queryForObject("SELECT price FROM products WHERE id=?", Long.class, id));
-        var body = Map.of("name", "updated", "price", price, "stock", 10, "version", 0L);
+        var body = Map.of("name", "updated", "price", price, "version", 0L);
         mvc.perform(put("/products/" + id).header("Authorization", adminToken())
                         .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.price").value(price))
@@ -103,7 +103,7 @@ class MoneyApiIT {
         mvc.perform(post("/products").header("Authorization", adminToken())
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
         mvc.perform(put("/products/" + id).header("Authorization", adminToken())
-                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
+                .contentType(MediaType.APPLICATION_JSON).content(body.replace(",\"stock\":10", ""))).andExpect(status().isBadRequest());
         assertEquals(before, snapshot());
     }
 
@@ -126,7 +126,7 @@ class MoneyApiIT {
         mvc.perform(put("/products/" + productId).header("Authorization", adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(Map.of("name", "changed", "price", 4_000_000_000L,
-                                "stock", 8, "version", version))))
+                                "version", version))))
                 .andExpect(status().isOk());
         mvc.perform(get(ME + "/" + orderId).header("Authorization", "Bearer " + jwt.generateToken("alice")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalPrice").value(6_000_000_000L))

@@ -1,6 +1,7 @@
 package com.example.demo.entity;
 
 import com.example.demo.exception.OutOfStockException;
+import com.example.demo.exception.InventoryAdjustmentConflictException;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Check;
@@ -11,7 +12,7 @@ import org.hibernate.annotations.Check;
 @Check(name = "ck_products_price_nonnegative", constraints = "price >= 0")
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product {
 
     @Id
@@ -25,6 +26,7 @@ public class Product {
     private Long price;
 
     @Column(nullable = false)
+    @Setter(AccessLevel.NONE)
     private Integer stock;
 
     @Version
@@ -40,7 +42,7 @@ public class Product {
         setStock(stock);
     }
 
-    public void setStock(Integer stock) {
+    private void setStock(Integer stock) {
         if (stock == null || stock < 0) {
             throw new IllegalArgumentException("在庫数は0以上を入力してください");
         }
@@ -54,7 +56,26 @@ public class Product {
         if (stock < quantity) {
             throw new OutOfStockException("在庫が不足しています");
         }
-        setStock(stock - quantity);
+        adjustStock(-quantity);
+    }
+
+    public void increaseStock(Integer quantity) {
+        if (quantity == null || quantity <= 0)
+            throw new IllegalArgumentException("数量は1以上を入力してください");
+        adjustStock(quantity);
+    }
+
+    public void adjustStock(Integer delta) {
+        if (delta == null || delta == 0)
+            throw new IllegalArgumentException("在庫差分は0以外を入力してください");
+        int after;
+        try {
+            after = Math.addExact(stock, delta);
+        } catch (ArithmeticException ex) {
+            throw new InventoryAdjustmentConflictException();
+        }
+        if (after < 0) throw new InventoryAdjustmentConflictException();
+        setStock(after);
     }
 
     @PrePersist
