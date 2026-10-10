@@ -20,8 +20,8 @@
 また、開発だけでなく、
 
 - Dockerによる環境統一
-- AWS + Terraformによるインフラ構築
-- GitHub ActionsによるCI/CD
+- AWS + Terraformによる本番想定のインフラ構成定義
+- GitHub ActionsによるCIとCD workflow（CDは現在無効）
 
 まで一貫して実装しています。
 
@@ -32,7 +32,7 @@
 - トランザクションを用いた在庫・注文の整合性設計
 - Spring Bootによる実務レベルのREST API設計
 - JWT認証・認可の実装
-- Docker / AWS / Terraform / CI/CDを含めた本番運用構成
+- Docker / AWS / Terraform / CI/CDを含む本番想定構成
 - レイヤードアーキテクチャによる責務分離
 
 ---
@@ -126,7 +126,7 @@ Compose用の`.env.example`はsecretが空のサンプルです。実値の`.env
 既存DBはenvironment追加だけでは専用userが作成されません。
 起動・profile・secretは[設定手順](docs/configuration.md)、権限と既存DB切替は
 [DB手順](docs/db/README.md#専用app-db-userへの切替issue-37)を参照してください。
-本番secret設定・DB user移行・Deploy再有効化・EC2配備は未実施です。
+本番のGitHub Actions secrets/variables設定・DB専用user移行・Deploy再有効化・EC2配備は未実施です。
 
 ## テスト品質ゲート
 
@@ -191,9 +191,9 @@ Money Value Object、小数、税・割引、多通貨は未導入です。売�
 ## インフラ
 
 - Docker化
-- AWS EC2デプロイ
-- Terraformによる環境構築
-- GitHub Actionsによる自動デプロイ
+- AWS EC2向け配備構成
+- Terraformによるインフラ構成定義
+- GitHub Actionsによる自動CIとCD workflow（Deployは現在無効）
 
 ---
 
@@ -217,13 +217,14 @@ Money Value Object、小数、税・割引、多通貨は未導入です。売�
 
 # 🏗 システム構成
 
-本システムは Spring Boot・Docker・AWS・Terraform・GitHub Actions を利用して構築しています。
+以下は Spring Boot・Docker・AWS・Terraform・GitHub Actions による本番想定構成です。
+CIは自動実行します。Deploy workflowは実装済みですが現在無効で、EC2への本番配備は未実施です。
 
 ```text
 GitHub
    │
    ▼
-GitHub Actions (CI/CD)
+GitHub Actions (CI自動実行 / CDは現在無効)
    │
    ▼
 AWS EC2
@@ -242,6 +243,8 @@ MariaDB
 
 # ☁️ アーキテクチャ
 
+本番配備を想定した構成図です。GitHub ActionsからEC2への配備経路は現在無効です。
+
 ```text
 ┌──────────────┐
 │    GitHub    │
@@ -252,7 +255,7 @@ MariaDB
 │ GitHubActions│
 │   CI / CD    │
 └──────┬───────┘
-       │ SSH
+       │ SSH（CDは現在無効）
        ▼
 ┌──────────────┐
 │   AWS EC2    │
@@ -370,13 +373,17 @@ CIはJava 17の全verifyを実行します。Deploy workflowは現在無効で�
 
 ## AWS EC2
 
-本番環境。
+本番想定のEC2構成例。
 
 ![AWS EC2](docs/images/aws-ec2-running.png)
 
 ---
 
-# 🌎 本番環境
+# 🌎 本番想定環境
+
+以下は本番運用を想定した構成です。本番のGitHub Actions secrets/variables設定、既存DBの専用user移行、
+EC2への実配備は未実施で、Deploy workflowは現在無効です。
+[設定手順](docs/configuration.md)と[配備手順](docs/deployment.md)を参照してください。
 
 |項目|内容|
 |---|---|
@@ -393,6 +400,8 @@ CIはJava 17の全verifyを実行します。Deploy workflowは現在無効で�
 ---
 
 # 🚀 デプロイフロー
+
+実装済みworkflowの処理を示します。現在は無効で、本番設定・DB専用user移行・EC2前提の確認後に再有効化を判断します。
 
 ```text
 main push → CI success（PR / failureは配備しない）
@@ -855,7 +864,7 @@ JWT認証エラー時
 
 ```java
 @Transactional
-public Order createOrder(OrderRequest request) {
+public Order createOrder(OrderRequest request, String idempotencyKey) {
 
     // 在庫確認
 
@@ -867,6 +876,8 @@ public Order createOrder(OrderRequest request) {
 
 }
 ```
+
+上記はService内部の処理概要です。API応答はControllerでOrderResponseへ変換します。
 
 ---
 
@@ -926,29 +937,23 @@ Apple 150円
 
 ## ■ 状態管理
 
-OrderStatusによって状態を管理しています。
+OrderStatusとOrderの業務メソッドで、次の状態遷移だけを許可します。
 
 ```text
 PENDING
-
-↓
-
-PAID
-
-↓
-
-SHIPPED
-
-↓
-
-COMPLETED
+   ├─ ship   → SHIPPED → complete → COMPLETED
+   └─ cancel → CANCELLED
 ```
 
-不正な状態変更を防止できる構成です。
+COMPLETEDとCANCELLEDは終端状態で、他の状態へ戻れません。同一状態への更新も禁止です。
+cancelはPENDINGだけで成功し、在庫を一度だけ復元します。SHIPPED/COMPLETEDのcancel、二重cancel、
+その他の不正遷移は409です。詳細は[注文状態遷移](docs/orders/state-transitions.md)を参照してください。
 
 ---
 
 # 🗃 ER図
+
+主要な注文関連Entityの抜粋です。在庫履歴InventoryMovementのスキーマは[在庫仕様](docs/inventory.md)を参照してください。
 
 ```mermaid
 erDiagram
@@ -1000,9 +1005,9 @@ sequenceDiagram
 
 actor User
 
-User->>OrderController: 注文作成
+User->>SelfOrderController: 注文作成
 
-OrderController->>OrderService: createOrder()
+SelfOrderController->>OrderService: createOrder(request, idempotencyKey)
 
 OrderService->>ProductRepository: 商品取得
 
@@ -1012,7 +1017,9 @@ OrderService->>OrderService: 在庫確認
 
 alt 在庫不足
 
-OrderService-->>User: OutOfStockException
+OrderService-->>GlobalExceptionHandler: OutOfStockException
+
+GlobalExceptionHandler-->>User: 400 ProblemDetail
 
 else 在庫あり
 
@@ -1024,7 +1031,9 @@ OrderService->>OrderRepository: 注文保存
 
 OrderRepository-->>OrderService: Order
 
-OrderService-->>User: Success
+OrderService-->>SelfOrderController: Order（Service内部）
+
+SelfOrderController-->>User: OrderResponse
 
 end
 ```
@@ -1076,13 +1085,17 @@ AuthService-->>User: Token
 
 # 📦 パッケージ構成
 
+主要クラスを示します。
+
 ## controller
 
 APIエンドポイント
 
 - AuthController
 - ProductController
-- OrderController
+- SelfOrderController
+- AdminOrderController
+- InventoryController
 
 ---
 
@@ -1093,6 +1106,7 @@ APIエンドポイント
 - AuthService
 - ProductService
 - OrderService
+- InventoryService
 
 ---
 
@@ -1104,6 +1118,7 @@ DBアクセス
 - ProductRepository
 - OrderRepository
 - OrderItemRepository
+- InventoryMovementRepository
 
 ---
 
@@ -1115,12 +1130,13 @@ DBアクセス
 - Product
 - Order
 - OrderItem
+- InventoryMovement
 
 ---
 
 ## dto
 
-リクエスト・レスポンス
+主要なリクエスト・レスポンスDTO
 
 - LoginRequest
 - LoginResponse
@@ -1128,6 +1144,9 @@ DBアクセス
 - ProductResponse
 - OrderRequest
 - OrderItemRequest
+- OrderResponse
+- InventoryAdjustmentRequest
+- InventoryMovementResponse
 - SalesResponse
 
 ---
@@ -1140,6 +1159,7 @@ DBアクセス
 - JwtUtil
 - JwtAuthenticationFilter
 - CustomUserDetailsService
+- CurrentUser
 
 ---
 
@@ -1148,7 +1168,9 @@ DBアクセス
 例外処理
 
 - GlobalExceptionHandler
-- OutOfStockException
+- ProblemDetailベースの業務例外（在庫不足・不正状態遷移・競合など）
+
+HTTP status/code/bodyの契約は[APIエラー契約](docs/api-errors.md)を参照してください。
 
 ---
 
@@ -1157,6 +1179,8 @@ DBアクセス
 設定
 
 - OpenApiConfig
+- ClockConfiguration
+- ProductionConfiguration
 
 ---
 
@@ -1232,7 +1256,8 @@ Spring Security + JWTを利用し、
 
 をコンテナ化しています。
 
-環境差異をなくし、ローカル環境と本番環境で同じ構成を再現できるようにしています。
+ローカル開発と本番想定構成でコンテナを利用し、profile・secretの設定差分を管理しています。
+production Composeの前提は[設定手順](docs/configuration.md)を参照してください。
 
 ---
 
@@ -1293,7 +1318,7 @@ docker ps
 
 # ☁ AWS構成
 
-本番環境は AWS EC2 上で稼働しています。
+本番想定構成では AWS EC2 上で稼働させる設計です。EC2への実配備とDeploy workflow再有効化は未実施です。
 
 ```text
 AWS EC2
@@ -1307,7 +1332,7 @@ AWS EC2
 
 ---
 
-# AWS環境
+# 本番想定のAWS環境
 
 | 項目            | 内容                |
 | ------------- | ----------------- |
@@ -1327,11 +1352,11 @@ Infrastructure as Code により、
 
 AWS環境をコードで管理しています。
 
-## 作成しているリソース
+## 定義しているリソース
 
 ### EC2
 
-Spring Bootアプリケーションを配置。
+Spring Bootアプリケーションの配置先。
 
 ### Security Group
 
@@ -1352,7 +1377,7 @@ SSH接続用秘密鍵。
 * Docker
 * Docker Compose
 
-を自動構築。
+の初期セットアップを定義しています。
 
 ---
 
@@ -1371,7 +1396,7 @@ terraform
 
 # ⚙ GitHub Actions
 
-CI/CD環境を構築しています。
+CIはGitHub Actionsで自動実行します。CD workflowは実装済みですが、本番設定・EC2・DB移行の確認前のため現在無効です。
 
 ## CI
 
@@ -1384,11 +1409,13 @@ CI/CD環境を構築しています。
 実施内容
 
 * Checkout
-* Javaセットアップ
-* Maven Build
-* Test
+* Java 17セットアップ
+* `./mvnw verify`（SurefireとMariaDB/TestcontainersのFailsafe）
 
 ## CD
+
+Deploy workflowは現在 `disabled_manually` です。本番のsecrets/variables設定・既存DBの専用user移行・
+EC2への実配備は未実施で、再有効化前に[配備手順](docs/deployment.md)の前提を確認します。
 
 ファイル
 
@@ -1398,7 +1425,7 @@ CI/CD環境を構築しています。
 
 実施内容
 
-* main pushのCI成功のみ起動し、CIで検証したSHAに固定
+* 再有効化後はmain pushのCI成功のみ起動し、CIで検証したSHAに固定
 * secrets検証・concurrency・EC2上のflockで切替前を保護
 * Java 17 Maven package・Compose検証・SHA image buildを既存app稼働中に実施
 * appだけ更新し、DB container/volumeを継続
@@ -1412,9 +1439,12 @@ app rollbackはDB rollbackではありません。Flyway migrationを自動undo�
 
 # 🚀 CI/CDフロー
 
+CIは自動実行中です。下記のdeploy経路は実装済みworkflowの設計で、現在無効です。
+
 ```text
 PR → CI → 配備なし
-main push → CI success → head_sha固定 → 直列deploy
+main push → CI success
+  → 【CD再有効化後】head_sha固定 → 直列deploy
   → secrets / checkout / package / config / image build
   → appだけ切替 → HTTP確認 → current確定
                          └─失敗: previous app復元 / HTTP確認
@@ -1455,6 +1485,17 @@ Database
 途中で例外が発生した場合はロールバックされるため、
 
 データ不整合を防止できます。
+
+---
+
+## 在庫更新の並行制御
+
+Product/Orderの@Versionと、User・Order・ProductのPESSIMISTIC_WRITE行ロックを実装しています。
+注文作成はUser(customer)→Product、手動在庫調整はUser(actor)→Product、
+cancelはOrder→User(actor)→Productの順で取得し、複数ProductはID昇順でロックします。
+ship/completeはOrderをロックします。独立Transactionによる同時注文・cancel・在庫調整の実MariaDBテストもあります。
+現行の在庫更新・ロック順序は[在庫仕様](docs/inventory.md#transactionと並行制御)、
+注文の再送制御は[注文の冪等性](docs/orders/idempotency.md)を参照してください。
 
 ---
 
@@ -1500,9 +1541,8 @@ AWS環境をコードで管理しています。
 
 ## CI/CD
 
-GitHub Actionsによって、
-
-Build〜Deployまで自動化しています。
+GitHub ActionsでBuildと全テストを自動実行しています。
+Deploy workflowは実装済みですが、本番設定・DB専用user移行・EC2配備の確認前のため現在無効です。
 
 ---
 
@@ -1524,10 +1564,15 @@ Build〜Deployまで自動化しています。
 
 # 🚀 今後の改善
 
-- 排他制御（楽観ロック / 悲観ロック）の導入
 - RDSへの移行
 - ECSによるコンテナ運用
 - 負荷試験の実施
+- HTTPS/TLS対応
+- 構造化ログ・監視などobservabilityの改善
+- readiness・再起動・backup/restoreの運用整備（healthは実装済み）
+- Terraformによる環境再現性の改善
+
+未完了項目は[改善ロードマップ（Issue #8）](https://github.com/utl-flaxy/inventory-management-system/issues/8)を参照してください。
 
 ---
 
@@ -1540,9 +1585,9 @@ Build〜Deployまで自動化しています。
 * レイヤードアーキテクチャ
 * JWT認証・認可
 * Dockerによるコンテナ化
-* AWS環境構築
+* AWS本番想定構成の定義
 * TerraformによるInfrastructure as Code
-* GitHub ActionsによるCI/CD
+* GitHub Actionsによる自動CIとCD workflow（現在無効）
 
 まで一貫して設計・実装しました。
 
@@ -1558,7 +1603,7 @@ Build〜Deployまで自動化しています。
 
 アプリケーション開発だけでなく、
 
-インフラ構築から自動デプロイまで自ら構築することで、
+インフラ構成定義からCIとCD workflowの実装まで取り組むことで、
 
 「作って終わり」ではなく、
 
