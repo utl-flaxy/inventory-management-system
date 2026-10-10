@@ -9,6 +9,7 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -16,7 +17,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
@@ -34,9 +37,13 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.*;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -67,8 +74,10 @@ class AuthApiIT {
 
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper json;
-    @Autowired private UserRepository users;
+    @SpyBean private UserRepository users;
+    @SpyBean private JwtUtil jwt;
     @Autowired private PasswordEncoder encoder;
+    @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
     void cleanStart() {
@@ -110,12 +119,12 @@ class AuthApiIT {
     }
 
     @Test
-    void duplicateUsernameKeepsOriginalHashAndCurrentErrorContract() throws Exception {
+    void duplicateUsernameKeepsOriginalHashAndReturns409() throws Exception {
         register("alice", PASSWORD).andExpect(status().isOk());
         String originalHash = users.findByUsername("alice").orElseThrow().getPassword();
         String response = register("alice", "different-password")
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("USERNAME_ALREADY_EXISTS"))
                 .andExpect(jsonPath("$.message").value("ユーザー名は既に使用されています"))
                 .andReturn().getResponse().getContentAsString();
         assertEquals(1, users.count());
@@ -129,11 +138,12 @@ class AuthApiIT {
 
     @ParameterizedTest
     @MethodSource("nullCredentials")
-    void nullRegistrationCurrentlyFailsWithoutSavingUserPendingSeparateValidationIssue(
+    void nullRegistrationIs400BeforeRepositoryOrJwtWithoutSavingUser(
             String username, String password) throws Exception {
-        register(username, password).andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"))
-                .andExpect(jsonPath("$.password").doesNotExist());
+        clearInvocations(users, jwt);
+        register(username, password).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$." + (username == null ? "username" : "password")).isString());
+        verifyNoInteractions(users, jwt);
         assertEquals(0, users.count());
     }
 
@@ -144,15 +154,14 @@ class AuthApiIT {
 
     @ParameterizedTest
     @MethodSource("blankCredentials")
-    void blankRegistrationIsCurrentlyAcceptedPendingSeparateValidationIssue(
+    void blankRegistrationIs400BeforeRepositoryOrJwtWithoutSavingUser(
             String username, String password) throws Exception {
-        String response = register(username, password).andExpect(status().isOk())
+        clearInvocations(users, jwt);
+        String response = register(username, password).andExpect(status().isBadRequest())
                 .andReturn().getResponse().getContentAsString();
-        User user = users.findByUsername(username).orElseThrow();
-        assertTrue(encoder.matches(password, user.getPassword()));
-        assertEquals("ROLE_USER", user.getRole());
-        assertNoCredentials(response, user.getPassword());
-        assertEquals(1, users.count());
+        verifyNoInteractions(users, jwt);
+        assertNoCredentials(response, "unused-hash");
+        assertEquals(0, users.count());
     }
 
     @Test
@@ -180,32 +189,216 @@ class AuthApiIT {
     }
 
     static Stream<Arguments> invalidLogins() {
-        return Stream.of(Arguments.of("alice", "wrong-password", "パスワードが違います"),
-                Arguments.of("missing", PASSWORD, "ユーザーが存在しません"),
-                Arguments.of(null, PASSWORD, "ユーザーが存在しません"),
-                Arguments.of("", PASSWORD, "ユーザーが存在しません"),
-                Arguments.of("   ", PASSWORD, "ユーザーが存在しません"),
-                Arguments.of("alice", null, "rawPassword cannot be null"),
-                Arguments.of("alice", "", "パスワードが違います"),
-                Arguments.of("alice", "   ", "パスワードが違います"));
+        return Stream.of(Arguments.of("alice", "wrong-password", 401),
+                Arguments.of("missing", PASSWORD, 401),
+                Arguments.of(null, PASSWORD, 400), Arguments.of("", PASSWORD, 400),
+                Arguments.of("   ", PASSWORD, 400), Arguments.of("alice", null, 400),
+                Arguments.of("alice", "", 400), Arguments.of("alice", "   ", 400));
     }
 
     @ParameterizedTest
     @MethodSource("invalidLogins")
-    void invalidLoginKeepsCurrentErrorContractAndDoesNotReturnCredentials(
-            String username, String password, String message) throws Exception {
+    void invalidLoginUses400ForInputAnd401ForCredentialsWithoutCredentialLeak(
+            String username, String password, int expectedStatus) throws Exception {
         register("alice", PASSWORD).andExpect(status().isOk());
         String hash = users.findByUsername("alice").orElseThrow().getPassword();
+        clearInvocations(users, jwt);
         String response = auth("/auth/login", credentials(username, password))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"))
-                .andExpect(jsonPath("$.message").value(message))
+                .andExpect(status().is(expectedStatus))
                 .andExpect(jsonPath("$.token").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
+        if (expectedStatus == 400) verifyNoInteractions(users, jwt);
+        else {
+            assertEquals("INVALID_CREDENTIALS", json.readTree(response).path("code").asText());
+            assertEquals("ユーザー名またはパスワードが正しくありません", json.readTree(response).path("message").asText());
+            verify(users).findByUsername(username);
+            verifyNoMoreInteractions(users);
+            verifyNoInteractions(jwt);
+        }
         assertNoCredentials(response, hash);
         assertEquals(1, users.count());
         assertEquals(hash, users.findByUsername("alice").orElseThrow().getPassword());
     }
+
+    @Test
+    void absentUsernameAndWrongPasswordReturnExactlyIdentical401Bodies() throws Exception {
+        register("alice", PASSWORD).andExpect(status().isOk());
+        String wrong = auth("/auth/login", credentials("alice", "valid-wrong-password"))
+                .andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsString();
+        String absent = auth("/auth/login", credentials("missing", "valid-wrong-password"))
+                .andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsString();
+        assertEquals(wrong, absent);
+        assertEquals(Map.of("code", "INVALID_CREDENTIALS", "message", "ユーザー名またはパスワードが正しくありません"),
+                json.convertValue(json.readTree(wrong), Map.class));
+        assertNoCredentials(wrong, users.findByUsername("alice").orElseThrow().getPassword());
+    }
+
+    static Stream<Arguments> validBoundaries() {
+        return Stream.of(Arguments.of("abc", "12345678"), Arguments.of("A".repeat(50), "p".repeat(72)),
+                Arguments.of("unicode-password", "あ".repeat(24)), Arguments.of("space-password", "  valid password  "));
+    }
+
+    @ParameterizedTest
+    @MethodSource("validBoundaries")
+    void lengthAndUtf8BoundariesAllowRegistrationAndLoginWithoutPasswordNormalization(
+            String username, String password) throws Exception {
+        register(username, password).andExpect(status().isOk());
+        var user = users.findByUsername(username).orElseThrow();
+        assertTrue(encoder.matches(password, user.getPassword()));
+        String response = auth("/auth/login", credentials(username, password)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertFalse(response.contains(password));
+        assertNoCredentials(response, user.getPassword());
+        if (password.startsWith(" ")) auth("/auth/login", credentials(username, password.strip()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void currentUsernameCollationRemainsCaseInsensitiveAndApiLimitDoesNotShrinkDbColumns() throws Exception {
+        assertEquals("utf8mb4_unicode_ci", jdbc.queryForObject("SELECT COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='username'", String.class));
+        for (String column : List.of("username", "password")) assertEquals(255L,
+                jdbc.queryForObject("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME=?", Long.class, column));
+        register("Alice", PASSWORD).andExpect(status().isOk());
+        register("alice", "different-password").andExpect(status().isConflict());
+        String response = auth("/auth/login", credentials("ALICE", PASSWORD)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("Alice", jwt.extractUsername(json.readTree(response).path("token").asText()));
+        assertEquals(1, users.count());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{", "null", ""})
+    void malformedJsonNullJsonOrMissingBodyAre400ForBothAuthEndpoints(String body) throws Exception {
+        clearInvocations(users, jwt);
+        for (String path : List.of("/auth/register", "/auth/login")) mvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        verifyNoInteractions(users, jwt);
+        assertEquals(0, users.count());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/auth/register", "/auth/login"})
+    void unsupportedContentTypeIs415BeforeAuthenticationProcessing(String path) throws Exception {
+        clearInvocations(users, jwt);
+        mvc.perform(post(path).contentType(MediaType.TEXT_PLAIN).content("private-invalid-body"))
+                .andExpect(status().isUnsupportedMediaType());
+        verifyNoInteractions(users, jwt);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/auth/register", "/auth/login"})
+    void utf8PasswordOver72BytesIs400WithoutRepositoryQueriesEvenWhenCharCountIsBelow72(String path) throws Exception {
+        clearInvocations(users, jwt);
+        auth(path, credentials("alice", "あ".repeat(24) + "a")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.password").value("パスワードはUTF-8で72 bytes以内で入力してください"));
+        verifyNoInteractions(users, jwt);
+        assertEquals(0, users.count());
+    }
+
+    @Test
+    void actualUsernameUniqueViolationIs409WithOriginalHashUnchangedAndNoRawSqlLeak() throws Exception {
+        register("alice", PASSWORD).andExpect(status().isOk());
+        String before = jdbc.queryForObject("SELECT password FROM users WHERE username='alice'", String.class);
+        // 両findが未登録と判断するraceを模擬し、実MariaDB UNIQUE違反の識別を必ず通す。
+        doReturn(java.util.Optional.empty()).when(users).findByUsername("alice");
+        String response = register("alice", "different-password").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("USERNAME_ALREADY_EXISTS"))
+                .andReturn().getResponse().getContentAsString();
+        assertNoCredentials(response, before);
+        assertFalse(response.contains("Duplicate entry"));
+        assertFalse(response.contains("uk_users_username"));
+        assertEquals(before, jdbc.queryForObject("SELECT password FROM users WHERE username='alice'", String.class));
+        assertEquals(1, users.count());
+    }
+
+    @Test
+    void openApiReflectsAuthValidationResponseCodesAndRegisterDtoWithoutPassword() throws Exception {
+        var document = json.readTree(mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        var schemas = document.path("components").path("schemas");
+        for (String schema : List.of("RegisterRequest", "LoginRequest")) {
+            var properties = schemas.path(schema).path("properties");
+            assertEquals(3, properties.path("username").path("minLength").asInt());
+            assertEquals(50, properties.path("username").path("maxLength").asInt());
+            assertEquals("[A-Za-z0-9._-]{3,50}", properties.path("username").path("pattern").asText());
+            assertEquals(8, properties.path("password").path("minLength").asInt());
+            assertEquals(72, properties.path("password").path("maxLength").asInt());
+            assertTrue(properties.path("password").path("writeOnly").asBoolean());
+            assertTrue(properties.path("password").path("description").asText().contains("bytes"));
+        }
+        assertEquals(3, schemas.path("RegisterResponse").path("properties").size());
+        assertFalse(schemas.path("RegisterResponse").path("properties").has("password"));
+        for (String code : List.of("200", "400", "409")) assertTrue(document.path("paths").path("/auth/register").path("post").path("responses").has(code));
+        for (String code : List.of("200", "400", "401")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
+    }
+
+    @Test
+    @Timeout(120)
+    void tenSameUsernameRegistrationsHaveOneSuccessAndNineConflicts() throws Exception {
+        var requests = java.util.Collections.nCopies(10, new Registration("race-user", PASSWORD));
+        assertSingleWinner(requests, concurrentRegistration(requests));
+    }
+
+    @Test
+    @Timeout(120)
+    void concurrentDifferentPasswordsForSameUsernameStoreOnlyTheWinningPassword() throws Exception {
+        List<Registration> requests = new ArrayList<>();
+        for (int i = 0; i < 10; i++) requests.add(new Registration("race-password", i % 2 == 0 ? PASSWORD : "another-valid-password"));
+        assertSingleWinner(requests, concurrentRegistration(requests));
+    }
+
+    @Test
+    @Timeout(120)
+    void tenDifferentUsernamesRegisterConcurrentlyWithoutFalseConflicts() throws Exception {
+        List<Registration> requests = new ArrayList<>();
+        for (int i = 0; i < 10; i++) requests.add(new Registration("distinct-" + i, PASSWORD));
+        var results = concurrentRegistration(requests);
+        for (var result : results) assertEquals(200, result.status, result.body);
+        assertEquals(10, users.count());
+        for (var request : requests) assertTrue(encoder.matches(request.password, users.findByUsername(request.username).orElseThrow().getPassword()));
+    }
+
+    private void assertSingleWinner(List<Registration> requests, List<Outcome> outcomes) throws Exception {
+        assertEquals(1, outcomes.stream().filter(outcome -> outcome.status == 200).count());
+        assertEquals(9, outcomes.stream().filter(outcome -> outcome.status == 409).count());
+        assertEquals(1, users.count());
+        var user = users.findAll().get(0);
+        assertEquals("ROLE_USER", user.getRole());
+        assertTrue(user.getPassword().startsWith("$2"));
+        for (int i = 0; i < outcomes.size(); i++) {
+            var outcome = outcomes.get(i);
+            assertNoCredentials(outcome.body, user.getPassword());
+            assertFalse(outcome.body.contains("another-valid-password"));
+            if (outcome.status == 200) assertTrue(encoder.matches(requests.get(i).password, user.getPassword()));
+            else assertEquals("USERNAME_ALREADY_EXISTS", json.readTree(outcome.body).path("code").asText());
+        }
+    }
+
+    private List<Outcome> concurrentRegistration(List<Registration> requests) throws Exception {
+        CountDownLatch ready = new CountDownLatch(requests.size()), start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(requests.size());
+        List<Future<Outcome>> futures = new ArrayList<>();
+        try {
+            for (var request : requests) futures.add(executor.submit(() -> {
+                ready.countDown();
+                assertTrue(start.await(10, TimeUnit.SECONDS));
+                var response = register(request.username, request.password).andReturn().getResponse();
+                return new Outcome(response.getStatus(), response.getContentAsString());
+            }));
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            List<Outcome> outcomes = new ArrayList<>();
+            for (var future : futures) outcomes.add(future.get(60, TimeUnit.SECONDS));
+            return outcomes;
+        } finally {
+            start.countDown(); executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    private record Registration(String username, String password) { }
+    private record Outcome(int status, String body) { }
 
     @Test
     void currentDatabaseRoleOverridesJwtRoleClaimAndChangesWithoutReissuingToken() throws Exception {
@@ -260,9 +453,12 @@ class AuthApiIT {
 
     private void assertNoCredentials(String response, String hash) throws Exception {
         JsonNode body = json.readTree(response);
-        assertFalse(body.has("password"));
+        // Validationのfield名passwordは許容するが、実入力・hash・secretを返さない。
         assertFalse(body.has("hash"));
         assertFalse(response.contains(PASSWORD));
         assertFalse(response.contains(hash));
+        assertFalse(response.contains(SECRET));
+        assertFalse(response.contains("rawPassword"));
+        assertFalse(response.contains("$2"));
     }
 }
