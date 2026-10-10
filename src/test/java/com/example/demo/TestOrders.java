@@ -34,7 +34,7 @@ public final class TestOrders {
         Order order = Order.create(customer(), List.of(items));
         switch (status) {
             case SHIPPED -> order.ship();
-            case COMPLETED -> { order.ship(); order.complete(); }
+            case COMPLETED -> { order.ship(); order.complete(java.time.Instant.parse("2026-10-15T12:00:00Z")); }
             case CANCELLED -> order.cancel();
             case PENDING -> { }
         }

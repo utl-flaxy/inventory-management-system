@@ -20,6 +20,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -30,6 +31,10 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderStateServiceTest {
+
+    @Spy
+    private java.time.Clock clock = java.time.Clock.fixed(
+            java.time.Instant.parse("2026-10-15T12:00:00Z"), java.time.ZoneOffset.UTC);
 
     @Mock
     private ProductRepository productRepository;
@@ -205,5 +210,18 @@ class OrderStateServiceTest {
         Order order = com.example.demo.TestOrders.order(1L, OrderStatus.PENDING, items);
         when(orderRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(order));
         return order;
+    }
+
+    @Test
+    void completionUsesInjectedClockOnceAndPreservesItAfterARejectedRepeat() {
+        Product product = new Product(1L, "apple", 100L, 5);
+        Order order = order(OrderStatus.SHIPPED, product, 5);
+        when(orderRepository.save(order)).thenReturn(order);
+        orderService.completeOrder(1L);
+        assertEquals(clock.instant(), order.getCompletedAt());
+        assertThrows(IllegalOrderStateTransitionException.class, () -> orderService.completeOrder(1L));
+        assertEquals(clock.instant(), order.getCompletedAt());
+        verify(orderRepository, times(1)).save(order);
+        verifyNoInteractions(productRepository, orderItemRepository);
     }
 }

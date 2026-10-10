@@ -14,6 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -40,9 +41,9 @@ public class AdminOrderController {
 
     // 売上集計
     @GetMapping("/sales")
-    public SalesResponse getSales() {
-
-        return orderService.getSales();
+    public SalesResponse getSales(@RequestParam(required = false) Instant from,
+                                  @RequestParam(required = false) Instant to) {
+        return orderService.getSales(from, to);
     }
 
     // 注文ステータス変更

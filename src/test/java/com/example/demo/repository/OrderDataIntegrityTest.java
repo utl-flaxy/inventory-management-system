@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest(showSql = false, properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false"})
-@Import({OrderService.class, com.example.demo.security.CurrentUser.class})
+@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, com.example.demo.security.CurrentUser.class})
 class OrderDataIntegrityTest {
 
     @Autowired
@@ -43,7 +43,7 @@ class OrderDataIntegrityTest {
         jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1, 'alice', 'test-hash', 'ROLE_USER')");
         com.example.demo.TestOrders.authenticate();
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1, 'apple', 100, 10)");
-        jdbc.update("INSERT INTO orders (id, total_price, status, customer_id, ordered_at, updated_at) VALUES (1000, 25, 'PENDING', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO orders (id, total_price, status, customer_id, ordered_at, updated_at, completed_at) VALUES (1000, 25, 'COMPLETED', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
     }
 
     @AfterEach
@@ -72,7 +72,7 @@ class OrderDataIntegrityTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 3})
-    void 正常注文は在庫と明細と売上を更新する(int quantity) {
+    void 正常な未完了注文は在庫と明細を更新し売上には計上しない(int quantity) {
         OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
         orderService.createOrder(request);
@@ -81,7 +81,7 @@ class OrderDataIntegrityTest {
         assertEquals(10 - quantity, jdbc.queryForObject("SELECT stock FROM products WHERE id = 1", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));
         assertEquals(quantity, jdbc.queryForObject("SELECT quantity FROM order_items", Integer.class));
-        assertEquals(25 + 100 * quantity, orderRepository.getTotalSales());
+        assertEquals(25, orderRepository.getTotalSales());
     }
 
     @Test

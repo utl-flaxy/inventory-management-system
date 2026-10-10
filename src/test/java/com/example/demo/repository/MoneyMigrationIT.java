@@ -40,7 +40,7 @@ class MoneyMigrationIT {
     }
 
     private Flyway migrateToV2() {
-        Flyway flyway = Flyway.configure().dataSource(dataSource).load();
+        Flyway flyway = Flyway.configure().dataSource(dataSource).target("2").load();
         assertEquals(1, flyway.migrate().migrationsExecuted);
         return flyway;
     }
@@ -128,7 +128,7 @@ class MoneyMigrationIT {
         var history = jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");
         var data = dataSnapshot();
         assertEquals(0, flyway.info().pending().length);
-        assertEquals(0, Flyway.configure().dataSource(dataSource).load().migrate().migrationsExecuted);
+        assertEquals(0, Flyway.configure().dataSource(dataSource).target("2").load().migrate().migrationsExecuted);
         assertEquals(history, jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank"));
         assertEquals(data, dataSnapshot());
     }

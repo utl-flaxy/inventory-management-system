@@ -54,7 +54,7 @@ class EmptyDatabaseMigrationIT {
     }
 
     @Test
-    void emptyDatabaseMigratesValidatesAndRestartsWithoutReapplyingV1OrV2() {
+    void emptyDatabaseMigratesValidatesAndRestartsWithoutReapplyingV1V2OrV3() {
         assertEquals(0, jdbc().queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()", Integer.class));
         try (var context = start()) {
             assertEquals("validate", context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"));
@@ -64,11 +64,11 @@ class EmptyDatabaseMigrationIT {
             assertTrue(context.getBean(EntityManagerFactory.class).isOpen());
             var flyway = context.getBean(Flyway.class);
             assertEquals(0, flyway.info().pending().length);
-            assertEquals("2", flyway.info().current().getVersion().toString());
+            assertEquals("3", flyway.info().current().getVersion().toString());
             assertEquals(4, domainTables());
         }
         var history = jdbc().queryForList("SELECT version, description, type, script, checksum, success, installed_on FROM flyway_schema_history ORDER BY installed_rank");
-        assertEquals(2, history.size());
+        assertEquals(3, history.size());
         assertEquals("1", history.get(0).get("version"));
         assertEquals("baseline schema", history.get(0).get("description"));
         assertEquals("SQL", history.get(0).get("type"));
@@ -81,6 +81,10 @@ class EmptyDatabaseMigrationIT {
         assertEquals("V2__widen_money_columns_to_bigint.sql", history.get(1).get("script"));
         assertNotNull(history.get(1).get("checksum"));
         assertEquals(true, history.get(1).get("success"));
+        assertEquals("3", history.get(2).get("version"));
+        assertEquals("V3__add_order_completed_at.sql", history.get(2).get("script"));
+        assertNotNull(history.get(2).get("checksum"));
+        assertEquals(true, history.get(2).get("success"));
         jdbc().update("INSERT INTO users (username,password,role) VALUES ('alice','test-hash','ROLE_USER')");
         try (var context = start()) {
             assertEquals(0, context.getBean(Flyway.class).info().pending().length);
