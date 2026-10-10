@@ -118,7 +118,7 @@ class InventoryConcurrencyMariaDbIT {
 
     private Order order(int quantity) {
         OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
-        return orderService.createOrder(request);
+        return orderService.createOrder(request, com.example.demo.TestOrders.key());
     }
 
     private ProductUpdateRequest updateRequest(long version) {
@@ -505,9 +505,9 @@ class InventoryConcurrencyMariaDbIT {
         product(2L, 10);
         List<Outcome> outcomes = concurrently(List.of(
                 () -> orderService.createOrder(com.example.demo.TestOrders.request(
-                        new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 3))),
+                        new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 3)), com.example.demo.TestOrders.key()),
                 () -> orderService.createOrder(com.example.demo.TestOrders.request(
-                        new OrderItemRequest(2L, 3), new OrderItemRequest(1L, 2)))));
+                        new OrderItemRequest(2L, 3), new OrderItemRequest(1L, 2)), com.example.demo.TestOrders.key())));
 
         successes(outcomes, 2);
         assertEquals(6, stock(1L));
@@ -534,7 +534,7 @@ class InventoryConcurrencyMariaDbIT {
         product(1L, 10);
         product(2L, 0);
         assertThrows(OutOfStockException.class, () -> orderService.createOrder(com.example.demo.TestOrders.request(
-                new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 1))));
+                new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 1)), com.example.demo.TestOrders.key()));
         assertEquals(10, stock(1L));
         assertEquals(0, stock(2L));
         assertEquals(0, count("orders"));
@@ -543,7 +543,7 @@ class InventoryConcurrencyMariaDbIT {
         jdbc.update("UPDATE products SET price = ?, stock = 10 WHERE id = 1", Long.MAX_VALUE);
         jdbc.update("UPDATE products SET stock = 10 WHERE id = 2");
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(com.example.demo.TestOrders.request(
-                new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1))));
+                new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1)), com.example.demo.TestOrders.key()));
         assertEquals(10, stock(1L));
         assertEquals(10, stock(2L));
         assertEquals(0, count("orders"));
@@ -556,7 +556,7 @@ class InventoryConcurrencyMariaDbIT {
         product(2L, 5);
         jdbc.update("UPDATE products SET name = 'orange', price = 300 WHERE id = 2");
         Order order = orderService.createOrder(com.example.demo.TestOrders.request(
-                new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 1)));
+                new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 1)), com.example.demo.TestOrders.key());
         productService.update(1L, updateRequest(1L));
         OrderResponse response = OrderResponse.from(orderService.findById(order.getId()));
         assertEquals("alice", response.customer().username());

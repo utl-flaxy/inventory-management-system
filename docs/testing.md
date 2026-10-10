@@ -53,10 +53,19 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | MoneyMigrationIT | 既存値/V1履歴保持、V1→V2、BIGINT境界と制約、再実行なし |
 | SalesApiIT | 固定Clock、実JWT/ADMIN、日時400、期間境界、完了日時レスポンス/OpenAPI |
 | CompletionMigrationIT | V1/V2→V3、既存値/履歴保持、legacy NULL、validate、条件付き手動補完 |
+| IdempotentOrderIT | header必須、実JWT、replay/conflict、snapshot、20同時送信×3、mixed body、scope、legacy、OpenAPI |
+| IdempotencyMigrationIT | V3→V4、既存全4状態/履歴保持、ascii_bin列、customer/key UNIQUE、validate、再起動pending0 |
 
 Issue #27はmain基準519件を削除せず、売上の期待値を正式なCOMPLETED計上ルールへ更新する。H2補助テストはSurefireに残す。
 Issue #27のJava 17検証はSurefire 288件 + Failsafe 277件 = 565件（46件追加）、failures/errors/skipped=0。
 Docker接続先を無効にしたclean testでも288件成功し、Docker不要のUnit品質ゲートを維持する。
+Issue #29は565件を削除せず、既存createテストへ一意keyを付ける。Docker不要のUnitを33件、実MariaDBのITを37件追加する。
+Java 17でDocker接続先を無効にした `mvnw.cmd clean test` は321件成功。
+`mvnw.cmd clean verify` はSurefire321件 + Failsafe314件 = 635件成功、failures/errors/skipped=0。
+OrderRequestFingerprintTestは既知UTF-8/SHA-256ベクトル、明細順、ID/数量差、64文字lowercase hexを検証する。
+OrderIdempotencyServiceTestはkey拒否・User lock順序・scoped lookup・replay/conflict時Product未アクセス/未保存・対象外制約を検証する。
+IdempotentOrderITは実SecurityFilterChainとJWTを通す20同時HTTP送信×3、10+10異なるbody、別key/別customerをbarrierで同期する。
+全Futureを回収し、Executor終了・timeoutを明示する。新APIはtest都合でheader optionalにしない。
 H2の成功でMariaDB CHECK・lock・Flywayの正しさを代用しない。
 DeploymentWorkflowTest / DeploymentScriptTestはYAML/Bashの静的・mock制御テストであり、
 本番Docker配備を行わないためSurefireに残す。Deployの運用上の無効化状態は変更しない。
@@ -111,7 +120,6 @@ API clientもint64を保持できる型で扱う。COMPLETEDの30億+40億=70億
 
 ## 別Issueへ分離した内容
 
-注文冪等性とProblemDetailはIssue #4から別Issueへ分離済み。
-現行APIにIdempotency-Key契約がないため、機能実装が先に必要であり、偽のIdempotentOrderITやskipを追加しない。
+注文冪等性はIssue #29で[必須headerとreplay契約](orders/idempotency.md)を実装し、実IdempotentOrderITで検証する。
 GlobalExceptionHandlerは現行Map形式のまま。ProblemDetail導入と契約テストはその機能Issueで扱う。
 coverage/scanner gate、branch protection変更、Deploy有効化、JWT_SECRET設定、EC2操作も対象外。

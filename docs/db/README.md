@@ -34,6 +34,7 @@ Boot管理のFlyway 11.7.2はMariaDB 12.2に上流での未検証警告を出す
 | V1__baseline_schema.sql | 空DB用の全4テーブル、NOT NULL、CHECK、FK、UNIQUE、INDEX、version、日時、snapshot |
 | V2__widen_money_columns_to_bigint.sql | products.price / orders.total_price / order_items.priceをINTからsigned BIGINTへ拡張。値・制約名は維持 |
 | V3__add_order_completed_at.sql | orders.completed_at DATETIME(6) NULLと(status,completed_at)索引。既存日時を補完しない |
+| V4__add_order_idempotency.sql | nullable key VARCHAR(128)/fingerprint CHAR(64)、ascii_bin、UNIQUE(customer_id,key)。legacy NULLを保持 |
 
 | Entity / table | 必須列 | CHECK / UNIQUE / FK |
 | --- | --- | --- |
@@ -55,6 +56,7 @@ role/status列はutf8mb4_binで大小文字を区別し、`pending`/`role_user`�
 | uk_users_username（UNIQUE） | users(username) |
 | idx_orders_customer | orders(customer_id) |
 | idx_orders_status_completed_at | orders(status, completed_at): 期間売上query |
+| uk_orders_customer_idempotency_key（UNIQUE） | orders(customer_id, idempotency_key): customer単位のcase-sensitive注文作成key |
 | idx_order_items_order | order_items(order_id) |
 | idx_order_items_product | order_items(product_id) |
 
@@ -75,11 +77,26 @@ SUM(totalPrice)のRepository/DTOはLong（空なら0L）。現在の売上対象
 Money Value Object/BigDecimal、小数、税・割引、通貨コード、多通貨は未導入。
 
 既存のFlyway管理済みV1 DBは、書き込み停止・backup・preflight・検証DBでの適用確認後に、
-新artifactの通常migrateでV2、V3を順に適用する。再baselineやV1再実行はしない。
+新artifactの通常migrateでV2、V3、V4を順に適用する。再baselineやV1再実行はしない。
 3テーブルのDDLは暗黙commitされ、途中失敗が全体rollbackされるとは限らない。
 移行に伴うlock時間・容量と各列/historyを確認し、失敗時は書き込みを再開せず、適用状況に応じて前進修復またはbackup復元を行う。
 拡張後にInteger上限を超えるデータがあれば旧アプリ/INT列へ戻せない。自動でINTへ縮小するrollbackは用意しない。
 この作業では本番DBに接続・適用しない。
+
+## 注文冪等性のV3→V4移行（Issue #29）
+
+V1/V2/V3は変更せず、V4でordersに `idempotency_key VARCHAR(128) NULL` と
+`request_fingerprint CHAR(64) NULL`、`uk_orders_customer_idempotency_key` を追加する。
+両列はASCII契約に合わせて `CHARACTER SET ascii COLLATE ascii_bin`。`KeyA` と `keya` は別key。
+UNIQUEは `(customer_id,idempotency_key)` で、legacy NULLを複数許容する。
+既存key/fingerprintは推測で補完せず、両NULLの注文の参照・ship/complete/cancelを維持する。
+新規API注文はアプリのkey付きfactoryで両列を必須検証し、JPAでは保存後の変更を禁止する。
+
+書き込み停止・backup・V1/V2/V3のschema/history/checksum照合・検証DBでのV4適用確認を行う。
+新artifactのmigrate→validate後、列型/長さ/照合順序/UNIQUE・既存行のNULL・件数/在庫/合計/snapshotと
+再起動pending=0を確認してから書き込みを再開する。DB DDL失敗時の方針は下記の前進修復/backup復元に従う。
+クライアントには注文作成header必須を配布する。[API・lock・rollback仕様](../orders/idempotency.md)。
+本作業では本番DBへ接続・適用しない。
 
 ## 新規の空DB
 
@@ -94,9 +111,9 @@ V3適用前のbackup・V1/V2履歴確認・既存COMPLETED件数確認、適用�
    接続情報をGitやshell履歴へ書かない。既存データがあるDBを空DBとして扱わない。
 3. Java 17で `./mvnw spring-boot:run`（Windows: `mvnw.cmd spring-boot:run`）。
    jar/Composeによる通常起動でも同じmigrate→validateが動く。
-4. `flyway_schema_history` のversion=1/2/3、type=SQL/success=1/checksumと、4テーブル・金額BIGINTを確認する。
+4. `flyway_schema_history` のversion=1/2/3/4、type=SQL/success=1/checksumと、4テーブル・金額BIGINT・key/fingerprint/UNIQUEを確認する。
    migrationがなければHibernate validateで起動に失敗する。
-5. 再起動ではpending migrationがなければV1/V2/V3を再実行せず、既存データを保持する。
+5. 再起動ではpending migrationがなければV1/V2/V3/V4を再実行せず、既存データを保持する。
 
 ## Flyway未管理の既存DB
 
@@ -136,7 +153,7 @@ flyway validate
 flyway info
 ```
 
-7. **起動と検証**: 通常設定の新アプリを起動し、baseline済みV1相当schemaへV2/V3が適用され、
+7. **起動と検証**: 通常設定の新アプリを起動し、baseline済みV1相当schemaへV2/V3/V4が適用され、
    金額BIGINTでのHibernate validate成功、pendingなし、
    件数・在庫・合計・customer・日時・snapshot・制約を確認する。成功後に書き込みを再開する。
 
@@ -148,7 +165,7 @@ V1のCHECK/FK/indexの正しさをFlyway baseline/validateが自動認定する�
 
 Issue #10/#12/#14の4本は `docs/db/legacy` に内容を保ったまま移動した。
 過去の限定的なupgrade手順・回帰fixtureとして保存し、現行schemaの定義には使わない。
-新規DBは正式migrationのV1→V2→V3を使用し、将来のschema変更をlegacy SQLへ追記しない。
+新規DBは正式migrationのV1→V2→V3→V4を使用し、将来のschema変更をlegacy SQLへ追記しない。
 旧DBの段階的な履歴補完については[Issue #14の既存DB手順](../orders/order-aggregate.md#既存dbの移行)と
 [legacy文書](legacy/README.md)を参照し、その後に上のpreflight/照合/baselineを完了する。
 legacy SQLだけでは新しいV1の全制約を満たさないため、適用済みという理由だけでbaselineしない。
@@ -156,7 +173,7 @@ legacy SQLだけでは新しいV1の全制約を満たさないため、適用�
 ## Migration運用・rollback
 
 - mainに入ったVersioned migrationは編集・削除しない。修正は新しいVxを追加する。
-- `V4__add_meaningful_constraint.sql` のように目的が分かる名前を付ける。schema変更はPR review必須。
+- `V5__add_meaningful_constraint.sql` のように目的が分かる名前を付ける。schema変更はPR review必須。
 - 適用前にbackupとdata preflightを行い、既存データとアプリ互換性・ロック時間を確認する。
 - checksum mismatchは改変・誤ったartifact/DB接続を調査する。`repair`で雑に履歴を合わせない。
 - 本番の `flyway clean` は禁止。clean-disabledを解除しない。
@@ -177,7 +194,10 @@ Issue #15では既存344件を維持し、schema制約41件・空DB/起動5件�
   再起動、不在migration/適用後schema driftでのvalidate失敗、未確認非空DBの自動baseline拒否、確認済み手動baseline。
 - LegacyDatabasePreflightIT: 不完全な旧DBに負在庫・非正数量・孤児・未補完履歴・合計不一致等を作り、
   データとschema_historyを変更せずpreflightが停止することを確認する。
-- AuthorizationMatrixITとInventoryConcurrencyMariaDbITもV1→V2→V3+validateで実DB回帰する。
+- IdempotencyMigrationIT: V3→V4で全4状態のlegacy値・V1/V2/V3履歴/checksum保持、nullable列/型/長さ/ascii_bin、
+  UNIQUE重複拒否・customer分離・case-distinct key、Hibernate validateと2回再起動pending0。
+- IdempotentOrderIT: 実JWT/API、sequential/20同時replay・mixed body・customer分離・対象UNIQUE失敗rollback・legacyコマンド。
+- AuthorizationMatrixITとInventoryConcurrencyMariaDbITもV1→V2→V3→V4+validateで実DB回帰する。
 - MoneyMigrationITは既存20億円の値・他の全データ・V1 checksum/historyを維持し、BIGINT/制約/DEFAULT/FK/index、
   0/Integer上限超/Long最大値のraw INSERT/UPDATEと負数・NULL・BIGINT範囲外の拒否、再実行なしを検証する。
 - MoneyApiITは実Security/API/DBで高額商品・注文・snapshot・CSV・OpenAPI int64・overflow時DB不変を検証する。

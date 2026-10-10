@@ -6,7 +6,8 @@
 
 ## 採用方式とTransaction
 
-注文作成はProductをPESSIMISTIC_WRITEでロックし、価格確認・金額計算・在庫減算・Order/OrderItem保存を
+Issue #29から注文作成は先にUser(customer)をPESSIMISTIC_WRITEでロックし、同customer/keyを通常queryで確認する。
+replay/conflictでは商品を読まない。新規注文だけProductをID昇順でPESSIMISTIC_WRITEでロックし、価格確認・金額計算・在庫減算・Order/OrderItem保存を
 同じTransactionで実行する。価格と在庫を同じ行で保護でき、既存のEntity不変条件も維持できるため、
 条件付きUPDATEではなく悲観ロックを選んだ。待機した注文は先行Transactionの確定後の在庫・価格を使う。
 
@@ -20,8 +21,11 @@ PERSIST/MERGE/REMOVE/DETACHのcascadeは維持する。
 同時cancelは1件だけ成功し、後続はCANCELLEDを読み取って409となる。cancelとshipも一方だけ成功する。
 保存途中の失敗は在庫・状態・明細を含むTransaction全体でrollbackする。
 
-ロック順序は既存Order→ProductのID昇順。注文作成はProductをロックしてから新規OrderをINSERTするため、
+ロック順序はcancelが既存Order→ProductのID昇順、ship/completeがOrderのみ。
+注文作成はUser(customer)→ProductのID昇順で、新規OrderをINSERTするため、
 他の処理がロック済みの既存Orderを後から取得する逆順経路は作らない。商品PUTはProductだけを更新する。
+状態変更はUserの排他lockを取らず、createのreplayは既存Orderの排他lockを追加しない。
+同customerのcreateは別keyでも直列化する。[冪等性の並行制御](idempotency.md)を参照。
 
 これらの更新ServiceはREAD_COMMITTEDを指定する。MariaDB 12.2.2のsnapshot isolationでは、
 REPEATABLE_READの古いread viewから後でロック・更新するとError 1020になるため、

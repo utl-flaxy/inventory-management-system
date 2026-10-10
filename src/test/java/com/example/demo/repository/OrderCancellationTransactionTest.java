@@ -65,7 +65,7 @@ class OrderCancellationTransactionTest {
 
     private Order createFiveItemOrder() {
         OrderRequest request = com.example.demo.TestOrders.request(1L, 5);
-        return orderService.createOrder(request);
+        return orderService.createOrder(request, com.example.demo.TestOrders.key());
     }
 
     private int stock(long productId) {

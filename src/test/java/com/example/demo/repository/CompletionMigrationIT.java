@@ -44,7 +44,7 @@ class CompletionMigrationIT {
     void v3PreservesExistingDataAndChecksumsLeavesLegacyNullAndPassesHibernateValidation() {
         var before = snapshot();
         var applied = jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");
-        Flyway flyway = Flyway.configure().dataSource(dataSource).load();
+        Flyway flyway = Flyway.configure().dataSource(dataSource).target("3").load();
         assertEquals(1, flyway.migrate().migrationsExecuted);
         flyway.validate();
         assertEquals(before, snapshot());
@@ -77,9 +77,9 @@ class CompletionMigrationIT {
 
     @Test
     void v3IsNotReappliedAndOnlyConfirmedConditionalBackfillChangesRevenue() {
-        Flyway.configure().dataSource(dataSource).load().migrate();
+        Flyway.configure().dataSource(dataSource).target("3").load().migrate();
         var applied = jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");
-        assertEquals(0, Flyway.configure().dataSource(dataSource).load().migrate().migrationsExecuted);
+        assertEquals(0, Flyway.configure().dataSource(dataSource).target("3").load().migrate().migrationsExecuted);
         assertEquals(applied, jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank"));
         assertEquals(1, jdbc.update("UPDATE orders SET completed_at='2026-10-15 12:00:00.123456' WHERE id=3 AND status='COMPLETED' AND completed_at IS NULL"));
         assertEquals(0, jdbc.update("UPDATE orders SET completed_at='2026-11-01' WHERE id=3 AND status='COMPLETED' AND completed_at IS NULL"));

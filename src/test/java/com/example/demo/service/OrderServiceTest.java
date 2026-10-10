@@ -10,6 +10,7 @@ import com.example.demo.exception.OutOfStockException;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
+import com.example.demo.repository.UserRepository;
 import com.example.demo.security.CurrentUser;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -49,12 +50,16 @@ class OrderServiceTest {
     @Mock
     private CurrentUser currentUser;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private OrderService orderService;
 
     @BeforeEach
     void customer() {
         lenient().when(currentUser.requireUser()).thenReturn(com.example.demo.TestOrders.customer());
+        lenient().when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(com.example.demo.TestOrders.customer()));
     }
 
     @ParameterizedTest
@@ -77,7 +82,7 @@ class OrderServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        Order order = orderService.createOrder(request);
+        Order order = orderService.createOrder(request, com.example.demo.TestOrders.key());
 
         // Assert
         assertNotNull(order);
@@ -106,7 +111,7 @@ class OrderServiceTest {
         OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
         // Act & Assert
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         assertEquals(10, product.getStock());
         verify(productRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
@@ -125,7 +130,7 @@ class OrderServiceTest {
         OrderRequest request = com.example.demo.TestOrders.request(productId, 1);
 
         // Act & Assert
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         assertEquals(10, product.getStock());
         verify(productRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
@@ -135,7 +140,7 @@ class OrderServiceTest {
 
     @Test
     void リクエスト未指定ではRepositoryを呼ばない() {
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(null));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(null, com.example.demo.TestOrders.key()));
         verifyNoInteractions(productRepository, orderRepository, orderItemRepository);
     }
 
@@ -148,7 +153,7 @@ class OrderServiceTest {
         OrderRequest request = com.example.demo.TestOrders.request(1L, 2);
 
         // Act & Assert
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         assertEquals(10, product.getStock());
         verify(productRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
@@ -165,7 +170,7 @@ class OrderServiceTest {
         OrderRequest request = com.example.demo.TestOrders.request(1L, 1);
 
         // Act
-        Order order = orderService.createOrder(request);
+        Order order = orderService.createOrder(request, com.example.demo.TestOrders.key());
 
         // Assert
         assertEquals(Long.MAX_VALUE, order.getTotalPrice());
@@ -194,7 +199,7 @@ class OrderServiceTest {
         // Act & Assert
         assertThrows(
                 OutOfStockException.class,
-                () -> orderService.createOrder(request)
+                () -> orderService.createOrder(request, com.example.demo.TestOrders.key())
         );
 
         assertEquals(2, product.getStock());
@@ -216,7 +221,7 @@ class OrderServiceTest {
         RuntimeException exception =
                 assertThrows(
                         RuntimeException.class,
-                        () -> orderService.createOrder(request)
+                        () -> orderService.createOrder(request, com.example.demo.TestOrders.key())
                 );
 
         assertEquals("商品が存在しません", exception.getMessage());
@@ -235,7 +240,7 @@ class OrderServiceTest {
         when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(2L, 1), new OrderItemRequest(1L, 2));
 
-        Order order = orderService.createOrder(request);
+        Order order = orderService.createOrder(request, com.example.demo.TestOrders.key());
 
         var sequence = inOrder(productRepository, entityManager, orderRepository);
         sequence.verify(productRepository).findByIdForUpdate(1L);
@@ -256,7 +261,7 @@ class OrderServiceTest {
     @Test
     void duplicateProductIsRejectedBeforeReadingAnyRepositoryOrUser() {
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(1L, 3));
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         verifyNoInteractions(productRepository, orderRepository, orderItemRepository, currentUser, entityManager);
     }
 
@@ -265,7 +270,7 @@ class OrderServiceTest {
         for (List<OrderItemRequest> items : Arrays.asList(null, List.<OrderItemRequest>of(), Arrays.asList((OrderItemRequest) null))) {
             OrderRequest request = new OrderRequest();
             request.setItems(items);
-            assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+            assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         }
         verifyNoInteractions(productRepository, orderRepository, orderItemRepository, currentUser);
     }
@@ -273,7 +278,7 @@ class OrderServiceTest {
     @Test
     void laterInvalidLineIsRejectedBeforeRepositoryAccess() {
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 0));
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         verifyNoInteractions(productRepository, orderRepository, orderItemRepository, currentUser);
     }
 
@@ -284,11 +289,12 @@ class OrderServiceTest {
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
         when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 1));
-        assertThrows(OutOfStockException.class, () -> orderService.createOrder(request));
+        assertThrows(OutOfStockException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         assertEquals(10, first.getStock());
         assertEquals(0, second.getStock());
         verify(productRepository, never()).save(any());
-        verifyNoInteractions(orderRepository, orderItemRepository);
+        verify(orderRepository, never()).save(any());
+        verifyNoInteractions(orderItemRepository);
     }
 
     @Test
@@ -298,10 +304,11 @@ class OrderServiceTest {
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
         when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1));
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         assertEquals(10, first.getStock());
         assertEquals(10, second.getStock());
         verify(productRepository, never()).save(any());
-        verifyNoInteractions(orderRepository, orderItemRepository);
+        verify(orderRepository, never()).save(any());
+        verifyNoInteractions(orderItemRepository);
     }
 }

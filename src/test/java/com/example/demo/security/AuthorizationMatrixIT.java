@@ -147,7 +147,7 @@ class AuthorizationMatrixIT {
     void selfEndpointsOnlyExposeAndCancelTheCurrentCustomersOrders(Actor actor, String endpoint) throws Exception {
         long id = endpoint.endsWith("other") ? (actor == Actor.USER_B ? 101 : 102) : actor.ownOrderId;
         MockHttpServletRequestBuilder request = switch (endpoint) {
-            case "create" -> post(ME).contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"productId\":1,\"quantity\":1}]}");
+            case "create" -> post(ME).header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"productId\":1,\"quantity\":1}]}");
             case "list" -> get(ME);
             case "detail-own", "detail-other" -> get(ME + "/" + id);
             default -> post(ME + "/" + id + "/cancel");
@@ -326,7 +326,7 @@ class AuthorizationMatrixIT {
 
     @Test
     void requestBodyAndQueryCannotChooseCustomerOrGrantAdminRole() throws Exception {
-        mvc.perform(as(Actor.USER_A, post(ME).queryParam("role", "ROLE_ADMIN").queryParam("username", "bob")
+        mvc.perform(as(Actor.USER_A, post(ME).header("Idempotency-Key", com.example.demo.TestOrders.key()).queryParam("role", "ROLE_ADMIN").queryParam("username", "bob")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":2,\"username\":\"bob\",\"role\":\"ROLE_ADMIN\",\"items\":[{\"productId\":1,\"quantity\":1}]}")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.customer.id").value(1));

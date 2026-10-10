@@ -217,7 +217,7 @@ class MoneyApiIT {
     }
 
     private ResultActions createOrder(OrderItemRequest... items) throws Exception {
-        return mvc.perform(post(ME).header("Authorization", "Bearer " + jwt.generateToken("alice"))
+        return mvc.perform(post(ME).header("Idempotency-Key", com.example.demo.TestOrders.key()).header("Authorization", "Bearer " + jwt.generateToken("alice"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(com.example.demo.TestOrders.request(items))));
     }

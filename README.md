@@ -95,7 +95,7 @@ spring.flyway.baseline-on-migrate=false
 spring.flyway.clean-disabled=true
 ```
 
-新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成し、V2が金額3列をBIGINTへ拡張し、V3が完了日時と期間検索索引を追加します。
+新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成し、V2が金額3列をBIGINTへ拡張し、V3が完了日時と期間検索索引、V4が注文冪等性の列とUNIQUEを追加します。
 既存DBはbackup・schema確認・data preflight・確認済み履歴の補完・schema照合を行い、
 手動baseline後にvalidateします。未確認DBの自動baselineは行いません。
 customer/日時/商品名snapshotを現在の値から推測で埋めないでください。
@@ -465,10 +465,16 @@ ADMINも自分用APIを利用できますが、その入口では自分の注文
 
 ```http
 POST /api/v1/me/orders
+Idempotency-Key: 01J9VQW2M7MX7KQ7S2H4F7ABCD
 ```
 
 注文時に必須・非空の `items` 配列（商品IDと正の数量）を受け取り、認証済みUserを注文者として保存します。
 同一商品IDの重複は400です。旧単一商品形式は `items` に変更してください。
+Issue #29から注文作成だけ `Idempotency-Key` headerが必須です。ASCII `[A-Za-z0-9._:-]{1,128}`、
+大小文字を区別し、前後空白も400で拒否します。同customer/key/明細の再送は同じOrder ID・現在状態と
+最初の価格snapshotを200で返し、在庫を再減算しません。明細順は無視しますが、別内容なら409です。
+別customerは同じkeyを使えます。新注文には新key、通信retryには元のkeyを送ってください。
+GET/cancel/ADMINコマンドのheader契約は変わりません。[冪等性仕様・移行・並行制御](docs/orders/idempotency.md)を参照してください。
 
 - 在庫確認
 - 在庫減算
@@ -477,7 +483,8 @@ POST /api/v1/me/orders
 
 を行います。
 
-全商品を商品ID昇順でロックし、1商品でも失敗したら在庫・注文・全明細をrollbackします。
+customer行をロックしてreplay/conflictを先に判定し、新規の場合だけ全商品を商品ID昇順でロックします。
+1商品でも失敗したら在庫・注文・全明細をrollbackします。
 作成・一覧・詳細・状態変更はOrderResponseを返します。`orderItems`/ネストしたProductの代わりに
 `items` と商品名・単価のスナップショットを返し、customerはid/usernameのみです。
 移行手順・API互換性の詳細は [Order集約](docs/orders/order-aggregate.md) を参照してください。

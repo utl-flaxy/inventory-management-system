@@ -15,7 +15,8 @@ import java.util.Collections;
 import java.util.List;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", uniqueConstraints = @UniqueConstraint(
+        name = "uk_orders_customer_idempotency_key", columnNames = {"customer_id", "idempotency_key"}))
 @Check(name = "ck_orders_total_nonnegative", constraints = "total_price >= 0")
 @Check(name = "ck_orders_status_allowed", constraints = "status IN ('PENDING', 'SHIPPED', 'COMPLETED', 'CANCELLED')")
 @Getter
@@ -49,6 +50,13 @@ public class Order {
     @Column
     private Instant completedAt;
 
+    @Column(length = 128, updatable = false)
+    private String idempotencyKey;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(length = 64, updatable = false)
+    private String requestFingerprint;
+
     @Version
     @Column(nullable = false, columnDefinition = "BIGINT DEFAULT 0")
     // primitiveならSpring Dataの新規判定はidを使い、初回saveをpersistとして扱う
@@ -74,6 +82,14 @@ public class Order {
         return order;
     }
 
+    public static Order create(User customer, List<OrderItem> items, String key, String fingerprint) {
+        OrderIdempotency.validate(key, fingerprint);
+        Order order = create(customer, items);
+        order.idempotencyKey = key;
+        order.requestFingerprint = fingerprint;
+        return order;
+    }
+
     // 作成時だけ明細を追加し、関連と合計を同時に確定する。永続化後の明細編集は公開しない。
     private void addItem(OrderItem item) {
         if (item == null || item.getOrder() != null) {
@@ -91,6 +107,7 @@ public class Order {
 
     @PrePersist
     private void validateAggregate() {
+        validateIdempotencyMetadata();
         validateCompletionTimestamp();
         if (customer == null || orderedAt == null || updatedAt == null || orderItems.isEmpty()) {
             throw new IllegalArgumentException("注文者・日時・注文明細は必須です");
@@ -109,8 +126,16 @@ public class Order {
 
     @PreUpdate
     private void updateTimestamp() {
+        validateIdempotencyMetadata();
         validateCompletionTimestamp();
         updatedAt = Instant.now();
+    }
+
+    private void validateIdempotencyMetadata() {
+        // legacyは両方NULLのまま状態変更できる。片側だけの値は許可しない。
+        if (idempotencyKey != null || requestFingerprint != null) {
+            OrderIdempotency.validate(idempotencyKey, requestFingerprint);
+        }
     }
 
     private void validateCompletionTimestamp() {

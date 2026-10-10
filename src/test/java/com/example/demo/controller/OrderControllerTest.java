@@ -46,9 +46,9 @@ class OrderControllerTest {
     @ValueSource(ints = {1, 3})
     void 注文登録成功(int quantity) throws Exception {
         Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100L, 10), quantity));
-        when(orderService.createOrder(any())).thenReturn(order);
+        when(orderService.createOrder(any(), anyString())).thenReturn(order);
 
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request(1L, quantity))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.totalPrice").value(100 * quantity))
@@ -62,14 +62,22 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.items[0].unitPrice").value(100))
                 .andExpect(jsonPath("$.items[0].lineTotal").value(100 * quantity))
                 .andExpect(jsonPath("$.items[0].product").doesNotExist());
-        verify(orderService).createOrder(any(OrderRequest.class));
+        verify(orderService).createOrder(any(OrderRequest.class), anyString());
     }
 
     private void invalid(OrderRequest request, String field, String message) throws Exception {
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$['items[0]." + field + "']").value(message));
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    void missingIdempotencyHeaderIs400BeforeService() throws Exception {
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"productId\":1,\"quantity\":1}]}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_IDEMPOTENCY_KEY"));
         verifyNoInteractions(orderService);
     }
 
@@ -97,8 +105,8 @@ class OrderControllerTest {
 
     @Test
     void 金額上限超過の業務エラーは400() throws Exception {
-        when(orderService.createOrder(any())).thenThrow(new InvalidOrderRequestException("注文金額が上限を超えています"));
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+        when(orderService.createOrder(any(), anyString())).thenThrow(new InvalidOrderRequestException("注文金額が上限を超えています"));
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2147483647}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_ORDER_REQUEST"));
     }
@@ -109,7 +117,7 @@ class OrderControllerTest {
             "{\"items\":[{\"productId\":9223372036854775808,\"quantity\":1}]}"
     })
     void 型の上限超過は400でServiceを呼ばない(String json) throws Exception {
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON).content(json))
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
         verifyNoInteractions(orderService);
     }
@@ -118,14 +126,14 @@ class OrderControllerTest {
     @ValueSource(strings = {"{}", "{\"items\":null}", "{\"items\":[]}", "{\"items\":[null]}",
             "{\"productId\":1,\"quantity\":1}"})
     void missingEmptyOrNullItemsAndLegacyInputReturn400(String json) throws Exception {
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON).content(json))
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(orderService);
     }
 
     @Test
     void laterInvalidLineIsValidatedBeforeCallingService() throws Exception {
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2},{\"productId\":2,\"quantity\":0}]}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$['items[1].quantity']").exists());
