@@ -1,6 +1,6 @@
 package com.example.demo.security;
 
-import jakarta.servlet.http.HttpServletResponse;
+import com.example.demo.exception.ApiProblemFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,6 +8,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +22,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final SecurityProblemWriter problemWriter;
+
+    @Bean
+    public WebSecurityCustomizer problemRequestRejectedHandler() {
+        return web -> web.requestRejectedHandler((request, response, ex) ->
+                problemWriter.write(request, response, HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
+                        ApiProblemFactory.INVALID_REQUEST_DETAIL));
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
@@ -31,9 +41,11 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) ->
-                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                                problemWriter.write(request, response, HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED",
+                                        ApiProblemFactory.UNAUTHENTICATED_DETAIL))
                         .accessDeniedHandler((request, response, accessDeniedException) ->
-                                response.sendError(HttpServletResponse.SC_FORBIDDEN)))
+                                problemWriter.write(request, response, HttpStatus.FORBIDDEN, "ACCESS_DENIED",
+                                        ApiProblemFactory.ACCESS_DENIED_DETAIL)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/auth/**",

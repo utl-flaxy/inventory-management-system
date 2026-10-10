@@ -41,7 +41,9 @@ SHIP/COMPLETE/CANCEL後も注文を再生成せず、その現在状態を返す
 DTOに必要なcustomer/itemsはTransaction内で初期化し、OSIVに依存しない。
 
 fingerprint不一致は409 `IDEMPOTENCY_KEY_CONFLICT`。商品へのアクセスや更新は行わない。
-エラーは既存Map形式を維持する。key/fingerprintはOrderResponse・OpenAPI schemaへ出さず、
+Issue #33でエラーはapplication/problem+jsonのSpring ProblemDetailへ移行し、status/codeを維持する。
+Validationは400 VALIDATION_ERRORのerrorsへnested pathを保持する。[APIエラー契約](../api-errors.md)を参照。
+key/fingerprintはOrderResponse・OpenAPI schemaへ出さず、
 keyをapplication logへ追加出力しない。OpenAPIにはrequired headerとscope/retry/conflict/exampleを記載する。
 
 ## Transactionとロック順序
@@ -98,4 +100,4 @@ Java 17で `./mvnw clean test` はDocker不要。key/domain/fingerprint・Servic
 - 同customer別key・別customer同keyの同時注文、失敗後同key retry、対象UNIQUE違反時のrollback。
 - V3→V4の既存全4状態・値・V1/V2/V3履歴/checksum保持、実列/index比較、重複拒否、JPA validateと2回再起動pending0。
 
-外部決済、Outbox、注文Event Sourcing、TTL/cleanup、ProblemDetail全面移行は対象外。
+外部決済、Outbox、注文Event Sourcing、TTL/cleanupは対象外。ProblemDetail移行はIssue #33で実装済み。

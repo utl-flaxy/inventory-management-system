@@ -69,7 +69,7 @@ class OrderControllerTest {
         mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$['items[0]." + field + "']").value(message));
+                .andExpect(jsonPath("$.errors['items[0]." + field + "']").value(message));
         verifyNoInteractions(orderService);
     }
 
@@ -136,7 +136,7 @@ class OrderControllerTest {
         mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2},{\"productId\":2,\"quantity\":0}]}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$['items[1].quantity']").exists());
+                .andExpect(jsonPath("$.errors['items[1].quantity']").exists());
         verifyNoInteractions(orderService);
     }
 

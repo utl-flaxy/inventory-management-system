@@ -69,7 +69,7 @@ class InventoryConflictControllerTest {
     void missingOrInvalidUpdateVersionReturns400WithoutCallingService(String version) throws Exception {
         mvc.perform(put("/products/1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"apple\",\"price\":100,\"stock\":20" + version + "}"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.version").exists());
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.version").exists());
         verifyNoInteractions(productService);
     }
 }
