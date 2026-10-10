@@ -1,4 +1,4 @@
-# 在庫調整と変更履歴（Issue #39）
+# 在庫調整と変更履歴（Issue #39 / #43）
 
 ## 在庫を変更できる経路
 
@@ -17,7 +17,10 @@ Productのpublic stock setterは廃止し、decreaseStock / increaseStock / adju
 
 ## ADMIN手動調整
 
+~~~http
 POST /api/v1/admin/products/{id}/inventory-adjustments
+Idempotency-Key: receipt-20261010-001
+~~~
 
 ~~~json
 {
@@ -34,7 +37,7 @@ noteは任意、最大500文字。空文字・blankのみはNULLへ正規化し�
 noteはログに出力しない。
 
 ADMINは200でInventoryMovementResponseを受け取る。USERは商品存在に関係なく403、
-未認証は401。SecurityFilterChainのADMIN境界でbody解析・lookupより先に拒否する。
+未認証は401。SecurityFilterChainのADMIN境界でheader/body解析・lookupより先に拒否する。
 ADMINで商品未存在は404 PRODUCT_NOT_FOUND。
 形式は正しくても結果が負在庫またはint32上限超なら409 INVENTORY_ADJUSTMENT_CONFLICT。
 0/null差分・reason欠落・note超長は400 VALIDATION_ERROR。
@@ -57,7 +60,30 @@ Serviceの直接呼出も入力とADMIN権限を防御する。
 ~~~
 
 Entityは返さない。actorは既存のuser summary DTOを再利用し、password/hashを返さない。
+冪等性key・fingerprintもresponseやOpenAPIの成功schemaへ含めない。
 Clock beanのInstantをmicrosecondへ切り捨ててDATETIME(6)へ保存する。
+
+### Idempotency-Keyと再送
+
+Issue #43から手動調整POSTはkey必須。注文作成と同じASCII `[A-Za-z0-9._:-]{1,128}` を使い、
+大小文字を区別する。trim/lowercaseは行わず、空白・制御文字・非ASCII・129文字以上は拒否する。
+共通IdempotencyKey validatorで400 INVALID_IDEMPOTENCY_KEYを返す。
+注文と同じく、Security firewallが先に拒否する改行等のcontrolは400 INVALID_REQUESTとなる。
+
+scopeはactor_user_id + key。商品IDはscopeへ含めず、fingerprintへ含める。
+同じADMIN・key・内容を再送すると、最初のInventoryMovement ID・before/after・createdAtを200で返す。
+現在stockが別の操作で変わっていても再計算せず、在庫・version・履歴件数を増やさない。
+同じADMIN・keyを別商品または別内容に使うと409 IDEMPOTENCY_KEY_CONFLICT。
+別ADMINは同じkeyを別操作に使える。新しい操作には新key、通信retryには元のkeyを送る。
+
+fingerprintはproductId / signed delta / reason.name() / 正規化noteを型付きのcanonical文字列にし、
+UTF-8のSHA-256をlowercase hex 64文字で保存する。JSON property順には依存しない。
+noteはnullまたはString.isBlank()ならnull、それ以外は前後空白もそのまま。
+null markerとUTF-8 byte長付きnoteを区別し、改行や区切り文字があっても曖昧にならない。
+
+Validation・認可・商品未存在・underflow/overflow・INSERT/flush失敗では成功履歴が残らず、keyを消費しない。
+入力を修正して同じkeyで再試行できる。成功したkeyは履歴が残る限り有効で、TTL/cleanupは設けない。
+既存の注文冪等性scope・fingerprint・API契約は維持する。履歴GETにはkey不要。
 
 ## ADMIN履歴取得
 
@@ -72,7 +98,7 @@ product_idで絞り、actorをEntityGraphで取得してTransaction内でDTOへ�
 ## Immutable履歴・reason/source/actor
 
 InventoryMovementはsetterなし・Hibernate @Immutable・updatable=false。
-Repositoryは新規saveと商品別Page queryだけを公開する。履歴のupdate/delete APIはない。
+Repositoryは新規save・商品別Page・参照exists・actor/key replay queryを公開する。履歴のupdate/delete APIはない。
 
 | reason | sourceType | sourceId | delta | actor / note |
 |---|---|---|---|---|
@@ -86,11 +112,15 @@ Immutableはアプリの契約。DB管理者によるraw SQLのUPDATE/DELETEを�
 
 ## Transactionと並行制御
 
-手動調整はREAD_COMMITTEDの1Transactionで、CurrentUser → Product PESSIMISTIC_WRITE →
-refresh → 現在stockの検証/変更 → Product保存 → Movement保存 → commit。
+手動調整はREAD_COMMITTEDの1Transactionで、ADMIN確認 → 入力/key検証・fingerprint生成 →
+User(actor) PESSIMISTIC_WRITE → actor/key照会 → Product PESSIMISTIC_WRITE →
+refresh → 現在stockの検証/変更 → Product保存 → Movement保存 → flush → commit。
+replay/conflictはactor/key照会で確定し、Product lookup/lockへ進まない。
 注文作成は既存のcustomer行ロック → 全ProductのID昇順ロックを維持する。
 Order ID取得後に各Productのmovementを追加し、Product / Order / OrderItem / Movementを同時commitする。
-cancelは既存OrderロックとProduct ID昇順ロックを維持し、全商品の復元可能性を先に検証する。
+cancelはOrder → User(actor) → Product ID昇順のロック後、全商品の復元可能性を先に検証する。
+Movement INSERTのactor FKが暗黙のUserロックを取るため、cancelもProductより先にactorをロックする。
+これにより手動調整のUser → Productとの循環待ちを防ぐ。Product削除はProduct行だけをロックし、Userを取得しない。
 InventoryServiceの注文記録はMANDATORYで既存Transactionに参加し、単独commitを許可しない。
 REQUIRES_NEWは使わない。履歴保存失敗時は在庫・注文・明細・status・履歴の全体をrollbackする。
 
@@ -99,10 +129,14 @@ REQUIRES_NEWは使わない。履歴保存失敗時は在庫・注文・明細�
 ship / completeは履歴を書かない。
 手動20同時調整、manual/order、manual/cancelも同じProductロックで直列化し、lost updateを防ぐ。
 stock変更時は既存@Versionが進む。古いversionのProduct PUTは409 CONCURRENT_UPDATE。
+同actor/keyの20同時再送はactor行ロックで直列化し、すべて同じmovementを返す。
+DB UNIQUEも最終防御に残す。save/flushのcauseにMariaDB error 1062かつ正確な
+uk_inventory_movements_actor_idempotency_keyがある場合だけ409へ限定変換する。
+失敗Transactionで再照会せずrollbackする。対象外のSQL障害は固定の500 SYSTEM_ERROR。
 
 ## V5 migration・legacy境界
 
-V5__create_inventory_movements.sqlだけを追加する。V1〜V4は変更しない。
+Issue #39でV5__create_inventory_movements.sqlを追加した。V1〜V4は変更しない。
 inventory_movementsはid / product_id / delta / stock_before / stock_after / reason /
 source_type / source_id / actor_user_id / note / created_atを持つ新table。
 NOT NULL、非0delta、非負stock、前後関係、allowed reason/sourceのCHECKを設ける。
@@ -115,8 +149,18 @@ MariaDB12.2.2のEXPLAINで履歴queryが複合索引を選び、filesortしな�
 
 **V5以前の在庫変更履歴は存在しない。** 現在stockのinitial snapshotや推測過去履歴をbackfillしない。
 V4の既存stock・注文・Flyway historyを維持し、V5適用後の変動から記録する。
-既存専用DB userの対象DB限定CREATE / ALTER / INDEX / REFERENCES等でV1〜V5が実行できる。
+既存専用DB userの対象DB限定CREATE / ALTER / INDEX / REFERENCES等でV1〜V6が実行できる。
 追加のglobal privilegeは不要。[DB運用と移行](db/README.md)を参照。
+
+## V6 migration・冪等性制約
+
+V6__add_inventory_adjustment_idempotency.sqlを追加し、V1〜V5のSQL/checksumは変更しない。
+inventory_movementsへnullable idempotency_key VARCHAR(128) / request_fingerprint CHAR(64)を追加する。
+両列はascii_bin。UNIQUE uk_inventory_movements_actor_idempotency_key(actor_user_id,idempotency_key)と、
+key/hashが両方NULLまたは両方非NULL、ORDER metadataは両方NULL、hashはlowercase hex 64文字のCHECKを設ける。
+既存MANUAL/ORDERは両列NULLのまま、stock・履歴内容をbackfillしない。
+新規MANUAL factoryは有効なkey/hashを必須にし、ORDER factoryは両列NULLを維持する。
+MariaDB12.2.2でV5→V6の旧データ保持・制約・Hibernate validate・2回再起動pending0を検証する。
 
 ## 削除制限と対象外
 
@@ -126,7 +170,6 @@ V4の既存stock・注文・Flyway historyを維持し、V5適用後の変動か
 409時にProduct・Order・OrderItem・InventoryMovementとstockを変更しない。履歴のcascade削除は行わない。
 soft delete・archive・Product復元は対象外。
 
-手動調整POSTの冪等性は未導入。通信retryで同じPOSTを再送すると再度調整されるため、
-クライアントは成功済み操作を不用意に再送しない。将来のIdempotency-Key対応は別Issue。
+TTL/cleanup・汎用冪等性framework・Redis/分散lock・履歴GETの冪等化は対象外。
 warehouse / lot / reservation / 返品 / outbox / Redis / RDS移行 / OAuth2再設計は対象外。
 production DB・EC2操作・Deploy有効化は行わない。

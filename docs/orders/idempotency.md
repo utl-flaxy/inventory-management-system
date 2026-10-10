@@ -1,6 +1,6 @@
 # 注文作成のIdempotency-Key（Issue #29）
 
-`POST /api/v1/me/orders` だけに `Idempotency-Key` headerを必須とする。
+注文APIでは `POST /api/v1/me/orders` だけに `Idempotency-Key` headerを必須とする。
 初回もreplayもHTTP 200。GET、cancel、ADMINのship/complete/status等には追加header不要。
 クライアントは業務注文を始めるときにkeyを生成し、通信retryでは同じkeyと明細を送る。
 新しい注文には新しいkeyを使う。失敗してOrderがcommitされなかったkeyは再利用できる。
@@ -60,13 +60,15 @@ keyをapplication logへ追加出力しない。OpenAPIにはrequired headerとs
 | 操作 | 排他ロック順序 |
 |---|---|
 | create | User(customer) → Product IDs昇順。既存Orderの排他lockなし |
-| cancel | Order → Product IDs昇順 |
+| cancel | Order → User(actor) → Product IDs昇順（Issue #43からactor FKの待ち順を統一） |
 | ship / complete | Order |
 | Product update | Product |
 
 同customerのcreateはkeyが違っても直列化される。異なるcustomerは商品lockで在庫を保護する。
-createから既存Orderの排他lockを取らず、cancel/ship/completeからUserの排他lockを取らないため、
-追加したUser lockと既存Order lockの循環待ちを作らない。FKのcustomer列はupdatable=falseを維持する。
+createから既存Orderの排他lockを取らないため、cancelのOrder → Userと循環待ちを作らない。
+Issue #43では手動調整のUser → Productに合わせ、cancelもProduct前にactorをロックする。
+Movement INSERTのactor FKがProduct後にUserを待つ逆転を防ぐ。[在庫仕様](../inventory.md)を参照。
+ship/completeはUserをロックしない。FKのcustomer列はupdatable=falseを維持する。
 商品は複数でも常に同じ順序。SERIALIZABLE、Redis、TTL、共通middlewareは導入しない。
 
 ## DB・V4移行・legacy互換

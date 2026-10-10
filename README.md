@@ -95,7 +95,7 @@ spring.flyway.baseline-on-migrate=false
 spring.flyway.clean-disabled=true
 ```
 
-新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が基本テーブルを作成し、V2が金額3列をBIGINTへ拡張し、V3が完了日時と期間検索索引、V4が注文冪等性の列とUNIQUE、V5が在庫変更履歴を追加します。
+新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が基本テーブルを作成し、V2が金額3列をBIGINTへ拡張し、V3が完了日時と期間検索索引、V4が注文冪等性の列とUNIQUE、V5が在庫変更履歴、V6が手動調整の冪等性列とUNIQUE/CHECKを追加します。
 既存DBはbackup・schema確認・data preflight・確認済み履歴の補完・schema照合を行い、
 手動baseline後にvalidateします。未確認DBの自動baselineは行いません。
 customer/日時/商品名snapshotを現在の値から推測で埋めないでください。
@@ -471,10 +471,23 @@ Issue #39から更新bodyはname・price・versionだけです。stockを含むJ
 商品名・価格の更新では在庫を変えません。Product POSTのinitial stockは従来通り指定できます。
 以降の在庫変更は注文作成・cancel・ADMIN手動調整だけで履歴を残します。
 
-ADMIN手動調整: POST /api/v1/admin/products/{id}/inventory-adjustments
-（deltaはsigned非0整数、reasonはRECEIPT/DAMAGE/STOCKTAKE/CORRECTION、noteは任意500文字まで）。
+ADMIN手動調整（Issue #43からIdempotency-Key必須）:
+
+```http
+POST /api/v1/admin/products/{id}/inventory-adjustments
+Idempotency-Key: receipt-20261010-001
+Content-Type: application/json
+
+{"delta":10,"reason":"RECEIPT","note":"仕入れ入荷"}
+```
+
+deltaはsigned非0整数、reasonはRECEIPT/DAMAGE/STOCKTAKE/CORRECTION、noteは任意500文字まで。
+keyはASCII `[A-Za-z0-9._:-]{1,128}`、大小文字を区別し空白は400。
+同ADMIN/key/内容の再送は最初の履歴を200で返し、在庫を再調整しません。
+scopeはADMIN + key。別商品・別内容での再利用は409、別ADMINは同じkeyを使えます。
+失敗時はkeyを消費せず、成功keyのTTLは設けません。
 ADMIN履歴: GET /api/v1/admin/products/{id}/inventory-movements?page=0&size=20。
-詳細・Transaction・V5以前の履歴境界・履歴あり商品の削除制限は[在庫仕様](docs/inventory.md)を参照してください。
+詳細・fingerprint/note正規化・Transaction・V5/V6の履歴境界・削除制限は[在庫仕様](docs/inventory.md)を参照してください。
 
 ---
 
@@ -508,11 +521,11 @@ Idempotency-Key: 01J9VQW2M7MX7KQ7S2H4F7ABCD
 
 注文時に必須・非空の `items` 配列（商品IDと正の数量）を受け取り、認証済みUserを注文者として保存します。
 同一商品IDの重複は400です。旧単一商品形式は `items` に変更してください。
-Issue #29から注文作成だけ `Idempotency-Key` headerが必須です。ASCII `[A-Za-z0-9._:-]{1,128}`、
+Issue #29から注文作成には `Idempotency-Key` headerが必須です。ASCII `[A-Za-z0-9._:-]{1,128}`、
 大小文字を区別し、前後空白も400で拒否します。同customer/key/明細の再送は同じOrder ID・現在状態と
 最初の価格snapshotを200で返し、在庫を再減算しません。明細順は無視しますが、別内容なら409です。
 別customerは同じkeyを使えます。新注文には新key、通信retryには元のkeyを送ってください。
-GET/cancel/ADMINコマンドのheader契約は変わりません。[冪等性仕様・移行・並行制御](docs/orders/idempotency.md)を参照してください。
+注文GET/cancel/ADMIN注文コマンドのheader契約は変わりません。[冪等性仕様・移行・並行制御](docs/orders/idempotency.md)を参照してください。
 
 - 在庫確認
 - 在庫減算
@@ -664,7 +677,7 @@ POST /auth/login
 |GET|/products/search|商品検索|
 |POST|/products|商品登録|
 |PUT|/products/{id}|商品名・価格更新（stockは400で拒否）|
-|POST|/api/v1/admin/products/{id}/inventory-adjustments|ADMIN: 手動在庫調整|
+|POST|/api/v1/admin/products/{id}/inventory-adjustments|ADMIN: 手動在庫調整（Idempotency-Key必須）|
 |GET|/api/v1/admin/products/{id}/inventory-movements|ADMIN: 在庫変更履歴Page|
 |DELETE|/products/{id}|商品削除|
 |POST|/api/v1/me/orders|USER/ADMIN: 自分の注文作成|
