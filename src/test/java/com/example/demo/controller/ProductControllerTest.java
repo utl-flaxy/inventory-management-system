@@ -5,6 +5,7 @@ import com.example.demo.dto.ProductResponse;
 import com.example.demo.dto.ProductUpdateRequest;
 import com.example.demo.exception.InvalidProductUpdateException;
 import com.example.demo.exception.ProductNotFoundException;
+import com.example.demo.exception.ProductDeleteConflictException;
 import com.example.demo.security.JwtAuthenticationFilter;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.service.ProductService;
@@ -256,6 +257,14 @@ class ProductControllerTest {
             case "PUT" -> when(productService.update(eq(999L), any(ProductUpdateRequest.class))).thenThrow(failure);
             default -> doThrow(failure).when(productService).delete(999L);
         }
+    }
+
+    @Test
+    void productDeleteConflictHasCompleteSafe409Contract() throws Exception {
+        stubFailure("DELETE", new ProductDeleteConflictException());
+        mockMvc.perform(delete("/products/999"))
+                .andExpect(problem(409, "PRODUCT_DELETE_CONFLICT", "Product Delete Conflict", "/products/999"))
+                .andExpect(jsonPath("$.detail").value("注文履歴または在庫履歴から参照されているため商品を削除できません"));
     }
 
     private MockHttpServletRequestBuilder resourceRequest(String method) {

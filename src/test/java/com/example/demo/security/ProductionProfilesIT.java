@@ -96,7 +96,7 @@ class ProductionProfilesIT {
             assertEquals("UNAUTHENTICATED", json.readTree(unauthenticated.body()).path("code").asText());
             assertNoSecrets(unauthenticated.body());
 
-            // Flyway V1〜V4と実APIのDMLを同じ専用userで実行できること。
+            // Flyway V1〜V5と実APIのDMLを同じ専用userで実行できること。
             var jdbc = context.getBean(JdbcTemplate.class);
             assertTrue(jdbc.queryForObject("SELECT CURRENT_USER()", String.class).startsWith("inventory_app@"));
             var grants = jdbc.queryForList("SHOW GRANTS FOR CURRENT_USER", String.class);
@@ -113,8 +113,26 @@ class ProductionProfilesIT {
             assertEquals(200, login.statusCode());
             String token = json.readTree(login.body()).path("token").asText();
             assertFalse(token.isBlank());
-            assertEquals(200, post("/products", Map.of("name", "profile-product", "price", 100, "stock", 10), token).statusCode());
+            var product = post("/products", Map.of("name", "profile-product", "price", 100, "stock", 10), token);
+            assertEquals(200, product.statusCode());
+            long id = json.readTree(product.body()).path("id").longValue();
             assertEquals(200, get("/products", token).statusCode());
+            assertEquals(200, delete("/products/" + id, token).statusCode());
+            assertEquals(404, delete("/products/" + id, token).statusCode());
+            var referenced = post("/products", Map.of("name", "audited-product", "price", 100, "stock", 10), token);
+            assertEquals(200, referenced.statusCode());
+            long referencedId = json.readTree(referenced.body()).path("id").longValue();
+            assertEquals(200, post("/api/v1/admin/products/" + referencedId + "/inventory-adjustments",
+                    Map.of("delta", 1, "reason", "RECEIPT"), token).statusCode());
+            var conflict = delete("/products/" + referencedId, token);
+            assertEquals(409, conflict.statusCode());
+            assertEquals("PRODUCT_DELETE_CONFLICT", json.readTree(conflict.body()).path("code").asText());
+            assertEquals("注文履歴または在庫履歴から参照されているため商品を削除できません",
+                    json.readTree(conflict.body()).path("detail").asText());
+            assertEquals(11, jdbc.queryForObject("SELECT stock FROM products WHERE id=?", Integer.class, referencedId));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM inventory_movements WHERE product_id=?",
+                    Integer.class, referencedId));
+            assertNoSecrets(conflict.body());
             if (!local) {
                 assertEquals(404, get("/v3/api-docs", token).statusCode());
                 assertEquals(404, get("/actuator/env", token).statusCode());
@@ -143,6 +161,12 @@ class ProductionProfilesIT {
         var request = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5))
                 .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
         if (token != null) request.header("Authorization", "Bearer " + token);
+        return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> delete(String path, String token) throws Exception {
+        var request = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + token).DELETE();
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 

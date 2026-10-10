@@ -375,11 +375,12 @@ class InventoryApiIT {
         assertChain(10, 8, 3);
     }
 
-    @Test void auditForeignKeyRestrictsProductDeletionWithExistingSafe500Contract() throws Exception {
+    @Test void auditForeignKeyRestrictsProductDeletionWithSafe409Contract() throws Exception {
         adjustment(1, adjustmentBody(1, "RECEIPT", null)).andExpect(status().isOk());
         var before = snapshot();
-        mvc.perform(delete("/products/1").header("Authorization", token("admin"))).andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"));
+        mvc.perform(delete("/products/1").header("Authorization", token("admin")))
+                .andExpect(com.example.demo.TestApiProblems.problem(409, "PRODUCT_DELETE_CONFLICT", "Product Delete Conflict", "/products/1"))
+                .andExpect(jsonPath("$.detail").value("注文履歴または在庫履歴から参照されているため商品を削除できません"));
         assertEquals(before, snapshot());
     }
     @Test void persistedHistoryCannotBeUpdatedThroughHibernateDirtyChecking() throws Exception {

@@ -10,6 +10,8 @@ import org.springframework.data.repository.Repository;
 public interface InventoryMovementRepository extends Repository<InventoryMovement, Long> {
     InventoryMovement save(InventoryMovement movement);
 
+    boolean existsByProductId(Long productId);
+
     @EntityGraph(attributePaths = "actor")
     Page<InventoryMovement> findByProductId(Long productId, Pageable pageable);
 }

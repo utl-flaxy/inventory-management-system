@@ -59,6 +59,7 @@ class ProblemDetailContractTest {
             Arguments.of(new OrderInventoryRestorationException("在庫の復元に失敗しました"), 409, "ORDER_INVENTORY_RESTORATION_FAILED", "Order Inventory Restoration Failed"),
             Arguments.of(new OrderNotFoundException(), 404, "ORDER_NOT_FOUND", "Order Not Found"),
             Arguments.of(new ProductNotFoundException(), 404, "PRODUCT_NOT_FOUND", "Product Not Found"),
+            Arguments.of(new ProductDeleteConflictException(), 409, "PRODUCT_DELETE_CONFLICT", "Product Delete Conflict"),
             Arguments.of(new InvalidOrderRequestException("注文金額が上限を超えています"), 400, "INVALID_ORDER_REQUEST", "Invalid Order Request"),
             Arguments.of(new OutOfStockException("在庫が不足しています"), 400, "OUT_OF_STOCK", "Out of Stock"),
             Arguments.of(new RequestRejectedException("sensitive firewall message"), 400, "INVALID_REQUEST", "Invalid Request"));
