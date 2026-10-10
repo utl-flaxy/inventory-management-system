@@ -4,9 +4,13 @@ import com.example.demo.dto.LoginRequest;
 import com.example.demo.dto.LoginResponse;
 import com.example.demo.dto.RegisterRequest;
 import com.example.demo.entity.User;
+import com.example.demo.exception.InvalidCredentialsException;
+import com.example.demo.exception.UsernameAlreadyExistsException;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,10 +25,8 @@ public class AuthService {
     // ユーザー登録
     public User register(RegisterRequest request) {
 
-        System.out.println("register開始");
-
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new RuntimeException("ユーザー名は既に使用されています");
+            throw new UsernameAlreadyExistsException();
         }
 
         User user = User.builder()
@@ -33,41 +35,37 @@ public class AuthService {
                 .role("ROLE_USER")
                 .build();
 
-        System.out.println("register完了");
-
-        return userRepository.save(user);
+        // 単一の書き込みはRepositoryのTransactionでcommit/rollbackする。
+        // 同時登録の最終防御はDB UNIQUE。flush失敗後に再照会せず、対象制約だけ409に変換する。
+        try {
+            return userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+                if (cause instanceof ConstraintViolationException violation
+                        && "uk_users_username".equals(violation.getConstraintName())
+                        && violation.getSQLException().getErrorCode() == 1062) {
+                    throw new UsernameAlreadyExistsException(ex);
+                }
+            }
+            throw ex;
+        }
     }
 
     // ログイン
     public LoginResponse login(LoginRequest request) {
 
-        System.out.println("① login開始");
-
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("ユーザーが存在しません"));
-
-        System.out.println("② user取得");
+                .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(
                 request.getPassword(),
                 user.getPassword())) {
 
-            System.out.println("パスワードNG");
-
-            throw new RuntimeException("パスワードが違います");
+            throw new InvalidCredentialsException();
         }
-
-        System.out.println("③ パスワードOK");
 
         // JWT生成
         String token = jwtUtil.generateToken(user.getUsername());
-
-        System.out.println("④ token生成");
-
-        LoginResponse response = new LoginResponse(token);
-
-        System.out.println("⑤ response生成");
-
-        return response;
+        return new LoginResponse(token);
     }
 }

@@ -3,6 +3,7 @@ package com.example.demo.exception;
 import jakarta.persistence.LockTimeoutException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PessimisticLockException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -11,6 +12,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
@@ -19,6 +21,24 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(UsernameAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleDuplicateUsername(UsernameAlreadyExistsException ex) {
+        return Map.of("code", "USERNAME_ALREADY_EXISTS", "message", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, String> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return Map.of("code", "INVALID_CREDENTIALS", "message", ex.getMessage());
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public Map<String, String> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
+        return Map.of("code", "UNSUPPORTED_MEDIA_TYPE", "message", "Content-Typeがサポートされていません");
+    }
 
     // header解決時のSecurity firewallによる改行/control拒否も500にしない。
     @ExceptionHandler(RequestRejectedException.class)
@@ -141,11 +161,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Map<String, String> handleException(
-            Exception ex) {
+            Exception ex, HttpServletRequest request) {
 
         Map<String, String> error = new HashMap<>();
         error.put("code", "SYSTEM_ERROR");
-        error.put("message", ex.getMessage());
+        // Authだけは予期しない内部例外も伏せる。他APIの既存エラー契約は変更しない。
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        error.put("message", path.equals("/auth/register") || path.equals("/auth/login")
+                ? "認証処理中にエラーが発生しました" : ex.getMessage());
 
         return error;
     }

@@ -567,6 +567,11 @@ Spring Security + JWT によりステートレス認証を実装しています�
 
 ## ユーザー登録
 
+登録・loginともusernameは `[A-Za-z0-9._-]{3,50}`、passwordは8〜72文字かつUTF-8で72 bytes以下です。
+null/blank・形式不正は400、trimしません。usernameの照合は現行DBどおり大小文字を区別しません。
+登録はROLE_USER固定で200を返し、重複usernameは409 `USERNAME_ALREADY_EXISTS`。
+password/hashは返さず、保存はBCryptです。詳細は[Auth契約](docs/auth.md)を参照してください。
+
 ```http
 POST /auth/register
 ```
@@ -583,6 +588,9 @@ POST /auth/register
 ---
 
 ## ログイン
+
+形式不正は400、形式が有効でもuser不存在・password不一致なら同一本文の401 `INVALID_CREDENTIALS`です。
+成功は従来の200/tokenだけを返します。JWTの署名・issuer・期限と、DB roleによる認可を維持します。
 
 ```http
 POST /auth/login
