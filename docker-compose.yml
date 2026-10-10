@@ -16,6 +16,7 @@ services:
       - mariadb_data:/var/lib/mysql
 
   app:
+    image: inventory-management-system-app:${APP_IMAGE_TAG:-local}
     build: .
 
     container_name: inventory-app
