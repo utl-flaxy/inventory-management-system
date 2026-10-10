@@ -1,0 +1,6 @@
+# The runtime image only needs the already-built jar.
+*
+!Dockerfile
+!target/
+target/*
+!target/demo-0.0.1-SNAPSHOT.jar

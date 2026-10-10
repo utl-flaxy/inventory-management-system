@@ -2,58 +2,54 @@ name: Deploy to EC2
 
 on:
   workflow_run:
-    workflows:
-      - Spring Boot CI
-    types:
-      - completed
+    workflows: [Spring Boot CI]
+    types: [completed]
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
-
+    timeout-minutes: 40
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
     env:
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
-
     steps:
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          timeout: 30m
-          command_timeout: 30m
-          envs: JWT_SECRET
-
-          script: |
-            set -e
-
-            if [ -z "${JWT_SECRET:-}" ]; then
-              echo "JWT_SECRET is not configured. Aborting before stopping the running containers."
+      - name: Validate deployment inputs before SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in EC2_HOST EC2_USER EC2_SSH_KEY JWT_SECRET; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::$name is required"
               exit 1
             fi
-
-            cd ~/inventory-management-system
-
-            git fetch origin
-            git reset --hard origin/main
-
-            chmod +x mvnw
-
-            export JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto
-            export PATH=$JAVA_HOME/bin:$PATH
-
-            ./mvnw clean package -DskipTests
-
-            # Validate required Compose variables before touching the running service.
-            docker compose config >/dev/null
-
-            docker compose down
-
-            docker build -t inventory-management-system-app .
-
-            docker compose up -d
-
-            docker ps
+          done
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid DEPLOY_SHA"; exit 1; }
+          [[ $(printf '%s' "$JWT_SECRET" | wc -c) -ge 32 ]] || { echo "::error::JWT_SECRET must be at least 32 bytes"; exit 1; }
+      - name: Read deployment script from the verified commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Deploy the verified commit
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USER }}
+          key: ${{ env.EC2_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 30m
+          envs: DEPLOY_SHA,JWT_SECRET
+          script_path: scripts/deploy.sh
