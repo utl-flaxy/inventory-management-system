@@ -31,7 +31,9 @@ public class Order {
     @Setter(AccessLevel.NONE)
     private OrderStatus status = OrderStatus.PENDING;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    // refresh時に明細・商品まで暗黙ロックせず、Serviceで商品ID順にロックする
+    @OneToMany(mappedBy = "order", cascade = {CascadeType.PERSIST, CascadeType.MERGE,
+            CascadeType.REMOVE, CascadeType.DETACH})
     @JsonManagedReference
     private List<OrderItem> orderItems = new ArrayList<>();
 

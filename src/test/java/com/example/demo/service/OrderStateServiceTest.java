@@ -11,6 +11,8 @@ import com.example.demo.exception.OrderNotFoundException;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,13 +38,15 @@ class OrderStateServiceTest {
     private OrderRepository orderRepository;
     @Mock
     private OrderItemRepository orderItemRepository;
+    @Mock
+    private EntityManager entityManager;
     @InjectMocks
     private OrderService orderService;
 
     private Order order(OrderStatus status, Product product, int quantity) {
         Order order = new Order(1L, 500, status, List.of());
         order.setOrderItems(List.of(new OrderItem(null, quantity, 100, order, product)));
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(order));
         return order;
     }
 
@@ -169,11 +173,33 @@ class OrderStateServiceTest {
     @ParameterizedTest
     @EnumSource(OrderStatus.class)
     void missingOrderIsNotFound(OrderStatus target) {
-        when(orderRepository.findById(1L)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
 
         assertThrows(OrderNotFoundException.class, () -> command(target));
 
         verifyNoInteractions(productRepository, orderItemRepository);
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void cancellationLocksOrderThenUniqueProductsInAscendingIdOrder() {
+        Product first = new Product(1L, "apple", 100, 5);
+        Product second = new Product(2L, "orange", 100, 7);
+        Order order = order(OrderStatus.PENDING, first, 2);
+        order.setOrderItems(List.of(new OrderItem(null, 3, 100, order, second),
+                new OrderItem(null, 2, 100, order, first), new OrderItem(null, 1, 100, order, second)));
+
+        orderService.cancelOrder(1L);
+
+        var locks = inOrder(orderRepository, entityManager, productRepository);
+        locks.verify(orderRepository).findByIdForUpdate(1L);
+        locks.verify(entityManager).refresh(order, LockModeType.PESSIMISTIC_WRITE);
+        locks.verify(entityManager).refresh(first, LockModeType.PESSIMISTIC_WRITE);
+        locks.verify(entityManager).refresh(second, LockModeType.PESSIMISTIC_WRITE);
+        locks.verify(productRepository).save(first);
+        locks.verify(productRepository).save(second);
+        verify(entityManager, times(1)).refresh(second, LockModeType.PESSIMISTIC_WRITE);
+        assertEquals(7, first.getStock());
+        assertEquals(11, second.getStock());
     }
 }

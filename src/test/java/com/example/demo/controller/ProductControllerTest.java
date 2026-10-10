@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
+import com.example.demo.dto.ProductUpdateRequest;
 import com.example.demo.security.JwtAuthenticationFilter;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.service.ProductService;
@@ -116,6 +117,7 @@ class ProductControllerTest {
                         .name("りんご")
                         .price(300)
                         .stock(10)
+                        .version(0L)
                         .build();
 
         when(productService.findById(1L))
@@ -126,7 +128,8 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("りんご"))
                 .andExpect(jsonPath("$.price").value(300))
-                .andExpect(jsonPath("$.stock").value(10));
+                .andExpect(jsonPath("$.stock").value(10))
+                .andExpect(jsonPath("$.version").value(0));
     }
 
     @Test
@@ -161,7 +164,8 @@ class ProductControllerTest {
     @Test
     void 商品更新成功() throws Exception {
 
-        ProductRequest request = new ProductRequest();
+        ProductUpdateRequest request = new ProductUpdateRequest();
+        request.setVersion(0L);
         request.setName("みかん");
         request.setPrice(150);
         request.setStock(20);
@@ -172,9 +176,10 @@ class ProductControllerTest {
                         .name("みかん")
                         .price(150)
                         .stock(20)
+                        .version(1L)
                         .build();
 
-        when(productService.update(eq(1L), any(ProductRequest.class)))
+        when(productService.update(eq(1L), any(ProductUpdateRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(put("/products/1")
@@ -183,7 +188,8 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("みかん"))
                 .andExpect(jsonPath("$.price").value(150))
-                .andExpect(jsonPath("$.stock").value(20));
+                .andExpect(jsonPath("$.stock").value(20))
+                .andExpect(jsonPath("$.version").value(1));
     }
 
     @Test
