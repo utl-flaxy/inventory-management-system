@@ -237,14 +237,14 @@ class ProductNotFoundIT {
     }
 
     @Test
-    void actualForeignKeyDeleteFailureIsSafe500AndNeverNotFound() throws Exception {
+    void referencedProductDeletionIsSafe409AndNeverNotFound() throws Exception {
         mvc.perform(as(userToken, post(ORDERS).header("Idempotency-Key", "linked-product")
                         .contentType(MediaType.APPLICATION_JSON).content(order(productId))))
                 .andExpect(status().isOk());
         var before = snapshot();
         String response = mvc.perform(as(adminToken, resource("DELETE", Long.toString(productId), null)))
-                .andExpect(problem(500, "SYSTEM_ERROR", "System Error", "/products/" + productId))
-                .andExpect(jsonPath("$.detail").value("予期しないエラーが発生しました"))
+                .andExpect(problem(409, "PRODUCT_DELETE_CONFLICT", "Product Delete Conflict", "/products/" + productId))
+                .andExpect(jsonPath("$.detail").value("注文履歴または在庫履歴から参照されているため商品を削除できません"))
                 .andReturn().getResponse().getContentAsString();
         assertFalse(response.contains("foreign key"));
         assertFalse(response.contains("order_items"));
@@ -270,7 +270,8 @@ class ProductNotFoundIT {
     private List<List<Map<String, Object>>> snapshot() {
         return List.of(jdbc.queryForList("SELECT * FROM products ORDER BY id"),
                 jdbc.queryForList("SELECT * FROM orders ORDER BY id"),
-                jdbc.queryForList("SELECT * FROM order_items ORDER BY id"));
+                jdbc.queryForList("SELECT * FROM order_items ORDER BY id"),
+                jdbc.queryForList("SELECT * FROM inventory_movements ORDER BY id"));
     }
 
     private MockHttpServletRequestBuilder resource(String method, String id, String body) {

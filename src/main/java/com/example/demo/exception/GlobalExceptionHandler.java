@@ -102,6 +102,11 @@ public class GlobalExceptionHandler {
         return ApiProblemFactory.response(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(ProductDeleteConflictException.class)
+    public ResponseEntity<ProblemDetail> handleProductDeleteConflict(ProductDeleteConflictException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.CONFLICT, "PRODUCT_DELETE_CONFLICT", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InventoryAdjustmentConflictException.class)
     public ResponseEntity<ProblemDetail> handleInventoryConflict(InventoryAdjustmentConflictException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.CONFLICT, "INVENTORY_ADJUSTMENT_CONFLICT", ex.getMessage(), request);

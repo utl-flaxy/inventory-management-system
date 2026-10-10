@@ -55,6 +55,8 @@ public class OpenApiConfig {
                     responses.putIfAbsent("404", new ApiResponse().description("PRODUCT_NOT_FOUND"));
                 if (path.startsWith("/products") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.PUT)
                     responses.putIfAbsent("409", new ApiResponse().description("CONCURRENT_UPDATE"));
+                if (path.equals("/products/{id}") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.DELETE)
+                    responses.putIfAbsent("409", new ApiResponse().description("PRODUCT_DELETE_CONFLICT / CONCURRENT_UPDATE"));
                 if (path.startsWith("/api/v1/admin/products/{id}/inventory-")) {
                     responses.putIfAbsent("404", new ApiResponse().description("PRODUCT_NOT_FOUND"));
                     if (method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST)

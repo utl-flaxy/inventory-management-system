@@ -263,8 +263,9 @@ CHECKは非0、非負、BIGINTへCASTした前後関係、allowed reason/source�
 product / actor / source OrderはFK RESTRICT。MANUAL source_idはNULL。cascade deleteは使わない。
 (product_id,created_at,id)索引を使って固定順序の履歴Pageを取得し、MariaDB EXPLAINで選択を確認する。
 
-履歴ありProductのDELETEは既存の安全な500 SYSTEM_ERRORで拒否される。
-注文参照を含む409への統一・soft deleteは別Issue。監査履歴は削除しない。
+履歴ありProductのDELETEは注文参照と同じ409 PRODUCT_DELETE_CONFLICTで拒否される（Issue #41）。
+Product行ロックと参照チェックに加え、既存FK RESTRICTを最終防御に維持する。監査履歴は削除しない。
+V1〜V5を変更せず、V6や新しいGRANTも追加しない。soft deleteは対象外。
 既存専用DB userの対象DB限定権限でV1〜V5が成功することをProductionProfilesITで確認する。
 global privilege・GRANT OPTION・DB初期化script・Compose/CD設定を追加/変更しない。
 
