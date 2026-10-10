@@ -95,7 +95,7 @@ spring.flyway.baseline-on-migrate=false
 spring.flyway.clean-disabled=true
 ```
 
-新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成し、V2が金額3列をBIGINTへ拡張します。
+新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成し、V2が金額3列をBIGINTへ拡張し、V3が完了日時と期間検索索引を追加します。
 既存DBはbackup・schema確認・data preflight・確認済み履歴の補完・schema照合を行い、
 手動baseline後にvalidateします。未確認DBの自動baselineは行いません。
 customer/日時/商品名snapshotを現在の値から推測で埋めないでください。
@@ -129,7 +129,7 @@ V1は変更せず、既存値と非負CHECK・NOT NULL・FK・indexを保持し�
 30億円×2個＝60億円など旧Integer上限を超える注文が可能です。商品APIは引き続き1円以上、
 Long.MAX_VALUEまでを許可し、注文時のlong multiplyExact/addExact overflowは在庫変更前に400で拒否します。
 JSON field名とnumber形式は維持し、OpenAPIの金額はinteger/int64になります。
-Money Value Object、小数、税・割引、多通貨は未導入です。CANCELLEDを含む売上仕様も維持します。
+Money Value Object、小数、税・割引、多通貨は未導入です。売上は完了日時が判明したCOMPLETED注文のみ計上します（[売上仕様](docs/sales.md)）。
 移行・再起動・rollbackの扱いは[DB運用手順](docs/db/README.md)を参照してください。
 
 ---
@@ -312,7 +312,7 @@ Spring Security + JWT による認証。
 
 ## 売上集計 API
 
-売上情報の取得。
+ADMIN専用。COMPLETEDかつcompletedAtがある注文を、完了日時（UTC Instant）で集計します。
 
 ![Sales API](docs/images/sales-api.png)
 
@@ -524,7 +524,7 @@ PATCH /api/v1/admin/orders/{id}/status
 
 # 📈 売上集計機能
 
-ADMINが売上情報を取得できます。
+ADMINが売上情報を取得できます。COMPLETEDかつcompletedAtがある注文だけが対象です。PENDING/SHIPPED/CANCELLEDと完了日時不明のlegacy注文は除外します。
 
 ```http
 GET /api/v1/admin/orders/sales
@@ -532,8 +532,13 @@ GET /api/v1/admin/orders/sales
 
 取得内容
 
-- 注文数
+- 売上対象のCOMPLETED注文件数（totalOrders）
 - 売上合計
+
+`from` / `to` は省略可能なISO-8601 Instantです（例: `2026-10-01T00:00:00Z`）。
+`from <= completedAt < to`、片側だけならその境界だけを適用し、両方省略なら全期間です。
+`from >= to` と不正日時は400。完了日時不明のlegacy COMPLETEDは全期間でも除外します。
+詳細と移行手順は[売上仕様](docs/sales.md)を参照してください。
 
 ---
 
@@ -677,6 +682,7 @@ GET /products
   "status": "PENDING",
   "orderedAt": "2026-10-10T03:00:00Z",
   "updatedAt": "2026-10-10T03:00:00Z",
+  "completedAt": null,
   "version": 0,
   "customer": {"id": 1, "username": "alice"},
   "items": [{"productId": 1, "productName": "りんご", "unitPrice": 100, "quantity": 2, "lineTotal": 200}]
@@ -891,6 +897,7 @@ ORDER {
     String status
     Instant orderedAt
     Instant updatedAt
+    Instant completedAt
     Long version
 }
 

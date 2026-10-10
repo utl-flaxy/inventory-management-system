@@ -24,7 +24,7 @@ class OrderStateMachineTest {
         assertEquals(allowed, from.canTransitionTo(to));
         Runnable command = switch (to) {
             case SHIPPED -> order::ship;
-            case COMPLETED -> order::complete;
+            case COMPLETED -> () -> order.complete(java.time.Instant.parse("2026-10-15T12:00:00Z"));
             case CANCELLED -> order::cancel;
             case PENDING -> () -> order.validateTransitionTo(to);
         };

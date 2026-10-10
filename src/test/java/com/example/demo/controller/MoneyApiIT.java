@@ -132,11 +132,15 @@ class MoneyApiIT {
                 .andExpect(jsonPath("$.items[0].unitPrice").value(3_000_000_000L))
                 .andExpect(jsonPath("$.items[0].lineTotal").value(6_000_000_000L));
         mvc.perform(get(ADMIN + "/sales").header("Authorization", adminToken()))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.totalSales").value(6_000_000_000L))
-                .andExpect(jsonPath("$.totalOrders").value(1));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalSales").value(0))
+                .andExpect(jsonPath("$.totalOrders").value(0));
         String csv = mvc.perform(get(ADMIN + "/export").header("Authorization", adminToken()))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertTrue(csv.contains(orderId + ",expensive-item,2,3000000000,6000000000,PENDING"));
+        complete(orderId);
+        mvc.perform(get(ADMIN + "/sales").header("Authorization", adminToken()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalSales").value(6_000_000_000L))
+                .andExpect(jsonPath("$.totalOrders").value(1));
     }
 
     @Test
@@ -172,10 +176,12 @@ class MoneyApiIT {
     @Test
     void longMaximumOrderAndSalesAreRepresentableWithQuantityOne() throws Exception {
         long productId = product(Long.MAX_VALUE, 1);
-        createOrder(new OrderItemRequest(productId, 1)).andExpect(status().isOk())
+        String response = createOrder(new OrderItemRequest(productId, 1)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalPrice").value(Long.MAX_VALUE))
                 .andExpect(jsonPath("$.items[0].unitPrice").value(Long.MAX_VALUE))
-                .andExpect(jsonPath("$.items[0].lineTotal").value(Long.MAX_VALUE));
+                .andExpect(jsonPath("$.items[0].lineTotal").value(Long.MAX_VALUE))
+                .andReturn().getResponse().getContentAsString();
+        complete(json.readTree(response).get("id").longValue());
         mvc.perform(get(ADMIN + "/sales").header("Authorization", adminToken()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalSales").value(Long.MAX_VALUE));
         assertEquals(0, jdbc.queryForObject("SELECT stock FROM products WHERE id=?", Integer.class, productId));
@@ -218,6 +224,13 @@ class MoneyApiIT {
 
     private String adminToken() {
         return "Bearer " + jwt.generateToken("admin");
+    }
+
+    private void complete(long orderId) throws Exception {
+        mvc.perform(post(ADMIN + "/" + orderId + "/ship").header("Authorization", adminToken()))
+                .andExpect(status().isOk());
+        mvc.perform(post(ADMIN + "/" + orderId + "/complete").header("Authorization", adminToken()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.completedAt").isString());
     }
 
     private Map<String, List<Map<String, Object>>> snapshot() {

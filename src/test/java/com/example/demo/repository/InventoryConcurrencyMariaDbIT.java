@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({OrderService.class, ProductService.class, com.example.demo.security.CurrentUser.class})
+@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, ProductService.class, com.example.demo.security.CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
@@ -279,6 +279,33 @@ class InventoryConcurrencyMariaDbIT {
         assertInstanceOf(IllegalOrderStateTransitionException.class, outcomes.get(0).failure());
         assertTrue(outcomes.get(1).succeeded(), outcomes.toString());
         assertEquals("COMPLETED", orderStatus(order.getId()));
+        assertEquals(5, stock(1L));
+    }
+
+    @RepeatedTest(3)
+    void twentyConcurrentCompletionsRecognizeRevenueAndTimestampOnlyOnce() throws Exception {
+        product(1L, 10);
+        Order order = order(5);
+        orderService.shipOrder(order.getId());
+        List<Supplier<?>> operations = IntStream.range(0, 20).<Supplier<?>>mapToObj(i -> i % 2 == 0
+                ? () -> orderService.completeOrder(order.getId())
+                : () -> orderService.updateStatus(order.getId(), OrderStatus.COMPLETED)).toList();
+
+        List<Outcome> outcomes = concurrently(operations);
+
+        successes(outcomes, 1);
+        outcomes.stream().filter(outcome -> !outcome.succeeded()).forEach(outcome ->
+                assertInstanceOf(IllegalOrderStateTransitionException.class, outcome.failure()));
+        Order winner = (Order) outcomes.stream().filter(Outcome::succeeded).findFirst().orElseThrow().value();
+        // DATETIME自体にzoneはない。JDBCのホスト既定zoneではなくUTCとして比較する。
+        var stored = jdbc.queryForObject("SELECT completed_at FROM orders WHERE id=?", java.time.LocalDateTime.class, order.getId());
+        assertNotNull(stored);
+        assertEquals(winner.getCompletedAt(), stored.toInstant(java.time.ZoneOffset.UTC));
+        assertEquals(2L, jdbc.queryForObject("SELECT version FROM orders WHERE id=?", Long.class, order.getId()));
+        assertThrows(IllegalOrderStateTransitionException.class, () -> orderService.completeOrder(order.getId()));
+        assertEquals(stored, jdbc.queryForObject("SELECT completed_at FROM orders WHERE id=?", java.time.LocalDateTime.class, order.getId()));
+        assertEquals(500L, orderService.getSales().getTotalSales());
+        assertEquals(1L, orderService.getSales().getTotalOrders());
         assertEquals(5, stock(1L));
     }
 

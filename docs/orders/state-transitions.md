@@ -3,6 +3,13 @@
 新しい注文はPENDINGで始まる。状態遷移はOrderStatusのルールとOrderの業務メソッドで検証する。
 同じ状態への更新と終端状態からの変更は許可しない。PAIDは追加しない。
 
+Issue #27ではSHIPPED→COMPLETED時だけ、ServiceのUTC Clockから取得したInstantを
+`Order.complete(Instant)`へ渡し、completedAtを一度設定する（DB DATETIME(6)に合わせてmicrosecond精度）。
+既存のOrder PESSIMISTIC_WRITEロック下で状態確認・日時/状態設定・saveを同じTransactionで行う。
+PENDING/SHIPPED/CANCELLEDのcompletedAtはnull。新規/更新のOrderは状態と日時の不変条件をJPA callbackでも検証する。
+legacy COMPLETED/NULLは読み取りを許可し、売上から除外する。読み取り時の補完やDB CHECKは追加しない。
+二重completeは409で、最初の日時も売上も変化しない。在庫・cancelの復元処理は変更しない。
+
 | 現在の状態 | PENDING | SHIPPED | COMPLETED | CANCELLED |
 | --- | --- | --- | --- | --- |
 | PENDING | 禁止 | ship | 禁止 | cancel |
@@ -35,4 +42,4 @@ cancelは全明細の復元後在庫をMath.addExactで事前計算する。同�
 並行実行時のロック・version・Transactionの扱いは[在庫更新の並行制御（Issue #12）](inventory-concurrency.md)を参照。
 所有者・認可と旧URLの廃止は[注文APIの認可（Issue #5）](../security/order-authorization.md)、
 集約・複数明細は[Order集約（Issue #14）](order-aggregate.md)を参照。
-Flyway（#15）、CD修正（#17）、キャンセル済み注文を含む既存の売上集計仕様はこの状態遷移の対象外。
+完了時の売上計上とcompletedAtは[売上仕様（Issue #27）](../sales.md)を参照。

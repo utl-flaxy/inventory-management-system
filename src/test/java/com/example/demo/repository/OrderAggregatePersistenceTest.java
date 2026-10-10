@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @DataJpaTest(showSql = false, properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false"})
-@Import({OrderService.class, CurrentUser.class})
+@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class OrderAggregatePersistenceTest {
     @Autowired

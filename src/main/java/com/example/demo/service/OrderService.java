@@ -25,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -39,6 +42,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final CurrentUser currentUser;
     private final EntityManager entityManager;
+    private final Clock clock;
 
     // 注文作成
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -142,15 +146,15 @@ public class OrderService {
 
     // 売上集計
     public SalesResponse getSales() {
+        return getSales(null, null);
+    }
 
-        Long totalSales = orderRepository.getTotalSales();
-
-        Long totalOrders = orderRepository.count();
-
-        return new SalesResponse(
-                totalSales,
-                totalOrders
-        );
+    @Transactional(readOnly = true)
+    public SalesResponse getSales(Instant from, Instant to) {
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw new InvalidOrderRequestException("売上期間のfromはtoより前の日時を指定してください");
+        }
+        return orderRepository.aggregateSales(from, to);
     }
 
     // 既存APIの互換入口。必ず業務コマンドを経由する
@@ -183,7 +187,8 @@ public class OrderService {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order completeOrder(Long id) {
         Order order = findByIdForUpdate(id);
-        order.complete();
+        // DATETIME(6)とAPIの完了日時を同じ精度に揃える。
+        order.complete(clock.instant().truncatedTo(ChronoUnit.MICROS));
         return responseReady(orderRepository.save(order));
     }
 

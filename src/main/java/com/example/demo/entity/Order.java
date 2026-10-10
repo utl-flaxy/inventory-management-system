@@ -45,6 +45,10 @@ public class Order {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    // legacy COMPLETEDの完了日時は推測せずNULLのまま読み取る。
+    @Column
+    private Instant completedAt;
+
     @Version
     @Column(nullable = false, columnDefinition = "BIGINT DEFAULT 0")
     // primitiveならSpring Dataの新規判定はidを使い、初回saveをpersistとして扱う
@@ -87,6 +91,7 @@ public class Order {
 
     @PrePersist
     private void validateAggregate() {
+        validateCompletionTimestamp();
         if (customer == null || orderedAt == null || updatedAt == null || orderItems.isEmpty()) {
             throw new IllegalArgumentException("注文者・日時・注文明細は必須です");
         }
@@ -104,15 +109,27 @@ public class Order {
 
     @PreUpdate
     private void updateTimestamp() {
+        validateCompletionTimestamp();
         updatedAt = Instant.now();
+    }
+
+    private void validateCompletionTimestamp() {
+        if (status == null || (status == OrderStatus.COMPLETED) != (completedAt != null)) {
+            throw new IllegalArgumentException("完了ステータスと完了日時が一致しません");
+        }
     }
 
     public void ship() {
         transitionTo(OrderStatus.SHIPPED);
     }
 
-    public void complete() {
-        transitionTo(OrderStatus.COMPLETED);
+    public void complete(Instant completedAt) {
+        validateTransitionTo(OrderStatus.COMPLETED);
+        if (completedAt == null) {
+            throw new IllegalArgumentException("完了日時は必須です");
+        }
+        this.completedAt = completedAt;
+        status = OrderStatus.COMPLETED;
     }
 
     public void cancel() {

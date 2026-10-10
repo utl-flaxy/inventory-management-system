@@ -213,7 +213,7 @@ class AuthorizationMatrixIT {
         if (expected == 200) {
             switch (endpoint) {
                 case "list" -> result.andExpect(jsonPath("$.length()").value(3));
-                case "sales" -> result.andExpect(jsonPath("$.totalSales").value(600));
+                case "sales" -> result.andExpect(jsonPath("$.totalSales").value(0));
                 case "export" -> result.andExpect(content().string(org.hamcrest.Matchers.containsString("101,apple,2,100,200,PENDING")));
                 default -> {
                     result.andExpect(jsonPath("$.customer.id").value(1))
