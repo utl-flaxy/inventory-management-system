@@ -6,7 +6,7 @@ import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderStatus;
 import com.example.demo.entity.Product;
-import com.example.demo.exception.OutOfStockException;
+import com.example.demo.exception.InvalidOrderRequestException;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
@@ -31,23 +31,29 @@ public class OrderService {
     @Transactional
     public Order createOrder(OrderRequest request) {
 
+        // Controllerを経由しない呼び出しでも、読み取り・更新前に不正入力を拒否する
+        if (request == null || request.getProductId() == null || request.getProductId() <= 0) {
+            throw new InvalidOrderRequestException("商品IDは正の値を入力してください");
+        }
+        if (request.getQuantity() == null || request.getQuantity() <= 0) {
+            throw new InvalidOrderRequestException("数量は1以上を入力してください");
+        }
+
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() ->
                         new RuntimeException("商品が存在しません"));
 
-        // 在庫チェック
-        if (product.getStock() < request.getQuantity()) {
-            throw new OutOfStockException("在庫が不足しています");
+        // Integerの金額上限を超える数量は、在庫変更前に拒否する
+        int totalPrice;
+        try {
+            totalPrice = Math.multiplyExact(product.getPrice(), request.getQuantity());
+        } catch (ArithmeticException ex) {
+            throw new InvalidOrderRequestException("注文金額が上限を超えています");
         }
 
         // 在庫減算
-        product.setStock(
-                product.getStock() - request.getQuantity()
-        );
+        product.decreaseStock(request.getQuantity());
         productRepository.save(product);
-
-        // 合計金額
-        int totalPrice = product.getPrice() * request.getQuantity();
 
         // 注文作成
         Order order = new Order();

@@ -2,12 +2,14 @@ package com.example.demo.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 @Data
 public class OrderRequest {
 
     @NotNull(message = "商品IDは必須です")
+    @Positive(message = "商品IDは正の値を入力してください")
     private Long productId;
 
     @NotNull(message = "数量は必須です")
