@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static com.example.demo.TestOrders.*;
 
 class OrderStateMachineTest {
 
@@ -19,7 +20,7 @@ class OrderStateMachineTest {
             "CANCELLED,PENDING,false", "CANCELLED,SHIPPED,false", "CANCELLED,COMPLETED,false", "CANCELLED,CANCELLED,false"
     })
     void allSixteenTransitionsFollowBusinessRules(OrderStatus from, OrderStatus to, boolean allowed) {
-        Order order = new Order(1L, 100, from, List.of());
+        Order order = order(1L, from, OrderItem.create(new Product(1L, "apple", 100, 10), 1));
         assertEquals(allowed, from.canTransitionTo(to));
         Runnable command = switch (to) {
             case SHIPPED -> order::ship;
@@ -39,12 +40,13 @@ class OrderStateMachineTest {
 
     @Test
     void newOrderStartsPending() {
-        assertEquals(OrderStatus.PENDING, new Order().getStatus());
+        assertEquals(OrderStatus.PENDING,
+                Order.create(customer(), List.of(OrderItem.create(new Product(1L, "apple", 100, 10), 1))).getStatus());
     }
 
     @Test
     void nullTargetIsRejectedWithoutChangingState() {
-        Order order = new Order();
+        Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100, 10), 1));
         assertFalse(OrderStatus.PENDING.canTransitionTo(null));
         assertThrows(IllegalOrderStateTransitionException.class, () -> order.validateTransitionTo(null));
         assertEquals(OrderStatus.PENDING, order.getStatus());

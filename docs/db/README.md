@@ -1,4 +1,11 @@
-# Issue #10 のDB制約
+# 注文・在庫のDB変更
+
+Issue #14の既存注文者・日時・商品名スナップショットの補完と段階的SQLは
+[Order集約の移行手順](../orders/order-aggregate.md#既存dbの移行) を参照する。
+新アプリ起動前にexpand→確認済みデータ補完→constrainの順で実施する。
+既存price列を注文時単価として再利用し、unit_priceへの列名変更は行わない。
+
+## Issue #10 のDB制約
 
 新規スキーマにはEntityの `@Check` と `@Column(nullable = false)` から制約を生成する。
 既存テーブルでは `ddl-auto=update` だけにCHECK追加を任せられないため、

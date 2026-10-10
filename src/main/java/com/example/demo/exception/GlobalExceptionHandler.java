@@ -6,6 +6,7 @@ import jakarta.persistence.PessimisticLockException;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +15,12 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AuthenticationCredentialsNotFoundException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, String> handleMissingAuthentication(AuthenticationCredentialsNotFoundException ex) {
+        return Map.of("code", "UNAUTHENTICATED", "message", ex.getMessage());
+    }
 
     @ExceptionHandler({ProductVersionConflictException.class, ConcurrencyFailureException.class,
             OptimisticLockException.class, PessimisticLockException.class, LockTimeoutException.class})

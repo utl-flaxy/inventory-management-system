@@ -1,9 +1,9 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.OrderRequest;
+import com.example.demo.dto.OrderResponse;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.dto.StatusUpdateRequest;
-import com.example.demo.entity.Order;
 import com.example.demo.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,23 +25,23 @@ public class OrderController {
 
     // 注文登録
     @PostMapping
-    public Order create(@Valid @RequestBody OrderRequest request) {
+    public OrderResponse create(@Valid @RequestBody OrderRequest request) {
 
-        return orderService.createOrder(request);
+        return OrderResponse.from(orderService.createOrder(request));
     }
 
     // 注文一覧取得
     @GetMapping
-    public List<Order> getAll() {
+    public List<OrderResponse> getAll() {
 
-        return orderService.findAll();
+        return orderService.findAll().stream().map(OrderResponse::from).toList();
     }
 
     // 注文詳細取得
     @GetMapping("/{id}")
-    public Order getById(@PathVariable Long id) {
+    public OrderResponse getById(@PathVariable Long id) {
 
-        return orderService.findById(id);
+        return OrderResponse.from(orderService.findById(id));
     }
 
     // 売上集計
@@ -53,31 +53,31 @@ public class OrderController {
 
     // 注文ステータス変更
     @PatchMapping("/{id}/status")
-    public Order updateStatus(
+    public OrderResponse updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody StatusUpdateRequest request) {
 
-        return orderService.updateStatus(
+        return OrderResponse.from(orderService.updateStatus(
                 id,
                 request.getStatus()
-        );
+        ));
     }
 
     // 注文キャンセル
     @RequestMapping(value = "/{id}/cancel", method = {RequestMethod.POST, RequestMethod.PATCH})
-    public Order cancel(@PathVariable Long id) {
+    public OrderResponse cancel(@PathVariable Long id) {
 
-        return orderService.cancelOrder(id);
+        return OrderResponse.from(orderService.cancelOrder(id));
     }
 
     @PostMapping("/{id}/ship")
-    public Order ship(@PathVariable Long id) {
-        return orderService.shipOrder(id);
+    public OrderResponse ship(@PathVariable Long id) {
+        return OrderResponse.from(orderService.shipOrder(id));
     }
 
     @PostMapping("/{id}/complete")
-    public Order complete(@PathVariable Long id) {
-        return orderService.completeOrder(id);
+    public OrderResponse complete(@PathVariable Long id) {
+        return OrderResponse.from(orderService.completeOrder(id));
     }
 
     // CSV出力

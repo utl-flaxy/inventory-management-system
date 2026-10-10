@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import(OrderService.class)
+@Import({OrderService.class, com.example.demo.security.CurrentUser.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class OrderCancellationTransactionTest {
 
@@ -49,6 +49,8 @@ class OrderCancellationTransactionTest {
 
     @BeforeEach
     void setup() {
+        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1, 'alice', 'test-hash', 'ROLE_USER')");
+        com.example.demo.TestOrders.authenticate();
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1, 'apple', 100, 10)");
     }
 
@@ -57,12 +59,12 @@ class OrderCancellationTransactionTest {
         jdbc.update("DELETE FROM order_items");
         jdbc.update("DELETE FROM orders");
         jdbc.update("DELETE FROM products");
+        jdbc.update("DELETE FROM users");
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     private Order createFiveItemOrder() {
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(5);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, 5);
         return orderService.createOrder(request);
     }
 
@@ -147,7 +149,7 @@ class OrderCancellationTransactionTest {
     void laterLineOverflowDoesNotRestoreEarlierProduct() {
         Order order = createFiveItemOrder();
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (2, 'orange', 100, ?)", Integer.MAX_VALUE);
-        jdbc.update("INSERT INTO order_items (quantity, price, order_id, product_id) VALUES (1, 100, ?, 2)", order.getId());
+        jdbc.update("INSERT INTO order_items (quantity, price, product_name_snapshot, order_id, product_id) VALUES (1, 100, 'orange', ?, 2)", order.getId());
 
         assertThrows(OrderInventoryRestorationException.class, () -> orderService.cancelOrder(order.getId()));
 
@@ -160,7 +162,7 @@ class OrderCancellationTransactionTest {
     void persistenceFailureAfterStockFlushRollsBackAllProductsAndOrder() {
         Order order = createFiveItemOrder();
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (2, 'orange', 100, 7)");
-        jdbc.update("INSERT INTO order_items (quantity, price, order_id, product_id) VALUES (3, 100, ?, 2)", order.getId());
+        jdbc.update("INSERT INTO order_items (quantity, price, product_name_snapshot, order_id, product_id) VALUES (3, 100, 'orange', ?, 2)", order.getId());
         AtomicInteger stockSeenInsideFailedTransaction = new AtomicInteger();
         doAnswer(invocation -> {
             // SQLを実際に発行してから失敗させ、テスト自体のrollbackに頼らず確認する

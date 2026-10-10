@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.OrderItemRequest;
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
@@ -9,17 +10,21 @@ import com.example.demo.exception.OutOfStockException;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
+import com.example.demo.security.CurrentUser;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,8 +46,16 @@ class OrderServiceTest {
     @Mock
     private EntityManager entityManager;
 
+    @Mock
+    private CurrentUser currentUser;
+
     @InjectMocks
     private OrderService orderService;
+
+    @BeforeEach
+    void customer() {
+        lenient().when(currentUser.requireUser()).thenReturn(com.example.demo.TestOrders.customer());
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 3})
@@ -55,9 +68,7 @@ class OrderServiceTest {
         product.setPrice(100);
         product.setStock(10);
 
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(quantity);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
         when(productRepository.findByIdForUpdate(1L))
                 .thenReturn(Optional.of(product));
@@ -76,12 +87,12 @@ class OrderServiceTest {
 
         verify(productRepository).save(product);
         verify(orderRepository).save(any(Order.class));
-        ArgumentCaptor<OrderItem> itemCaptor = ArgumentCaptor.forClass(OrderItem.class);
-        verify(orderItemRepository).save(itemCaptor.capture());
-        assertEquals(quantity, itemCaptor.getValue().getQuantity());
-        assertEquals(100, itemCaptor.getValue().getPrice());
-        assertSame(order, itemCaptor.getValue().getOrder());
-        assertSame(product, itemCaptor.getValue().getProduct());
+        OrderItem item = order.getOrderItems().get(0);
+        assertEquals(quantity, item.getQuantity());
+        assertEquals(100, item.getUnitPrice());
+        assertSame(order, item.getOrder());
+        assertSame(product, item.getProduct());
+        verifyNoInteractions(orderItemRepository); // 明細はOrderからcascade保存
     }
 
     @ParameterizedTest
@@ -92,9 +103,7 @@ class OrderServiceTest {
         // Arrange
         Product product = new Product(1L, "りんご", 100, 10);
         lenient().when(productRepository.findByIdForUpdate(any())).thenReturn(Optional.of(product));
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(quantity);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
         // Act & Assert
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
@@ -113,9 +122,7 @@ class OrderServiceTest {
         // Arrange
         Product product = new Product(1L, "りんご", 100, 10);
         lenient().when(productRepository.findByIdForUpdate(any())).thenReturn(Optional.of(product));
-        OrderRequest request = new OrderRequest();
-        request.setProductId(productId);
-        request.setQuantity(1);
+        OrderRequest request = com.example.demo.TestOrders.request(productId, 1);
 
         // Act & Assert
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
@@ -138,9 +145,7 @@ class OrderServiceTest {
         // Arrange
         Product product = new Product(1L, "りんご", 2, Integer.MAX_VALUE);
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(Integer.MAX_VALUE / 2 + 1);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, Integer.MAX_VALUE / 2 + 1);
 
         // Act & Assert
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
@@ -157,9 +162,7 @@ class OrderServiceTest {
         Product product = new Product(1L, "りんご", 1, Integer.MAX_VALUE);
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(Integer.MAX_VALUE);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, Integer.MAX_VALUE);
 
         // Act
         Order order = orderService.createOrder(request);
@@ -169,7 +172,8 @@ class OrderServiceTest {
         assertEquals(0, product.getStock());
         verify(productRepository).save(product);
         verify(orderRepository).save(order);
-        verify(orderItemRepository).save(any());
+        assertEquals(1, order.getOrderItems().size());
+        verifyNoInteractions(orderItemRepository);
     }
 
     @Test
@@ -182,9 +186,7 @@ class OrderServiceTest {
         product.setPrice(100);
         product.setStock(2);
 
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(5);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, 5);
 
         when(productRepository.findByIdForUpdate(1L))
                 .thenReturn(Optional.of(product));
@@ -205,9 +207,7 @@ class OrderServiceTest {
     void 商品不存在() {
 
         // Arrange
-        OrderRequest request = new OrderRequest();
-        request.setProductId(999L);
-        request.setQuantity(1);
+        OrderRequest request = com.example.demo.TestOrders.request(999L, 1);
 
         when(productRepository.findByIdForUpdate(999L))
                 .thenReturn(Optional.empty());
@@ -224,5 +224,84 @@ class OrderServiceTest {
         verify(productRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
         verify(orderItemRepository, never()).save(any());
+    }
+
+    @Test
+    void reverseInputLocksAllProductsInIdOrderBeforeAnyInventoryWrite() {
+        Product first = new Product(1L, "apple", 100, 10);
+        Product second = new Product(2L, "orange", 300, 5);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
+        when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
+        when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(2L, 1), new OrderItemRequest(1L, 2));
+
+        Order order = orderService.createOrder(request);
+
+        var sequence = inOrder(productRepository, entityManager, orderRepository);
+        sequence.verify(productRepository).findByIdForUpdate(1L);
+        sequence.verify(entityManager).refresh(first, LockModeType.PESSIMISTIC_WRITE);
+        sequence.verify(productRepository).findByIdForUpdate(2L);
+        sequence.verify(entityManager).refresh(second, LockModeType.PESSIMISTIC_WRITE);
+        sequence.verify(productRepository).save(first);
+        sequence.verify(productRepository).save(second);
+        sequence.verify(orderRepository).save(order);
+        assertEquals(500, order.getTotalPrice());
+        assertEquals(8, first.getStock());
+        assertEquals(4, second.getStock());
+        assertEquals(List.of(1L, 2L), order.getOrderItems().stream().map(item -> item.getProduct().getId()).toList());
+        assertEquals("alice", order.getCustomer().getUsername());
+        verifyNoInteractions(orderItemRepository);
+    }
+
+    @Test
+    void duplicateProductIsRejectedBeforeReadingAnyRepositoryOrUser() {
+        OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(1L, 3));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        verifyNoInteractions(productRepository, orderRepository, orderItemRepository, currentUser, entityManager);
+    }
+
+    @Test
+    void missingEmptyAndNullLinesAreRejectedBeforeRepositoryAccess() {
+        for (List<OrderItemRequest> items : Arrays.asList(null, List.<OrderItemRequest>of(), Arrays.asList((OrderItemRequest) null))) {
+            OrderRequest request = new OrderRequest();
+            request.setItems(items);
+            assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        }
+        verifyNoInteractions(productRepository, orderRepository, orderItemRepository, currentUser);
+    }
+
+    @Test
+    void laterInvalidLineIsRejectedBeforeRepositoryAccess() {
+        OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 0));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        verifyNoInteractions(productRepository, orderRepository, orderItemRepository, currentUser);
+    }
+
+    @Test
+    void laterOutOfStockLineDoesNotChangeEarlierProductEvenWithoutTransactionProxy() {
+        Product first = new Product(1L, "apple", 100, 10);
+        Product second = new Product(2L, "orange", 300, 0);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
+        when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
+        OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 1));
+        assertThrows(OutOfStockException.class, () -> orderService.createOrder(request));
+        assertEquals(10, first.getStock());
+        assertEquals(0, second.getStock());
+        verify(productRepository, never()).save(any());
+        verifyNoInteractions(orderRepository, orderItemRepository);
+    }
+
+    @Test
+    void totalSumOverflowDoesNotChangeAnyInventory() {
+        Product first = new Product(1L, "apple", Integer.MAX_VALUE, 10);
+        Product second = new Product(2L, "orange", 1, 10);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
+        when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
+        OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertEquals(10, first.getStock());
+        assertEquals(10, second.getStock());
+        verify(productRepository, never()).save(any());
+        verifyNoInteractions(orderRepository, orderItemRepository);
     }
 }

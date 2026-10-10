@@ -417,12 +417,8 @@ DELETE /products/{id}
 POST /orders
 ```
 
-注文時に
-
-- 商品ID
-- 数量
-
-を受け取り、
+注文時に必須・非空の `items` 配列（商品IDと正の数量）を受け取り、認証済みUserを注文者として保存します。
+同一商品IDの重複は400です。旧単一商品形式は `items` に変更してください。
 
 - 在庫確認
 - 在庫減算
@@ -430,6 +426,11 @@ POST /orders
 - 注文保存
 
 を行います。
+
+全商品を商品ID昇順でロックし、1商品でも失敗したら在庫・注文・全明細をrollbackします。
+作成・一覧・詳細・状態変更はOrderResponseを返します。`orderItems`/ネストしたProductの代わりに
+`items` と商品名・単価のスナップショットを返し、customerはid/usernameのみです。
+移行手順・API互換性の詳細は [Order集約](docs/orders/order-aggregate.md) を参照してください。
 
 ---
 
@@ -610,7 +611,12 @@ GET /products
 {
   "id": 1,
   "totalPrice": 200,
-  "status": "PENDING"
+  "status": "PENDING",
+  "orderedAt": "2026-10-10T03:00:00Z",
+  "updatedAt": "2026-10-10T03:00:00Z",
+  "version": 0,
+  "customer": {"id": 1, "username": "alice"},
+  "items": [{"productId": 1, "productName": "りんご", "unitPrice": 100, "quantity": 2, "lineTotal": 200}]
 }
 ```
 
@@ -817,15 +823,19 @@ PRODUCT {
 
 ORDER {
     Long id
+    Long customerId
     Integer totalPrice
     String status
-    LocalDateTime orderDate
+    Instant orderedAt
+    Instant updatedAt
+    Long version
 }
 
 ORDER_ITEM {
     Long id
     Integer quantity
-    Integer price
+    Integer unitPrice
+    String productNameSnapshot
 }
 ```
 

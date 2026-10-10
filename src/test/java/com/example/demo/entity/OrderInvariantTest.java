@@ -52,21 +52,17 @@ class OrderInvariantTest {
     @ParameterizedTest
     @NullSource
     @ValueSource(ints = {0, -1})
-    void 不正明細数量はSetterとConstructorで拒否(Integer quantity) {
-        OrderItem item = new OrderItem();
-        item.setQuantity(1);
-
-        assertThrows(IllegalArgumentException.class, () -> item.setQuantity(quantity));
-        assertThrows(IllegalArgumentException.class, () -> new OrderItem(null, quantity, 100, null, null));
+    void 不正明細数量はFactoryで拒否し既存明細は不変(Integer quantity) {
+        Product product = new Product(1L, "りんご", 100, 10);
+        OrderItem item = OrderItem.create(product, 1);
+        assertThrows(IllegalArgumentException.class, () -> OrderItem.create(product, quantity));
         assertEquals(1, item.getQuantity());
     }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 3, Integer.MAX_VALUE})
     void 正の明細数量は設定できる(int quantity) {
-        OrderItem item = new OrderItem();
-
-        item.setQuantity(quantity);
+        OrderItem item = OrderItem.create(new Product(1L, "りんご", 100, 10), quantity);
 
         assertEquals(quantity, item.getQuantity());
     }

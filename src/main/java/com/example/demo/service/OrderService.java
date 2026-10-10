@@ -1,17 +1,20 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.OrderItemRequest;
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderStatus;
 import com.example.demo.entity.Product;
+import com.example.demo.entity.User;
 import com.example.demo.exception.InvalidOrderRequestException;
 import com.example.demo.exception.OrderInventoryRestorationException;
 import com.example.demo.exception.OrderNotFoundException;
-import com.example.demo.repository.OrderItemRepository;
+import com.example.demo.exception.OutOfStockException;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
+import com.example.demo.security.CurrentUser;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -33,69 +37,83 @@ public class OrderService {
 
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
+    private final CurrentUser currentUser;
     private final EntityManager entityManager;
 
     // 注文作成
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order createOrder(OrderRequest request) {
 
-        // Controllerを経由しない呼び出しでも、読み取り・更新前に不正入力を拒否する
-        if (request == null || request.getProductId() == null || request.getProductId() <= 0) {
-            throw new InvalidOrderRequestException("商品IDは正の値を入力してください");
+        // DTO Validationに依存せず、全明細を読み取り・更新前に検証する
+        Map<Long, Integer> quantities = validatedQuantities(request);
+        User customer = currentUser.requireUser();
+        Map<Long, Product> products = new TreeMap<>();
+        for (Long productId : quantities.keySet()) {
+            Product product = productRepository.findByIdForUpdate(productId)
+                    .orElseThrow(() -> new InvalidOrderRequestException("商品が存在しません"));
+            // 古いPersistence Contextの値も、ロック下の現在値に更新する
+            entityManager.refresh(product, LockModeType.PESSIMISTIC_WRITE);
+            products.put(productId, product);
         }
-        if (request.getQuantity() == null || request.getQuantity() <= 0) {
-            throw new InvalidOrderRequestException("数量は1以上を入力してください");
-        }
 
-        Product product = productRepository.findByIdForUpdate(request.getProductId())
-                .orElseThrow(() ->
-                        new RuntimeException("商品が存在しません"));
-
-        // 呼び出し元のPersistence Contextに古い商品がある場合も、ロック下の現在値を使う
-        entityManager.refresh(product, LockModeType.PESSIMISTIC_WRITE);
-
-        // Integerの金額上限を超える数量は、在庫変更前に拒否する
-        int totalPrice;
+        // 全商品をID昇順でロックした後、在庫・スナップショット・合計を変更前に検証する
+        List<OrderItem> items = new ArrayList<>();
+        Order order;
         try {
-            totalPrice = Math.multiplyExact(product.getPrice(), request.getQuantity());
+            for (Map.Entry<Long, Product> entry : products.entrySet()) {
+                int quantity = quantities.get(entry.getKey());
+                if (entry.getValue().getStock() < quantity) {
+                    throw new OutOfStockException("在庫が不足しています");
+                }
+                items.add(OrderItem.create(entry.getValue(), quantity));
+            }
+            order = Order.create(customer, items);
         } catch (ArithmeticException ex) {
             throw new InvalidOrderRequestException("注文金額が上限を超えています");
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidOrderRequestException(ex.getMessage());
         }
 
-        // 在庫減算
-        product.decreaseStock(request.getQuantity());
-        productRepository.save(product);
+        for (Map.Entry<Long, Product> entry : products.entrySet()) {
+            entry.getValue().decreaseStock(quantities.get(entry.getKey()));
+            productRepository.save(entry.getValue());
+        }
+        // 明細はOrderからcascade保存する。途中の永続化失敗も同じTransactionでrollbackする。
+        return responseReady(orderRepository.save(order));
+    }
 
-        // 注文作成
-        Order order = new Order();
-        order.setTotalPrice(totalPrice);
-
-        Order savedOrder = orderRepository.save(order);
-
-        // 注文明細作成
-        OrderItem orderItem = new OrderItem();
-        orderItem.setOrder(savedOrder);
-        orderItem.setProduct(product);
-        orderItem.setQuantity(request.getQuantity());
-        orderItem.setPrice(product.getPrice());
-
-        orderItemRepository.save(orderItem);
-
-        return savedOrder;
+    private Map<Long, Integer> validatedQuantities(OrderRequest request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new InvalidOrderRequestException("注文明細は1件以上必要です");
+        }
+        Map<Long, Integer> quantities = new TreeMap<>();
+        for (OrderItemRequest item : request.getItems()) {
+            if (item == null || item.getProductId() == null || item.getProductId() <= 0) {
+                throw new InvalidOrderRequestException("商品IDは正の値を入力してください");
+            }
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new InvalidOrderRequestException("数量は1以上を入力してください");
+            }
+            if (quantities.putIfAbsent(item.getProductId(), item.getQuantity()) != null) {
+                throw new InvalidOrderRequestException("同じ商品を複数の明細に指定できません");
+            }
+        }
+        return quantities;
     }
 
     // 注文一覧取得
+    @Transactional(readOnly = true)
     public List<Order> findAll() {
 
-        return orderRepository.findAll();
+        return orderRepository.findAll().stream().map(this::responseReady).toList();
     }
 
     // 注文詳細取得
+    @Transactional(readOnly = true)
     public Order findById(Long id) {
 
-        return orderRepository.findById(id)
-                .orElseThrow(OrderNotFoundException::new);
+        return responseReady(orderRepository.findById(id)
+                .orElseThrow(OrderNotFoundException::new));
     }
 
     // 売上集計
@@ -135,14 +153,14 @@ public class OrderService {
     public Order shipOrder(Long id) {
         Order order = findByIdForUpdate(id);
         order.ship();
-        return orderRepository.save(order);
+        return responseReady(orderRepository.save(order));
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order completeOrder(Long id) {
         Order order = findByIdForUpdate(id);
         order.complete();
-        return orderRepository.save(order);
+        return responseReady(orderRepository.save(order));
     }
 
     // 注文キャンセル
@@ -178,7 +196,7 @@ public class OrderService {
             productRepository.save(entry.getKey());
         }
         order.cancel();
-        return orderRepository.save(order);
+        return responseReady(orderRepository.save(order));
     }
 
     private Order findByIdForUpdate(Long id) {
@@ -187,7 +205,15 @@ public class OrderService {
         return order;
     }
 
+    // Transaction内でDTOに必要な関連を初期化し、OSIVに依存しないレスポンスにする
+    private Order responseReady(Order order) {
+        order.getCustomer().getUsername();
+        order.getOrderItems().size();
+        return order;
+    }
+
     // CSV出力
+    @Transactional(readOnly = true)
     public ByteArrayInputStream exportCsv() {
 
         List<Order> orders = orderRepository.findAll();
@@ -206,10 +232,10 @@ public class OrderService {
                 writer.printf(
                         "%d,%s,%d,%d,%d,%s%n",
                         order.getId(),
-                        item.getProduct().getName(),
+                        item.getProductNameSnapshot(),
                         item.getQuantity(),
-                        item.getPrice(),
-                        item.getPrice() * item.getQuantity(),
+                        item.getUnitPrice(),
+                        item.getLineTotal(),
                         order.getStatus()
                 );
             }

@@ -1,7 +1,9 @@
 package com.example.demo.controller;
 
 import com.example.demo.entity.Order;
+import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderStatus;
+import com.example.demo.entity.Product;
 import com.example.demo.exception.IllegalOrderStateTransitionException;
 import com.example.demo.exception.OrderInventoryRestorationException;
 import com.example.demo.exception.OrderNotFoundException;
@@ -20,8 +22,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-
-import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -71,7 +71,7 @@ class OrderStateControllerTest {
     @ParameterizedTest
     @ValueSource(strings = {"cancel", "legacy-cancel", "ship", "complete"})
     void commandEndpointsCallTheAppropriateService(String operation) throws Exception {
-        Order order = new Order(1L, 500, target(operation), List.of());
+        Order order = responseOrder(target(operation));
         switch (operation) {
             case "ship" -> when(orderService.shipOrder(1L)).thenReturn(order);
             case "complete" -> when(orderService.completeOrder(1L)).thenReturn(order);
@@ -93,7 +93,7 @@ class OrderStateControllerTest {
     @ParameterizedTest
     @EnumSource(value = OrderStatus.class, names = {"SHIPPED", "COMPLETED", "CANCELLED"})
     void legacyStatusApiValidatesAndPassesTheTargetToService(OrderStatus target) throws Exception {
-        when(orderService.updateStatus(1L, target)).thenReturn(new Order(1L, 500, target, List.of()));
+        when(orderService.updateStatus(1L, target)).thenReturn(responseOrder(target));
 
         mockMvc.perform(patch("/orders/1/status").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"" + target.name() + "\"}"))
@@ -153,5 +153,10 @@ class OrderStateControllerTest {
 
         mockMvc.perform(get("/orders/1")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+    }
+
+    private Order responseOrder(OrderStatus status) {
+        return com.example.demo.TestOrders.order(1L, status,
+                OrderItem.create(new Product(1L, "apple", 100, 10), 5));
     }
 }
