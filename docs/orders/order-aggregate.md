@@ -16,7 +16,10 @@ OrderにもVersionを持たせ、商品側のVersionと既存の悲観ロック�
 
 ## APIと互換性
 
-`POST /api/v1/me/orders` は必須・非空の `items` 配列を受け取る。
+`POST /api/v1/me/orders` は必須・非空の `items` 配列と、Issue #29から必須 `Idempotency-Key` headerを受け取る。
+keyはASCII `[A-Za-z0-9._:-]{1,128}`、case-sensitive、customer単位。同key/同明細は元のOrder、別明細は409。
+API作成では `Order.create(customer, items, key, fingerprint)` を使い、metadataを生成時に確定する。
+legacy用factoryと両metadata列NULLの既存注文は維持する。[冪等性仕様](idempotency.md)を参照。
 
 ```json
 {"items":[{"productId":1,"quantity":2},{"productId":2,"quantity":1}]}
@@ -49,7 +52,9 @@ Issue #25で価格・注文時単価・明細/注文合計は円整数のLong/lo
 
 ## Transactionとロック
 
-全明細を検証した後、商品IDを昇順に並べ、全商品をPESSIMISTIC_WRITEで取得・refreshする。
+全明細を検証・canonical fingerprintを生成した後、User(customer)をPESSIMISTIC_WRITEで取得する。
+同customer/keyのOrderを通常queryで読み、replay/conflictでは商品へのアクセス・保存を行わない。
+新規の場合だけ商品IDを昇順に並べ、全商品をPESSIMISTIC_WRITEで取得・refreshする。
 全商品の在庫と全明細の合計を検証してから在庫を減らす。
 在庫減算、Order/全OrderItemの保存は1つのREAD_COMMITTED Transactionで行う。
 1商品でも不存在・在庫不足・金額overflowなら保存を行わず、途中のDB失敗も全体rollbackする。
@@ -58,7 +63,8 @@ PENDING→SHIPPED/CANCELLED、SHIPPED→COMPLETEDだけを許可し、二重復�
 
 ## 既存DBの移行
 
-新規DBはFlyway V1→V2→V3から生成し、金額3列はBIGINT。Hibernateはvalidateのみ行う。
+新規DBはFlyway V1→V2→V3→V4から生成し、金額3列はBIGINT。Hibernateはvalidateのみ行う。
+V4はnullable key/fingerprintとcustomer/key UNIQUEを追加する。legacy行は両列NULLのままship/complete/cancelできる。
 既存DBは[Flyway移行手順](../db/README.md)のbackup・preflight・schema照合・手動baselineを完了してから起動する。
 以下はIssue #14の古いDBを段階的に補完するための履歴手順で、SQLはlegacyアーカイブにある。
 本Issueの作業では本番DBへの接続・適用を行わない。
