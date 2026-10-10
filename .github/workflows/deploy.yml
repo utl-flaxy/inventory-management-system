@@ -46,7 +46,7 @@ jobs:
           [[ "$DB_USERNAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "::error::DB_USERNAME must be a simple user identifier"; exit 1; }
           [[ "${DB_USERNAME,,}" != root ]] || { echo "::error::DB_USERNAME must not be root"; exit 1; }
       - name: Read deployment script from the verified commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false

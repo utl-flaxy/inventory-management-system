@@ -97,7 +97,7 @@ class DeploymentWorkflowTest {
     @Test
     void verifiedShaSelectsBothRunnerScriptAndRemoteCommit() throws Exception {
         assertEquals("${{ github.event.workflow_run.head_sha }}", map(job().get("env")).get("DEPLOY_SHA"));
-        var checkout = steps().stream().filter(s -> "actions/checkout@v4".equals(s.get("uses"))).findFirst().orElseThrow();
+        var checkout = steps().stream().filter(s -> "actions/checkout@v7".equals(s.get("uses"))).findFirst().orElseThrow();
         assertEquals(Map.of("ref", "${{ github.event.workflow_run.head_sha }}", "persist-credentials", false),
                 checkout.get("with"));
         var ssh = steps().stream().filter(s -> "appleboy/ssh-action@v1.2.0".equals(s.get("uses"))).findFirst().orElseThrow();
