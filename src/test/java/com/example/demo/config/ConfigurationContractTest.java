@@ -62,12 +62,4 @@ class ConfigurationContractTest {
         }
         return properties;
     }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"application.properties", "application-local.properties", "application-prod.properties"})
-    void pageSizeLimitIsSharedWithoutProfileOverride(String resource) throws Exception {
-        var effective = properties("application.properties");
-        effective.putAll(properties(resource));
-        assertEquals("100", effective.getProperty("spring.data.web.pageable.max-page-size"));
-    }
 }

@@ -462,7 +462,7 @@ GET /products
 指定順序を維持し、id未指定時だけ最後にid ASCを補完します。明示したid DESCも尊重します。
 未知のsortはDBアクセス前に400 INVALID_REQUEST（application/problem+json）で拒否します。
 pageの負数・数値以外は0、sizeの0・負数・数値以外は20となるSpring標準挙動を維持します。
-max 100はprofile共通のPageable resolver設定なので、在庫履歴のページサイズにも適用されます。
+max 100はProductのService normalizerだけで適用し、在庫履歴の既存page size挙動は変更しません。
 
 レスポンスは `content,page,size,totalElements,totalPages,first,last` の7項目です。
 旧PageImplの `number,pageable,sort,numberOfElements,empty` 等に依存するクライアントは移行が必要です。

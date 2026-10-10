@@ -159,7 +159,8 @@ coverage/scanner gate、branch protection変更、Deploy有効化、JWT_SECRET�
 Issue #2のProductPagingServiceTestは両queryのsort許可・id補完・明示id方向・query前の拒否・keyword保持・直接呼び出し上限を確認する。
 ProductPagingControllerTestは実Serviceとmock Repositoryでdefault/explicit/max/複数sort/未知sort/標準数値fallback・固定7項目レスポンスを確認する。
 ProductPagingITはFailsafeで実MariaDB + JWT/Security + Flywayを使用し、同価格の商品をsize=1で繰り返し取得して重複・欠落がないことを確認する。
-共通設定の上限100はConfigurationContractTestでdefault/local/prodの継承も確認する。既存テストは削除・skipしない。
+上限100はProductのService normalizerだけで適用する。ProductPagingITでは在庫履歴のsize=500が500、size=5000が従来の上限2000となることも確認する。
+既存mainのテストは削除・skipしない。
 
 ## Product resource未存在（Issue #35）
 

@@ -57,7 +57,8 @@ Idempotency-Key missingだけINVALID_IDEMPOTENCY_KEY。他required headerのmiss
 Issue #2: GET `/products` と `/products/search` のsortはid/name/price/stock/versionだけを許可する。
 未知の項目はRepositoryアクセス前に400 INVALID_REQUESTで拒否し、detailは固定の
 `リクエストの形式が不正です`。入力sort・内部クラス名は返さない。
-page/sizeはSpring Data標準resolverを使用し、page不正は0、size不正は20、size上限超過は100へ解決する。
+page/sizeはSpring Data標準resolverを使用し、page不正は0、size不正は20となる。
+Product一覧/検索だけはService normalizerでsizeを最大100へ制限する。
 
 ## Validation
 

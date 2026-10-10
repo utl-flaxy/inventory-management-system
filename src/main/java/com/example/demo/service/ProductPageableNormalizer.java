@@ -25,7 +25,7 @@ final class ProductPageableNormalizer {
         if (sort.getOrderFor("id") == null) {
             sort = sort.and(ID_ASC);
         }
-        // HTTP resolverと同じ上限をServiceの直接呼び出しにも適用する。
+        // Productのqueryだけを最大100件に制限し、他APIのPageableには影響させない。
         return PageRequest.of(pageable.isPaged() ? pageable.getPageNumber() : 0,
                 pageable.isPaged() ? Math.min(pageable.getPageSize(), 100) : 20, sort);
     }

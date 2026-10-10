@@ -16,7 +16,6 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -24,6 +23,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -42,12 +42,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(ProductService.class)
 class ProductPagingControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean ProductRepository products;
-    @MockBean OrderItemRepository items;
-    @MockBean InventoryMovementRepository movements;
-    @MockBean JwtUtil jwt;
-    @MockBean JwtAuthenticationFilter filter;
-    @MockBean UserDetailsService users;
+    @MockitoBean ProductRepository products;
+    @MockitoBean OrderItemRepository items;
+    @MockitoBean InventoryMovementRepository movements;
+    @MockitoBean JwtUtil jwt;
+    @MockitoBean JwtAuthenticationFilter filter;
+    @MockitoBean UserDetailsService users;
 
     @ParameterizedTest
     @ValueSource(strings = {"/products", "/products/search"})
@@ -73,7 +73,7 @@ class ProductPagingControllerTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"/products", "/products/search"})
-    void resolverClampsLargeSizeTo100(String path) throws Exception {
+    void productServiceClampsLargeSizeTo100(String path) throws Exception {
         emptyResults();
         mvc.perform(request(path).param("size", "500")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.size").value(100));

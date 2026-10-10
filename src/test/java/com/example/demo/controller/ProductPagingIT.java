@@ -129,9 +129,18 @@ class ProductPagingIT {
 
     @ParameterizedTest
     @ValueSource(strings = {"/products", "/products/search"})
-    void realResolverUsesCommonLimit(String path) throws Exception {
+    void productServiceLimitsPageSize(String path) throws Exception {
         var response = read(as("alice", request(path).param("size", "500")));
         assertEquals(100, response.path("size").asInt());
+    }
+
+    @Test
+    void inventoryPageSizeKeepsMainBehaviorOutsideProductLimit() throws Exception {
+        var path = "/api/v1/admin/products/1/inventory-movements";
+        var requested = read(as("admin", get(path).param("size", "500")));
+        assertEquals(500, requested.path("size").asInt());
+        var capped = read(as("admin", get(path).param("size", "5000")));
+        assertEquals(2000, capped.path("size").asInt());
     }
 
     @ParameterizedTest
