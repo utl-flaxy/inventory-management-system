@@ -2,7 +2,6 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.entity.Order;
-import com.example.demo.entity.OrderStatus;
 import com.example.demo.exception.InvalidOrderRequestException;
 import com.example.demo.security.JwtAuthenticationFilter;
 import com.example.demo.security.JwtUtil;
@@ -61,7 +60,6 @@ class OrderControllerTest {
         Order order = new Order();
         order.setId(1L);
         order.setTotalPrice(100 * quantity);
-        order.setStatus(OrderStatus.PENDING);
 
         when(orderService.createOrder(any(OrderRequest.class)))
                 .thenReturn(order);
