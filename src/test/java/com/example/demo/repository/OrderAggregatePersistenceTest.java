@@ -1,6 +1,6 @@
 package com.example.demo.repository;
 
-import com.example.demo.controller.OrderController;
+import com.example.demo.controller.SelfOrderController;
 import com.example.demo.dto.OrderItemRequest;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.entity.Order;
@@ -162,9 +162,9 @@ class OrderAggregatePersistenceTest {
 
     @Test
     void duplicateProductReturns400WithoutAnySideEffect() throws Exception {
-        var mvc = MockMvcBuilders.standaloneSetup(new OrderController(service))
+        var mvc = MockMvcBuilders.standaloneSetup(new SelfOrderController(service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2},{\"productId\":1,\"quantity\":3}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_ORDER_REQUEST"));
         noOrderAndUnchangedStocks(5);
@@ -172,9 +172,9 @@ class OrderAggregatePersistenceTest {
 
     @Test
     void customerComesFromAuthenticationAndCannotBeChosenByRequest() throws Exception {
-        var mvc = MockMvcBuilders.standaloneSetup(new OrderController(service))
+        var mvc = MockMvcBuilders.standaloneSetup(new SelfOrderController(service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":2,\"customer\":{\"id\":2},\"items\":[{\"productId\":1,\"quantity\":1}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.customer.id").value(1))
                 .andExpect(jsonPath("$.customer.username").value("alice"))
@@ -185,9 +185,9 @@ class OrderAggregatePersistenceTest {
     @Test
     void missingAuthenticationReturns401WithoutChangingInventory() throws Exception {
         SecurityContextHolder.clearContext();
-        var mvc = MockMvcBuilders.standaloneSetup(new OrderController(service))
+        var mvc = MockMvcBuilders.standaloneSetup(new SelfOrderController(service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-        mvc.perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":1}]}"))
                 .andExpect(status().isUnauthorized());
         noOrderAndUnchangedStocks(5);

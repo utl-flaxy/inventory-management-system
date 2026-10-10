@@ -630,4 +630,43 @@ class InventoryConcurrencyMariaDbTest {
             dropMigrationSchema();
         }
     }
+
+    @RepeatedTest(5)
+    void ownerCancellationAndAdministratorShipmentCannotBothSucceed() throws Exception {
+        product(1L, 10);
+        Order order = order(5);
+        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (3,'admin','test-hash','ROLE_ADMIN')");
+
+        List<Outcome> outcomes = concurrently(List.of(() -> orderService.cancelMyOrder(order.getId()),
+                () -> {
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                            new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin", null,
+                                    List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+                    return orderService.shipOrder(order.getId());
+                }));
+
+        successes(outcomes, 1);
+        outcomes.stream().filter(outcome -> !outcome.succeeded()).forEach(outcome ->
+                assertInstanceOf(IllegalOrderStateTransitionException.class, outcome.failure()));
+        String status = orderStatus(order.getId());
+        assertTrue(status.equals("CANCELLED") || status.equals("SHIPPED"));
+        assertEquals(status.equals("CANCELLED") ? 10 : 5, stock(1L));
+        assertEquals(1L, jdbc.queryForObject("SELECT customer_id FROM orders WHERE id = ?", Long.class, order.getId()));
+        assertEquals(1L, jdbc.queryForObject("SELECT version FROM orders WHERE id = ?", Long.class, order.getId()));
+    }
+
+    @Test
+    void foreignCustomerCannotCancelEvenWhenTheOrderExists() {
+        product(1L, 10);
+        Order order = order(5);
+        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (2,'bob','test-hash','ROLE_USER')");
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("bob", null, List.of()));
+
+        assertThrows(com.example.demo.exception.OrderNotFoundException.class, () -> orderService.cancelMyOrder(order.getId()));
+        assertEquals(5, stock(1L));
+        assertEquals("PENDING", orderStatus(order.getId()));
+        assertEquals(1, count("orders"));
+        assertEquals(1, count("order_items"));
+    }
 }

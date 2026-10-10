@@ -101,7 +101,31 @@ public class OrderService {
         return quantities;
     }
 
-    // 注文一覧取得
+    // 自分の注文をDB query段階で絞り、全件取得や取得後の所有者判定を行わない
+    @Transactional(readOnly = true)
+    public List<Order> findMyOrders() {
+        Long customerId = currentUser.requireUser().getId();
+        return orderRepository.findAllByCustomerId(customerId).stream().map(this::responseReady).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Order findMyOrder(Long id) {
+        Long customerId = currentUser.requireUser().getId();
+        return responseReady(orderRepository.findByIdAndCustomerId(id, customerId)
+                .orElseThrow(OrderNotFoundException::new));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Order cancelMyOrder(Long id) {
+        Long customerId = currentUser.requireUser().getId();
+        // 所有者条件と排他ロックを同じqueryに含め、通常find後の再lockを避ける
+        Order order = orderRepository.findByIdAndCustomerIdForUpdate(id, customerId)
+                .orElseThrow(OrderNotFoundException::new);
+        entityManager.refresh(order, LockModeType.PESSIMISTIC_WRITE);
+        return cancelLockedOrder(order);
+    }
+
+    // 管理者向け注文一覧取得
     @Transactional(readOnly = true)
     public List<Order> findAll() {
 
@@ -166,8 +190,11 @@ public class OrderService {
     // 注文キャンセル
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order cancelOrder(Long id) {
+        return cancelLockedOrder(findByIdForUpdate(id));
+    }
 
-        Order order = findByIdForUpdate(id);
+    // self/adminの両方で、取得済みの注文ロック下で既存の復元処理を使う
+    private Order cancelLockedOrder(Order order) {
         order.validateTransitionTo(OrderStatus.CANCELLED);
 
         // Order -> ProductのID昇順。関連読み取りで先にロードされた商品もrefreshしてから計算する

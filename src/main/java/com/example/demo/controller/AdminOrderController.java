@@ -1,6 +1,5 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.dto.StatusUpdateRequest;
@@ -11,24 +10,19 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
 import java.util.List;
 
 @RestController
-@RequestMapping("/orders")
+@RequestMapping("/api/v1/admin/orders")
+@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
-public class OrderController {
+public class AdminOrderController {
 
     private final OrderService orderService;
-
-    // 注文登録
-    @PostMapping
-    public OrderResponse create(@Valid @RequestBody OrderRequest request) {
-
-        return OrderResponse.from(orderService.createOrder(request));
-    }
 
     // 注文一覧取得
     @GetMapping

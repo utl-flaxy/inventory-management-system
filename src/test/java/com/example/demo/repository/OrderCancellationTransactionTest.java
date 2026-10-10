@@ -1,6 +1,6 @@
 package com.example.demo.repository;
 
-import com.example.demo.controller.OrderController;
+import com.example.demo.controller.AdminOrderController;
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderStatus;
@@ -94,14 +94,14 @@ class OrderCancellationTransactionTest {
     @Test
     void realControllerRejectsCancelPendingCancelCycleWith409() throws Exception {
         Order order = createFiveItemOrder();
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new OrderController(orderService))
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AdminOrderController(orderService))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
 
-        mvc.perform(post("/orders/{id}/cancel", order.getId())).andExpect(status().isOk());
-        mvc.perform(patch("/orders/{id}/status", order.getId()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/admin/orders/{id}/cancel", order.getId())).andExpect(status().isOk());
+        mvc.perform(patch("/api/v1/admin/orders/{id}/status", order.getId()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"PENDING\"}"))
                 .andExpect(status().isConflict());
-        mvc.perform(post("/orders/{id}/cancel", order.getId())).andExpect(status().isConflict());
+        mvc.perform(post("/api/v1/admin/orders/{id}/cancel", order.getId())).andExpect(status().isConflict());
 
         assertEquals(10, stock(1L));
         assertEquals("CANCELLED", orderStatus(order.getId()));

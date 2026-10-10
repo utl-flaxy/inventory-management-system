@@ -10,13 +10,13 @@ Orderは注文者・作成/更新日時・状態・version・明細・合計を�
 
 CurrentUser helperがSecurityContextの認証済みusernameをUserRepositoryで解決する。
 customerは必須で、リクエストから指定できない。未認証/存在しない認証ユーザーは401。
-所有者による参照・cancel制限やADMINのship/complete制限は #5 の範囲で、今回は導入しない。
+所有者による参照・cancel制限やADMINの操作制限は[注文APIの認可（Issue #5）](../security/order-authorization.md)を参照。
 orderedAt/updatedAtはInstant（UTC）。生成時に設定し、更新時はJPAのPreUpdateでupdatedAtを更新する。
 OrderにもVersionを持たせ、商品側のVersionと既存の悲観ロックを維持する。
 
 ## APIと互換性
 
-`POST /orders` は必須・非空の `items` 配列を受け取る。
+`POST /api/v1/me/orders` は必須・非空の `items` 配列を受け取る。
 
 ```json
 {"items":[{"productId":1,"quantity":2},{"productId":2,"quantity":1}]}
@@ -28,7 +28,8 @@ OrderにもVersionを持たせ、商品側のVersionと既存の悲観ロック�
 旧形式 `{"productId":1,"quantity":2}` はitems未指定として400になるため、クライアント更新が必要。
 明細の商品IDはレスポンスでも昇順。
 
-URL・成功HTTP status（200）・状態変更APIは維持する。
+Issue #5でURLをself/adminへ分離した。旧 `/orders/**` は廃止し、クライアント更新が必要。
+成功HTTP status（200）と状態変更の業務ルールは維持する。
 作成/一覧/詳細/cancel/ship/complete/statusの返却はOrderResponseに統一する。
 `items` はproductId/productName/unitPrice/quantity/lineTotalを持ち、customerはid/usernameだけを返す。
 EntityのorderItemsやネストしたProduct、Userのpassword/roleは返さない。
