@@ -12,6 +12,11 @@ export OLD_IMAGE="sha256:$(printf '%064d' 1)" NEW_IMAGE="sha256:$(printf '%064d'
 export JWT_SECRET='new-test-secret-only-012345678901234567890'
 export OLD_SECRET='old-test-secret-only-012345678901234567890'
 export DB_PASSWORD='test-password-never-print'
+if [[ "$SCENARIO" == multiline-secret ]]; then
+  JWT_SECRET=$'new-test-secret-only-012345678901234567890\nnew-line-private\n'
+  OLD_SECRET=$'old-test-secret-only-012345678901234567890\nold-line-private\n'
+  DB_PASSWORD=$'test-password-never-print\ndb-line-private\n'
+fi
 export JAVA_HOME="$fixture/java"
 mkdir -p "$fixture/bin" "$JAVA_HOME/bin" "$DEPLOY_DIR/.git" "$DEPLOY_DIR/target" "$DEPLOY_DIR/.deploy"
 : >"$TRACE"
@@ -47,7 +52,7 @@ case "$tool" in
     [[ -f "$MOCK_ROOT/active" ]] || exit 96
     active=$(cat "$MOCK_ROOT/active")
     case "$SCENARIO" in
-      health-failure|rollback-start-failure|first-health-failure)
+      health-failure|rollback-start-failure|first-health-failure|multiline-secret)
         [[ "$active" == previous ]] ;;
       rollback-health-failure) exit 22 ;;
       health-retry)
@@ -69,7 +74,7 @@ case "$tool" in
             [[ -f "$MOCK_ROOT/active" ]] || exit 1
           }
           if [[ "$*" == *Config.Env* ]]; then
-            printf 'JWT_SECRET=%s\nSPRING_DATASOURCE_PASSWORD=%s\n' "$OLD_SECRET" "$DB_PASSWORD"
+            printf 'JWT_SECRET=%s\0SPRING_DATASOURCE_PASSWORD=%s\0' "$OLD_SECRET" "$DB_PASSWORD"
           elif [[ "$*" == *compose.project* ]]; then echo inventory-management-system
           elif [[ "$*" == *'{{.Image}}'* ]]; then
             if [[ -f "$MOCK_ROOT/active" && $(cat "$MOCK_ROOT/active") == target ]]; then echo "$NEW_IMAGE"; else echo "$OLD_IMAGE"; fi
@@ -87,6 +92,9 @@ case "$tool" in
       compose)
         if [[ "$*" == *' config' ]]; then
           [[ "$SCENARIO" != config-failure ]] || exit 1
+          if [[ "$SCENARIO" == multiline-secret ]] && ! grep -Fq 'git checkout' "$TRACE"; then
+            [[ "$JWT_SECRET" == "$OLD_SECRET" ]] || exit 89
+          fi
           printf 'services: {app: {image: target}}\n'
         elif [[ "$*" == *' up '* ]]; then
           [[ "$*" == *'up -d --no-deps --no-build --pull never --force-recreate app' ]] || exit 92
@@ -115,7 +123,7 @@ case "$SCENARIO" in
   missing-secret) unset JWT_SECRET ;;
   weak-secret) JWT_SECRET=short ;;
   first-success|first-health-failure) rm "$DEPLOY_DIR/.deploy/current"* ;;
-  legacy-success) rm "$DEPLOY_DIR/.deploy/current-compose.yml" ;;
+  legacy-success|multiline-secret) rm "$DEPLOY_DIR/.deploy/current-compose.yml" ;;
 esac
 
 result=0
@@ -125,7 +133,9 @@ cat "$TRACE"
 check() { if ! "$@"; then echo "Assertion failed: $*" >&2; exit 1; fi; }
 check_not() { if "$@"; then echo "Unexpected match: $*" >&2; exit 1; fi; }
 # Never print any test secret, including secret-bearing container diagnostics.
-for secret in 'new-test-secret-only-012345678901234567890' "$OLD_SECRET" "$DB_PASSWORD"; do
+for secret in 'new-test-secret-only-012345678901234567890' \
+    'old-test-secret-only-012345678901234567890' 'test-password-never-print' \
+    'new-line-private' 'old-line-private' 'db-line-private'; do
   check_not grep -Fq "$secret" "$fixture/output"
   check_not grep -Fq "$secret" "$TRACE"
 done
@@ -152,7 +162,7 @@ case "$SCENARIO" in
     check test "$config_line" -lt "$build_line"
     check grep -Fq "$NEW_IMAGE" "$DEPLOY_DIR/.deploy/current-image"
     ;;
-  health-failure|startup-failure|rollback-start-failure|rollback-health-failure)
+  health-failure|startup-failure|rollback-start-failure|rollback-health-failure|multiline-secret)
     check test "$result" -ne 0
     check test "$(cat "$DEPLOY_DIR/.deploy/current")" = "$OLD_SHA"
     check test "$(cat "$DEPLOY_DIR/.deploy/current-image")" = "$OLD_IMAGE"

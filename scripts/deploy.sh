@@ -39,30 +39,32 @@ cutover=false
 secret_values=("$JWT_SECRET")
 
 remember_secrets() {
-  local entry key value
-  while IFS= read -r entry; do
-    key=${entry%%=*}
-    value=${entry#*=}
-    case "$key" in
-      *PASSWORD*|*SECRET*|*TOKEN*) [[ -z "$value" ]] || secret_values+=("$value") ;;
-    esac
-  done <<< "$1"
+  local entry="$1" key value
+  key=${entry%%=*}
+  value=${entry#*=}
+  case "$key" in
+    *PASSWORD*|*SECRET*|*TOKEN*) [[ -z "$value" ]] || secret_values+=("$value") ;;
+  esac
 }
 
 redact_logs() {
-  local line value
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    for value in "${secret_values[@]}"; do
-      line=${line//"$value"/[REDACTED]}
-    done
-    printf '%s\n' "$line"
+  local content value
+  # The input is bounded to 100 log lines; redact entire values across line boundaries.
+  # A sentinel prevents command substitution from stripping secret-ending newlines.
+  content=$(cat; printf '.')
+  content=${content%.}
+  for value in "${secret_values[@]}"; do
+    content=${content//"$value"/[REDACTED]}
   done
+  printf '%s\n' "$content"
 }
 
 app_logs() {
-  local env_text
-  env_text=$(docker inspect inventory-app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null) || env_text=''
-  remember_secrets "$env_text"
+  local entry
+  if docker inspect inventory-app --format '{{range .Config.Env}}{{printf "%s%c" . 0}}{{end}}' \
+      >"$work/log-environment" 2>/dev/null; then
+    while IFS= read -r -d '' entry; do remember_secrets "$entry"; done <"$work/log-environment"
+  fi
   docker logs --tail 100 inventory-app 2>&1 | redact_logs || true
 }
 
@@ -122,17 +124,18 @@ if previous_image=$(docker inspect inventory-app --format '{{.Image}}' 2>/dev/nu
   docker image inspect "$previous_image" >/dev/null
   previous_sha=$(docker image inspect "$previous_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
   [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]] || previous_sha=unknown
-  old_env=$(docker inspect inventory-app --format '{{range .Config.Env}}{{println .}}{{end}}')
-  remember_secrets "$old_env"
+  # NUL preserves embedded newlines/quotes in secrets and the previous JWT environment.
+  docker inspect inventory-app --format '{{range .Config.Env}}{{printf "%s%c" . 0}}{{end}}' >"$work/previous-environment"
+  old_secret="$JWT_SECRET"
+  while IFS= read -r -d '' entry; do
+    remember_secrets "$entry"
+    [[ "$entry" != JWT_SECRET=* ]] || old_secret=${entry#JWT_SECRET=}
+  done <"$work/previous-environment"
   if [[ -f .deploy/current-image && -f .deploy/current-compose.yml && \
         $(cat .deploy/current-image) == "$previous_image" ]]; then
     cp .deploy/current-compose.yml "$work/previous-compose.yml"
   else
     # Adopt a pre-Issue-17 app using its checkout and actual JWT environment.
-    old_secret="$JWT_SECRET"
-    while IFS= read -r entry; do
-      [[ "$entry" != JWT_SECRET=* ]] || old_secret=${entry#JWT_SECRET=}
-    done <<< "$old_env"
     JWT_SECRET="$old_secret" "${compose[@]}" -f docker-compose.yml config >"$work/previous-compose.yml"
   fi
   printf 'services:\n  app:\n    image: %s\n' "$previous_image" >"$work/previous-image.yml"

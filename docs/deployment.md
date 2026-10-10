@@ -80,6 +80,8 @@ curlはconnect timeout 2秒、全体timeout 5秒、最大30試行、失敗ごと
 
 target失敗・rollback失敗時はappログ末尾100行を出す。現在のJWTと旧/新container環境のPASSWORD/SECRET/TOKEN値を伏せる。Composeの解決済み設定や秘密鍵はログへ出さない。任意に加工されたsecretをアプリがログへ出すケースまで完全な検知はできないため、アプリ側でもsecretのloggingを禁止する。
 
+環境値はNUL区切りで取得し、改行を含む値も保持してログ全体から伏せる。旧JWT値も同じ方法で保存するため、改行を含む鍵を復元時に切り詰めない。
+
 rollback成功でも配備jobは失敗終了する。target成功と扱わず、新currentへ確定しない。ホスト強制終了・電源断・通信切断などで復元処理を最後まで実行できない場合は、運用者が下記の手順で状態を調べる。
 
 切替後に失敗した場合は、旧image/revision/Composeを含む私有recovery snapshotを `.deploy/pending.*` に残し、場所だけをログへ出す。旧CDからの初回移行で復元に失敗しても設定を失わない。復旧完了後、運用者が不要なsnapshotを個別に削除する。成功/切替前失敗時は一時snapshotを削除する。

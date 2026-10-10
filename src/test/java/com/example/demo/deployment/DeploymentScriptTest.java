@@ -24,7 +24,8 @@ class DeploymentScriptTest {
             "locked", "fetch-failure", "unknown-sha", "head-mismatch", "db-stopped",
             "maven-failure", "missing-jar", "config-failure", "docker-failure", "image-mismatch",
             "success", "legacy-success", "first-success", "health-retry", "health-failure",
-            "startup-failure", "rollback-start-failure", "rollback-health-failure", "first-health-failure"})
+            "startup-failure", "rollback-start-failure", "rollback-health-failure", "first-health-failure",
+            "multiline-secret"})
     void executesDeploymentAgainstOnlyMockCommands(String scenario) throws Exception {
         var output = Files.createTempFile("deployment-test-", ".log");
         try {
