@@ -1,6 +1,7 @@
 package com.example.demo.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,9 @@ public class JwtUtil {
             @Value("${app.jwt.issuer:inventory-management-system}") String issuer,
             @Value("${app.jwt.expiration-ms:3600000}") long expirationMs) {
 
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("app.jwt.secret must not be blank");
+        }
         byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (secretBytes.length < MIN_SECRET_BYTES) {
             throw new IllegalArgumentException(
@@ -59,11 +63,15 @@ public class JwtUtil {
     }
 
     private Claims parseClaims(String token) {
-        return Jwts.parser()
+        Claims claims = Jwts.parser()
                 .verifyWith(key)
                 .requireIssuer(issuer)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        if (claims.getExpiration() == null) {
+            throw new JwtException("JWT expiration must be specified");
+        }
+        return claims;
     }
 }
