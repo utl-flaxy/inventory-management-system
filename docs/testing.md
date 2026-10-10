@@ -47,7 +47,7 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | SchemaConstraintIT | Flyway + validate、MariaDB NOT NULL/CHECK/FK/UNIQUE/index |
 | EmptyDatabaseMigrationIT | 空DB migration、実起動・再起動、schema drift、baseline拒否 |
 | LegacyDatabasePreflightIT | 既存DBの不正データ/不足履歴での停止とDB不変 |
-| AuthApiIT | register/login、BCrypt、資格情報非露出、role注入拒否、DB role優先 |
+| AuthApiIT | Authの400/409/401契約、UTF-8/文字数境界、10件同時登録、BCrypt、非露出、OpenAPI、DB role優先 |
 | SalesQueryIT | COMPLETEDのSUM/COUNT、全4状態、期間境界、legacy NULL、UTCマッピング |
 | MoneyApiIT | 高額Product/Order API、snapshot/CSV、OpenAPI int64、Long overflow時DB不変 |
 | MoneyMigrationIT | 既存値/V1履歴保持、V1→V2、BIGINT境界と制約、再実行なし |
@@ -80,21 +80,26 @@ ITだけを開発中に選択する場合:
 各ITのDBはclass単位で分離し、Authは毎回ユーザーを削除、SalesはTransaction rollbackで破棄する。
 実行順への依存やstatic共有レコードは作らず、既存の並行実行timeoutも維持する。
 
-## Authの固定する挙動と残る課題
+## Authの入力・エラー契約（Issue #31）
 
 登録はROLE_USERを強制し、clientのADMIN指定を無視する。DBのpasswordは実BCrypt hash。
-User.passwordのJSON出力だけを抑止し、登録のpassword/hash非露出を保証する。
+User.passwordのJsonIgnoreを維持し、RegisterResponseのid/username/roleだけを返してpassword/hash非露出を保証する。
 loginは署名・issuer・有効期限を持つJWTだけを返す。JWT payloadにpassword/hash/署名鍵は含めない。
 認可にはJWTのrole claimを使わず、毎回usernameから取得した現在のDB roleを使う。
 
-Issue #4ではAuthの入力Validation/例外設計を変更しないため、以下は現行挙動のcharacterization testとする。
-これらを安全な最終仕様とは扱わず、別のAuth入力Validation/エラー応答Issueで修正すべき課題として残す。
+Issue #31で旧500/blank受理のcharacterization期待値を正式な4xx契約に更新する。既存635件は削除しない。
+Java 17でDocker接続先を無効にした `mvnw.cmd clean test` はSurefire377件成功。
+`mvnw.cmd clean verify` はSurefire377件 + Failsafe332件 = 709件成功（74件追加）、failures/errors/skipped=0。
 
-- 重複username、registerのnull username/passwordは500（SYSTEM_ERROR）。ユーザーは追加されない。
-- blank username/passwordは現状登録可能。BCrypt保存とレスポンス非露出を確認する。
-- wrong password、存在しないuser、loginのnull/blank入力は現行500。JWT/資格情報を返さない。
+- 両APIのusernameは3〜50文字のASCII英数字と._-、passwordはNotBlank/8〜72文字/UTF-8 72 bytes以下。trimなし。
+- invalid inputは400でService/Repository/JWT未呼出。malformed JSON、missing/null bodyも400、未対応Content-Typeは415。
+- 重複usernameは409 USERNAME_ALREADY_EXISTS。MariaDB1062とuk_users_usernameだけを識別し、他制約を奪わない。
+- user不存在/wrong passwordは同じ401 INVALID_CREDENTIALS本文。予期しないAuth内部例外も固定messageに伏せる。
+- AuthApiITは同username10件、異なるpassword10件、異なるusername10件の同時POSTをbarrierで開始し、1成功/9競合または全成功を確認する。
 
-将来Authの仕様を改善する際は、そのIssueでHTTP status/Validationのテストも更新する。
+AuthControllerTest/AuthServiceTestはSurefire、実JWT/Security/DB/並行登録はAuthApiITのFailsafeで検証する。
+usernameは現行utf8mb4_unicode_ciのcase-insensitive照合を維持し、username/password列255も維持する。
+UTF-8の72/73 bytes境界を実BCryptと入力Validationで検証する。[Auth仕様・互換性](auth.md)を参照。
 
 ## Salesの現行仕様
 
