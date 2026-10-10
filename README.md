@@ -113,6 +113,21 @@ Java 17とDockerで `./mvnw verify` を実行すると、MariaDB 12.2.2でmigrat
 認可・並行制御を検証します。Boot管理のFlyway 11.7.2による12.2未検証警告と実DB検証の扱いも
 [DB運用手順](docs/db/README.md)に記載しています。
 
+## 設定と管理endpoint（Issue #37）
+
+既定とprodはSwagger/OpenAPI・H2 console・SQL stdoutを無効化します。Swaggerの利用は
+`SPRING_PROFILES_ACTIVE=local`を明示してください。production Composeはprodを指定します。
+DB接続情報の固定値はなく、専用userの`SPRING_DATASOURCE_URL/USERNAME/PASSWORD`と
+32 UTF-8 bytes以上の`JWT_SECRET`が必要です。prodは不足・root・URL内credentialを起動前に拒否します。
+Compose用の`.env.example`はsecretが空のサンプルです。実値の`.env`をcommitしないでください。
+
+匿名healthは`/actuator/health`の200 `{"status":"UP"}`のみを公開します。
+他Actuatorとprod OpenAPIは404、frame保護はSpring Security標準DENYです。
+既存DBはenvironment追加だけでは専用userが作成されません。
+起動・profile・secretは[設定手順](docs/configuration.md)、権限と既存DB切替は
+[DB手順](docs/db/README.md#専用app-db-userへの切替issue-37)を参照してください。
+本番secret設定・DB user移行・Deploy再有効化・EC2配備は未実施です。
+
 ## テスト品質ゲート
 
 - ローカル高速テスト: `./mvnw test`（Windows: `mvnw.cmd test`）。SurefireでUnit・domain・Mockito・Controller slice・H2補助テストを実行し、Dockerは不要です。
@@ -256,7 +271,8 @@ MariaDB
 
 ## Swagger UI
 
-OpenAPI により API ドキュメントを自動生成しています。
+local profileでOpenAPIによりAPIドキュメントを生成します。既定/prodでは無効（404）です。
+`SPRING_PROFILES_ACTIVE=local`で起動し、`/swagger-ui.html`を開いてください。
 
 ![Swagger UI](docs/images/swagger-ui.png)
 
@@ -344,7 +360,7 @@ AWS環境をコード管理。
 
 ## GitHub Actions
 
-CI/CD による自動デプロイ。
+CIはJava 17の全verifyを実行します。Deploy workflowは現在無効で、再有効化と本番設定は未実施です。
 
 ![GitHub Actions](docs/images/github-actions-success.png)
 

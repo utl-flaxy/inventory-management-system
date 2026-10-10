@@ -4,6 +4,45 @@ DB schemaのsource of truthは `src/main/resources/db/migration`。
 通常起動はSpring BootがFlyway migrateを実行した後、HibernateがEntityとの一致をvalidateする。
 Hibernateはテーブルを作成・変更しない。Entity annotationはmapping/validation補助として使う。
 
+## 専用app DB userへの切替（Issue #37）
+
+appはrootを使わず、対象DBだけに権限を持つinventory_app等で接続する。
+ComposeのMARIADB_USER/MARIADB_PASSWORDとdb-init scriptは空volumeの初期化時だけ実行される。
+既存volumeのuser/password/権限はenvironment変更だけでは更新されない。volumeを削除して移行しない。
+
+必要な権限はSELECT/INSERT/UPDATE/DELETE（業務処理とFlyway history）と
+CREATE/ALTER/INDEX/REFERENCES（V1〜V4のtable/column/index/FK変更）。
+global ALL、GRANT OPTIONは付与しない。clean-disabled=trueなのでDROPは不要。
+将来migrationが別の権限を必要とする場合は、そのmigrationと権限を一緒にレビューする。
+新規Compose DBはscripts/db-init/01-app-privileges.shが同じ権限を設定する。
+DB名のunderscoreはGRANTのpatternでwildcardになるため、下記のようにescapeする。
+
+既存本番DBの切替は運用者が次の順に行う（本Issueでは未実施）。
+
+1. 書き込み停止計画を決め、DBとFlyway historyをbackupする。検証DBで復元・切替を確認する。
+2. privateなadmin sessionで現在のroot/admin資格情報を使い、専用userを作成する。
+   passwordをshell引数・history・PR・ログに残さない。
+3. 対象DBだけへ権限を付与し、SHOW GRANTSでglobal権限/GRANT OPTIONがないことを確認する。
+4. 専用userで接続し、CURRENT_USER()と対象DBの読み書きを検証DBで確認する。
+5. 既存のpreflight・Flyway validate/migrateを専用userで確認する。V1〜V4のchecksumを変更しない。
+   非空の未管理DBは既存のbaseline手順に従い、自動baselineを有効にしない。
+6. privateなproduction設定のDB_USERNAME/DB_PASSWORDを切り替え、prod起動・health・業務APIを確認する。
+   root passwordをapp datasourceへ渡さない。旧app rollbackもDB user変更との互換性を確認する。
+7. 確認後に旧資格情報を運用手順で整理・rotationする。既存DBのroot passwordも
+   DB_ROOT_PASSWORDを変えるだけでは変更されないため、別途admin手順で同期する。
+
+~~~sql
+-- '<secret>'はplaceholder。実値はprivate admin sessionでのみ扱う。
+CREATE USER 'inventory_app'@'%' IDENTIFIED BY '<secret>';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
+  ON `asset\_management`.* TO 'inventory_app'@'%';
+SHOW GRANTS FOR 'inventory_app'@'%';
+~~~
+
+既存の専用userを再利用する場合は既存権限を監査し、必要ならadminがREVOKEしてから上記を付与する。
+ホスト制限は既存Compose通信経路と運用構成に合わせて決める。
+接続情報・secretの取扱いは[設定手順](../configuration.md)を参照。
+
 ## 構成
 
 Spring Boot 3.5.12のdependency managementを利用し、`org.flywaydb:flyway-core` と

@@ -57,6 +57,16 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | CompletionMigrationIT | V1/V2→V3、既存値/履歴保持、legacy NULL、validate、条件付き手動補完 |
 | IdempotentOrderIT | header必須、実JWT、replay/conflict、snapshot、20同時送信×3、mixed body、scope、legacy、OpenAPI |
 | IdempotencyMigrationIT | V3→V4、既存全4状態/履歴保持、ascii_bin列、customer/key UNIQUE、validate、再起動pending0 |
+| ProductionProfilesIT | 実prod/local/default起動、専用user最小権限/Flyway、Swagger/H2/Actuator/health/header/JWT、production jarのH2除外 |
+
+Issue #37のProductionConfigurationTestは実prod設定を読み、DataSource/Flyway生成前の必須設定不足、
+blank、root、credential付きURL、弱いJWT鍵の停止と非露出を検証する。
+ConfigurationContractTestはsafe defaults/local差分・Boot管理Actuator・H2 test scopeを固定する。
+ProductionProfilesITはComposeと同じdb-init scriptで専用user権限を絞った実MariaDB12.2.2で
+V1〜V4 migrationとHibernate validate、3profileの実HTTP、health details非公開を検証する。
+既存OpenAPIテストだけlocalを明示し、production要件をtest profileで無効化しない。
+Deployment testsはActuator target、labelに基づくlegacy/modern rollback、DB設定不足、prod必須、
+root/不正identifier拒否、secret非出力と既存SHA/image/lock/app-only安全性を検証する。
 
 Issue #27はmain基準519件を削除せず、売上の期待値を正式なCOMPLETED計上ルールへ更新する。H2補助テストはSurefireに残す。
 Issue #27のJava 17検証はSurefire 288件 + Failsafe 277件 = 565件（46件追加）、failures/errors/skipped=0。
@@ -163,3 +173,14 @@ Java 17でDocker接続先を無効にした `mvnw.cmd clean test` はSurefire427
 （既存758件 + Unit19件 + IT26件追加）、failures/errors/skipped=0。
 初回全verifyでは既存在庫並行テストの100worker接続取得がtimeoutしたが、
 同じコード・設定の単独40件再実行と全verify再実行は成功。timeout/pool設定は変更していない。
+
+## Issue #37の検証結果
+
+Java 17でDocker接続先を無効化した`mvnw.cmd clean test`はSurefire470件成功。
+絞り込みなし`mvnw.cmd clean verify`はSurefire470件 + Failsafe380件 = 850件成功、
+failures/errors/skipped=0。main803件（427+376）を維持し、Unit43件 + IT4件を追加した。
+803件はtestとintegration-testの合計で、Docker不要testだけの件数ではない。
+MariaDB12.2.2の専用user/init権限とV1〜V4も成功。配備回帰は28 Workflow + 35 Script = 63件。
+初期化script導入時のfocused verifyはGRANTのescape表示を旧assertが考慮せず3件失敗したが、
+対象DBのescape済みgrantだけを許可するassertへ直し、focused/full verifyとも成功した。
+実secret・既存本番DB・EC2は使用せず、Deploy workflowは無効のまま維持する。
