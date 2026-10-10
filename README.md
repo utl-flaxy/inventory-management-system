@@ -709,6 +709,10 @@ GET /products
 # ⚠ エラーハンドリング
 
 GlobalExceptionHandler を利用して例外処理を共通化しています。
+Issue #33から、ControllerAdviceとSecurityの主要4xx/5xxはSpring ProblemDetail、
+`application/problem+json`へ統一しました。**エラーbodyの破壊的変更**で、
+旧`message`は`detail`、旧Validation Mapは`errors`へ移ります。
+既存status/codeと成功レスポンスは維持します。[APIエラー契約](docs/api-errors.md)を参照してください。
 
 ---
 
@@ -724,7 +728,12 @@ OutOfStockException
 
 ```json
 {
-  "message": "在庫が不足しています"
+  "type": "https://inventory-management-system.example/problems/out-of-stock",
+  "title": "Out of Stock",
+  "status": 400,
+  "detail": "在庫が不足しています",
+  "instance": "/api/v1/me/orders",
+  "code": "OUT_OF_STOCK"
 }
 ```
 
@@ -736,7 +745,12 @@ JWT認証エラー時
 
 ```json
 {
-  "error": "Unauthorized"
+  "type": "https://inventory-management-system.example/problems/unauthenticated",
+  "title": "Unauthenticated",
+  "status": 401,
+  "detail": "認証が必要です",
+  "instance": "/api/v1/me/orders",
+  "code": "UNAUTHENTICATED"
 }
 ```
 

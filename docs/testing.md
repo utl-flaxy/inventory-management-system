@@ -48,6 +48,7 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | EmptyDatabaseMigrationIT | 空DB migration、実起動・再起動、schema drift、baseline拒否 |
 | LegacyDatabasePreflightIT | 既存DBの不正データ/不足履歴での停止とDB不変 |
 | AuthApiIT | Authの400/409/401契約、UTF-8/文字数境界、10件同時登録、BCrypt、非露出、OpenAPI、DB role優先 |
+| ProblemDetailContractIT | 実Security/DB、主要4xx、JWT/DB user、filter/method 403一致、firewall、在庫不変、OpenAPI Problem schema |
 | SalesQueryIT | COMPLETEDのSUM/COUNT、全4状態、期間境界、legacy NULL、UTCマッピング |
 | MoneyApiIT | 高額Product/Order API、snapshot/CSV、OpenAPI int64、Long overflow時DB不変 |
 | MoneyMigrationIT | 既存値/V1履歴保持、V1→V2、BIGINT境界と制約、再実行なし |
@@ -126,5 +127,14 @@ API clientもint64を保持できる型で扱う。COMPLETEDの30億+40億=70億
 ## 別Issueへ分離した内容
 
 注文冪等性はIssue #29で[必須headerとreplay契約](orders/idempotency.md)を実装し、実IdempotentOrderITで検証する。
-GlobalExceptionHandlerは現行Map形式のまま。ProblemDetail導入と契約テストはその機能Issueで扱う。
+Issue #33でGlobalExceptionHandlerとSecurityの主要エラーをSpring ProblemDetailへ統一する。
+ProblemDetailContractTestは全主要code/type/title/status、Validationの決定性/nested path、
+JSON/body/header/media/type mismatch、synthetic 500の内部情報非露出をDockerなしで検証する。
+ProblemDetailContractITは実Security + MariaDB12.2.2を必須実行する。
+既存709件のMap前提はdetail/errorsへ更新し、注文所有者と不存在404はinstance以外の全field一致を維持する。
+Authの不存在/password違いはinstanceも含めて同一ProblemDetailを維持する。
+[APIエラー契約](api-errors.md)はエラーbodyの破壊的変更とstatus/code維持を明記する。
+Issue #33のJava 17検証は、Docker接続先を無効にした `mvnw.cmd clean test` で408件成功。
+`mvnw.cmd clean verify` はSurefire408件 + Failsafe350件 = 758件成功（既存709件 + 契約49件追加）、
+failures/errors/skipped=0。新規ProblemDetailContractTest31件、ProblemDetailContractIT18件を含む。
 coverage/scanner gate、branch protection変更、Deploy有効化、JWT_SECRET設定、EC2操作も対象外。

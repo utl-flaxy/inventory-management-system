@@ -2,7 +2,8 @@
 
 `POST /auth/register` / `POST /auth/login` はapplication/jsonのbodyを受け取り、成功200を維持する。
 両RequestへBean Validation、Controllerへ `@Valid` を追加する。入力不正はService・Repository・BCrypt・JWT生成より前に400となる。
-エラーは既存Map形式を維持し、ProblemDetailへの移行やJWT仕様変更は行わない。
+Issue #33でエラーbodyをSpring ProblemDetail、application/problem+jsonへ変更する。
+status/code・入力・JWT仕様は維持する。[APIエラー契約](api-errors.md)を参照。
 
 ## Usernameとpassword
 
@@ -43,7 +44,7 @@ DB保存はBCrypt hashで、plaintext・hashをレスポンスへ返さない。
 flush/commitの失敗をrollback完了後に捕捉でき、rollback-only Transaction内の再照会を行わない。
 
 ```json
-{"code":"USERNAME_ALREADY_EXISTS","message":"ユーザー名は既に使用されています"}
+{"type":"https://inventory-management-system.example/problems/username-already-exists","title":"Username Already Exists","status":409,"detail":"ユーザー名は既に使用されています","instance":"/auth/register","code":"USERNAME_ALREADY_EXISTS"}
 ```
 
 ## Login
@@ -52,23 +53,23 @@ flush/commitの失敗をrollback完了後に捕捉でき、rollback-only Transac
 成功レスポンスはtokenだけ。署名、issuer、subject、iat、expは従来どおり。
 JWT role claimを追加せず、protected endpointの認可は毎request取得するDB roleをsource of truthとする。
 
-user不存在・password不一致はともに401、status/code/messageを同じにする。
+user不存在・password不一致はともに401、status/code/type/title/detail/instanceを同じにする。
 レスポンス差によるuser enumerationを抑える。dummy BCryptや高度なconstant-time認証は今回導入しない。
 
 ```json
-{"code":"INVALID_CREDENTIALS","message":"ユーザー名またはパスワードが正しくありません"}
+{"type":"https://inventory-management-system.example/problems/invalid-credentials","title":"Invalid Credentials","status":401,"detail":"ユーザー名またはパスワードが正しくありません","instance":"/auth/login","code":"INVALID_CREDENTIALS"}
 ```
 
 ## エラー・非露出・OpenAPI
 
 | 状況 | HTTP / body |
 |---|---|
-| username/passwordのBean Validation違反 | 400、field名→固定日本語messageのMap |
+| username/passwordのBean Validation違反 | 400 VALIDATION_ERROR、errorsにfield名→固定日本語message |
 | malformed JSON、bodyなし、JSON null | 400 INVALID_REQUEST |
 | 未対応Content-Type | 415 UNSUPPORTED_MEDIA_TYPE |
 | duplicate username | 409 USERNAME_ALREADY_EXISTS |
 | 形式は有効だが認証情報が一致しない | 401 INVALID_CREDENTIALS |
-| 予期しないAuth内部エラー | 500 SYSTEM_ERROR、固定の「認証処理中にエラーが発生しました」 |
+| 予期しない内部エラー | 500 SYSTEM_ERROR、全API共通の「予期しないエラーが発生しました」 |
 
 Validation responseの`password`はfield名であり、実password値を返さない。
 SQL/constraint名、rawPassword cannot be null等の内部例外、hash/token/署名鍵をAuthエラーへ露出しない。
@@ -76,6 +77,7 @@ Authの汎用RuntimeExceptionとSystem.out.printlnを削除し、同内容のlog
 他の既存例外handlerとOrderのIDEMPOTENCY_KEY_CONFLICTを維持する。
 OpenAPIのRegister/Login requestへminLength/maxLength/pattern、password writeOnlyとUTF-8 byte制限を表示し、
 register200/400/409、login200/400/401を明示する。
+4xx/5xxはapplication/problem+jsonと共通ApiProblem schemaを参照する。
 
 ## 検証
 
@@ -90,4 +92,4 @@ barrierで10件同時POSTを開始し、同username1成功/9競合、異なるpa
 全Future回収・Executor終了・timeoutを明示し、勝者をschedulerに依存して固定しない。
 
 OAuth2/OIDC、refresh/reset/verification、MFA、rate limit/account lockout、CAPTCHA、breach DB、
-メール登録、ProblemDetail全面移行は対象外。
+メール登録は対象外。ProblemDetail移行はIssue #33で実装済み。
