@@ -125,7 +125,7 @@ class OrderStateControllerTest {
     void missingOrNullStatusReturns400WithoutCallingService(String json) throws Exception {
         mockMvc.perform(patch("/api/v1/admin/orders/1/status").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value("注文ステータスは必須です"));
+                .andExpect(jsonPath("$.errors.status").value("注文ステータスは必須です"));
 
         verifyNoInteractions(orderService);
     }

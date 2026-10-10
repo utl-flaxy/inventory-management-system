@@ -2,6 +2,8 @@ package com.example.demo.security;
 
 import com.example.demo.controller.AdminOrderController;
 import com.example.demo.repository.OrderRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.AfterEach;
@@ -92,6 +94,8 @@ class AuthorizationMatrixIT {
     private CustomUserDetailsService userDetailsService;
     @Autowired
     private JwtUtil jwt;
+    @Autowired
+    private ObjectMapper json;
 
     enum Actor {
         ANONYMOUS(null, 0, 101), USER_A("alice", 1, 101), USER_B("bob", 2, 102), ADMIN("admin", 3, 103);
@@ -155,6 +159,8 @@ class AuthorizationMatrixIT {
         int expected = actor == Actor.ANONYMOUS ? 401 : endpoint.endsWith("other") ? 404 : 200;
         Snapshot before = snapshot();
         var result = mvc.perform(as(actor, request)).andExpect(status().is(expected));
+        if (expected == 401) result.andExpect(com.example.demo.TestApiProblems.problem(401,
+                "UNAUTHENTICATED", "Unauthenticated", request.buildRequest(new org.springframework.mock.web.MockServletContext()).getRequestURI()));
         if (expected == 404) {
             result.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
         } else if (expected == 200 && endpoint.equals("list")) {
@@ -207,6 +213,10 @@ class AuthorizationMatrixIT {
         Snapshot before = snapshot();
         int expected = actor == Actor.ANONYMOUS ? 401 : actor == Actor.ADMIN ? 200 : 403;
         var result = mvc.perform(as(actor, adminRequest(endpoint, 101))).andExpect(status().is(expected));
+        if (expected == 401 || expected == 403) result.andExpect(com.example.demo.TestApiProblems.problem(expected,
+                expected == 401 ? "UNAUTHENTICATED" : "ACCESS_DENIED",
+                expected == 401 ? "Unauthenticated" : "Access Denied",
+                adminRequest(endpoint, 101).buildRequest(new org.springframework.mock.web.MockServletContext()).getRequestURI()));
         if (expected != 200 || List.of("list", "detail", "sales", "export").contains(endpoint)) {
             assertEquals(before, snapshot());
         }
@@ -311,7 +321,13 @@ class AuthorizationMatrixIT {
         var missing = operation.equals("detail") ? get(ME + "/999") : post(ME + "/999/cancel");
         String foreignBody = mvc.perform(as(Actor.USER_A, foreign)).andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
         String missingBody = mvc.perform(as(Actor.USER_A, missing)).andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
-        assertEquals(foreignBody, missingBody);
+        var foreignProblem = (ObjectNode) json.readTree(foreignBody);
+        var missingProblem = (ObjectNode) json.readTree(missingBody);
+        assertTrue(foreignProblem.path("instance").asText().contains("/102"));
+        assertTrue(missingProblem.path("instance").asText().contains("/999"));
+        foreignProblem.remove("instance");
+        missingProblem.remove("instance");
+        assertEquals(foreignProblem, missingProblem);
         assertEquals(before, snapshot());
     }
 

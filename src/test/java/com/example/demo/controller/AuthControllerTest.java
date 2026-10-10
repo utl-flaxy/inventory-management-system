@@ -45,7 +45,7 @@ class AuthControllerTest {
             String endpoint, String field, Map<String, Object> body) throws Exception {
         String response = mvc.perform(post(endpoint).contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(body)))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$." + field).isString())
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors." + field).isString())
                 .andReturn().getResponse().getContentAsString();
         assertFalse(response.contains(PASSWORD));
         assertFalse(response.contains("rawPassword"));
@@ -89,6 +89,7 @@ class AuthControllerTest {
         mvc.perform(post(endpoint).contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isInternalServerError())
-                .andExpect(content().json("{\"code\":\"SYSTEM_ERROR\",\"message\":\"認証処理中にエラーが発生しました\"}"));
+                .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"))
+                .andExpect(jsonPath("$.detail").value("予期しないエラーが発生しました"));
     }
 }

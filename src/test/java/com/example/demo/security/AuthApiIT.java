@@ -125,7 +125,7 @@ class AuthApiIT {
         String response = register("alice", "different-password")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("USERNAME_ALREADY_EXISTS"))
-                .andExpect(jsonPath("$.message").value("ユーザー名は既に使用されています"))
+                .andExpect(jsonPath("$.detail").value("ユーザー名は既に使用されています"))
                 .andReturn().getResponse().getContentAsString();
         assertEquals(1, users.count());
         assertEquals(originalHash, users.findByUsername("alice").orElseThrow().getPassword());
@@ -142,7 +142,7 @@ class AuthApiIT {
             String username, String password) throws Exception {
         clearInvocations(users, jwt);
         register(username, password).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$." + (username == null ? "username" : "password")).isString());
+                .andExpect(jsonPath("$.errors." + (username == null ? "username" : "password")).isString());
         verifyNoInteractions(users, jwt);
         assertEquals(0, users.count());
     }
@@ -210,7 +210,7 @@ class AuthApiIT {
         if (expectedStatus == 400) verifyNoInteractions(users, jwt);
         else {
             assertEquals("INVALID_CREDENTIALS", json.readTree(response).path("code").asText());
-            assertEquals("ユーザー名またはパスワードが正しくありません", json.readTree(response).path("message").asText());
+            assertEquals("ユーザー名またはパスワードが正しくありません", json.readTree(response).path("detail").asText());
             verify(users).findByUsername(username);
             verifyNoMoreInteractions(users);
             verifyNoInteractions(jwt);
@@ -228,8 +228,10 @@ class AuthApiIT {
         String absent = auth("/auth/login", credentials("missing", "valid-wrong-password"))
                 .andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsString();
         assertEquals(wrong, absent);
-        assertEquals(Map.of("code", "INVALID_CREDENTIALS", "message", "ユーザー名またはパスワードが正しくありません"),
-                json.convertValue(json.readTree(wrong), Map.class));
+        var problem = json.readTree(wrong);
+        assertEquals("INVALID_CREDENTIALS", problem.path("code").asText());
+        assertEquals("ユーザー名またはパスワードが正しくありません", problem.path("detail").asText());
+        assertEquals(6, problem.size());
         assertNoCredentials(wrong, users.findByUsername("alice").orElseThrow().getPassword());
     }
 
@@ -291,7 +293,7 @@ class AuthApiIT {
     void utf8PasswordOver72BytesIs400WithoutRepositoryQueriesEvenWhenCharCountIsBelow72(String path) throws Exception {
         clearInvocations(users, jwt);
         auth(path, credentials("alice", "あ".repeat(24) + "a")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.password").value("パスワードはUTF-8で72 bytes以内で入力してください"));
+                .andExpect(jsonPath("$.errors.password").value("パスワードはUTF-8で72 bytes以内で入力してください"));
         verifyNoInteractions(users, jwt);
         assertEquals(0, users.count());
     }
