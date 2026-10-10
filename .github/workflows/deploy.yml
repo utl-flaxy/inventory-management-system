@@ -13,6 +13,9 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
     steps:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
@@ -22,8 +25,16 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           timeout: 30m
           command_timeout: 30m
+          envs: JWT_SECRET
 
           script: |
+            set -e
+
+            if [ -z "${JWT_SECRET:-}" ]; then
+              echo "JWT_SECRET is not configured. Aborting before stopping the running containers."
+              exit 1
+            fi
+
             cd ~/inventory-management-system
 
             git fetch origin
@@ -35,6 +46,9 @@ jobs:
             export PATH=$JAVA_HOME/bin:$PATH
 
             ./mvnw clean package -DskipTests
+
+            # Validate required Compose variables before touching the running service.
+            docker compose config >/dev/null
 
             docker compose down
 
