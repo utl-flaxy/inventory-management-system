@@ -50,8 +50,9 @@ MariaDBで実行する場合は、別の空の専用テストDB `issue10_migrati
 ./mvnw test -Dtest=OrderConstraintMigrationTest -Dissue10.migration.url=jdbc:mariadb://127.0.0.1:13310/issue10_migration -Dissue10.migration.username=root -Dissue10.migration.password=issue10-local-only
 ```
 
-数量に固定の業務上限は設けない。既存のInteger金額を維持し、`price * quantity` が
-`Integer.MAX_VALUE` を超える注文を在庫変更前に400で拒否する。型の表現範囲を超えたJSONも400になる。
+このlegacy手順の当時はInteger金額で、`price * quantity` がInteger.MAX_VALUEを超える注文を400で拒否した。
+現行はIssue #25の正式V2で金額をLong/BIGINTへ拡張し、Long overflowを在庫変更前に400で拒否する。
+legacy SQLのINT定義は変更せず保存する。現行schemaは[DB運用手順](../README.md)のV1→V2を参照する。
 
 CHECKの動作は [MariaDBの制約仕様](https://mariadb.com/docs/server/reference/sql-statements/data-definition/constraint)、
 DDLの動作は [ALTER TABLE仕様](https://mariadb.com/docs/server/reference/sql-statements/data-definition/alter/alter-table) を参照。

@@ -95,7 +95,7 @@ spring.flyway.baseline-on-migrate=false
 spring.flyway.clean-disabled=true
 ```
 
-新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成します。
+新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成し、V2が金額3列をBIGINTへ拡張します。
 既存DBはbackup・schema確認・data preflight・確認済み履歴の補完・schema照合を行い、
 手動baseline後にvalidateします。未確認DBの自動baselineは行いません。
 customer/日時/商品名snapshotを現在の値から推測で埋めないでください。
@@ -120,6 +120,17 @@ Java 17とDockerで `./mvnw verify` を実行すると、MariaDB 12.2.2でmigrat
 - GitHub CIも `./mvnw verify` を使用します。IT失敗・Docker未起動はbuild失敗となり、skipしません。
 
 命名・実行phase・レポート・Auth/Salesの現行仕様は[テスト手順](docs/testing.md)を参照してください。
+
+## 金額の型（Issue #25）
+
+価格・注文時単価・明細合計・注文合計・売上合計は**円の整数値**をJava Long/longで扱います。
+MariaDBのproducts.price / orders.total_price / order_items.priceはV2でsigned BIGINTへ移行します。
+V1は変更せず、既存値と非負CHECK・NOT NULL・FK・indexを保持します。数量・在庫はInteger/INTのままです。
+30億円×2個＝60億円など旧Integer上限を超える注文が可能です。商品APIは引き続き1円以上、
+Long.MAX_VALUEまでを許可し、注文時のlong multiplyExact/addExact overflowは在庫変更前に400で拒否します。
+JSON field名とnumber形式は維持し、OpenAPIの金額はinteger/int64になります。
+Money Value Object、小数、税・割引、多通貨は未導入です。CANCELLEDを含む売上仕様も維持します。
+移行・再起動・rollbackの扱いは[DB運用手順](docs/db/README.md)を参照してください。
 
 ---
 
@@ -869,14 +880,14 @@ USER {
 PRODUCT {
     Long id
     String name
-    Integer price
+    Long price
     Integer stock
 }
 
 ORDER {
     Long id
     Long customerId
-    Integer totalPrice
+    Long totalPrice
     String status
     Instant orderedAt
     Instant updatedAt
@@ -886,7 +897,7 @@ ORDER {
 ORDER_ITEM {
     Long id
     Integer quantity
-    Integer unitPrice
+    Long unitPrice
     String productNameSnapshot
 }
 ```
