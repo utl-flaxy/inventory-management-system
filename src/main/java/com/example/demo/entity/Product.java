@@ -11,7 +11,6 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @NoArgsConstructor
-@Builder
 public class Product {
 
     @Id
@@ -25,6 +24,12 @@ public class Product {
     @Column(nullable = false)
     private Integer stock;
 
+    @Version
+    @Column(nullable = false, columnDefinition = "BIGINT DEFAULT 0")
+    @Setter(AccessLevel.NONE)
+    private Long version = 0L;
+
+    @Builder
     public Product(Long id, String name, Integer price, Integer stock) {
         this.id = id;
         this.name = name;

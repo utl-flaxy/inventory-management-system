@@ -9,6 +9,7 @@ import com.example.demo.exception.OutOfStockException;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,6 +38,9 @@ class OrderServiceTest {
     @Mock
     private OrderItemRepository orderItemRepository;
 
+    @Mock
+    private EntityManager entityManager;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -55,7 +59,7 @@ class OrderServiceTest {
         request.setProductId(1L);
         request.setQuantity(quantity);
 
-        when(productRepository.findById(1L))
+        when(productRepository.findByIdForUpdate(1L))
                 .thenReturn(Optional.of(product));
 
         when(orderRepository.save(any(Order.class)))
@@ -87,7 +91,7 @@ class OrderServiceTest {
 
         // Arrange
         Product product = new Product(1L, "りんご", 100, 10);
-        lenient().when(productRepository.findById(any())).thenReturn(Optional.of(product));
+        lenient().when(productRepository.findByIdForUpdate(any())).thenReturn(Optional.of(product));
         OrderRequest request = new OrderRequest();
         request.setProductId(1L);
         request.setQuantity(quantity);
@@ -108,7 +112,7 @@ class OrderServiceTest {
 
         // Arrange
         Product product = new Product(1L, "りんご", 100, 10);
-        lenient().when(productRepository.findById(any())).thenReturn(Optional.of(product));
+        lenient().when(productRepository.findByIdForUpdate(any())).thenReturn(Optional.of(product));
         OrderRequest request = new OrderRequest();
         request.setProductId(productId);
         request.setQuantity(1);
@@ -133,7 +137,7 @@ class OrderServiceTest {
 
         // Arrange
         Product product = new Product(1L, "りんご", 2, Integer.MAX_VALUE);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
         OrderRequest request = new OrderRequest();
         request.setProductId(1L);
         request.setQuantity(Integer.MAX_VALUE / 2 + 1);
@@ -151,7 +155,7 @@ class OrderServiceTest {
 
         // Arrange
         Product product = new Product(1L, "りんご", 1, Integer.MAX_VALUE);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         OrderRequest request = new OrderRequest();
         request.setProductId(1L);
@@ -182,7 +186,7 @@ class OrderServiceTest {
         request.setProductId(1L);
         request.setQuantity(5);
 
-        when(productRepository.findById(1L))
+        when(productRepository.findByIdForUpdate(1L))
                 .thenReturn(Optional.of(product));
 
         // Act & Assert
@@ -205,7 +209,7 @@ class OrderServiceTest {
         request.setProductId(999L);
         request.setQuantity(1);
 
-        when(productRepository.findById(999L))
+        when(productRepository.findByIdForUpdate(999L))
                 .thenReturn(Optional.empty());
 
         // Act & Assert

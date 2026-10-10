@@ -12,16 +12,20 @@ import com.example.demo.exception.OrderNotFoundException;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
-import java.util.LinkedHashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 @Service
 @RequiredArgsConstructor
@@ -30,9 +34,10 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final EntityManager entityManager;
 
     // 注文作成
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order createOrder(OrderRequest request) {
 
         // Controllerを経由しない呼び出しでも、読み取り・更新前に不正入力を拒否する
@@ -43,9 +48,12 @@ public class OrderService {
             throw new InvalidOrderRequestException("数量は1以上を入力してください");
         }
 
-        Product product = productRepository.findById(request.getProductId())
+        Product product = productRepository.findByIdForUpdate(request.getProductId())
                 .orElseThrow(() ->
                         new RuntimeException("商品が存在しません"));
+
+        // 呼び出し元のPersistence Contextに古い商品がある場合も、ロック下の現在値を使う
+        entityManager.refresh(product, LockModeType.PESSIMISTIC_WRITE);
 
         // Integerの金額上限を超える数量は、在庫変更前に拒否する
         int totalPrice;
@@ -104,7 +112,7 @@ public class OrderService {
     }
 
     // 既存APIの互換入口。必ず業務コマンドを経由する
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order updateStatus(Long id, OrderStatus status) {
 
         if (status == null) {
@@ -115,7 +123,7 @@ public class OrderService {
             case COMPLETED -> completeOrder(id);
             case CANCELLED -> cancelOrder(id);
             case PENDING -> {
-                Order order = findById(id);
+                Order order = findByIdForUpdate(id);
                 // PENDINGは遷移先にできないため、ドメインの検証で拒否する
                 order.validateTransitionTo(status);
                 yield order;
@@ -123,29 +131,34 @@ public class OrderService {
         };
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order shipOrder(Long id) {
-        Order order = findById(id);
+        Order order = findByIdForUpdate(id);
         order.ship();
         return orderRepository.save(order);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order completeOrder(Long id) {
-        Order order = findById(id);
+        Order order = findByIdForUpdate(id);
         order.complete();
         return orderRepository.save(order);
     }
 
     // 注文キャンセル
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order cancelOrder(Long id) {
 
-        Order order = findById(id);
+        Order order = findByIdForUpdate(id);
         order.validateTransitionTo(OrderStatus.CANCELLED);
 
+        // Order -> ProductのID昇順。関連読み取りで先にロードされた商品もrefreshしてから計算する
+        order.getOrderItems().stream().map(OrderItem::getProduct)
+                .distinct().sorted(Comparator.comparing(Product::getId))
+                .forEach(product -> entityManager.refresh(product, LockModeType.PESSIMISTIC_WRITE));
+
         // 全明細の復元後在庫を変更前に検証。同じ商品が複数明細にあっても累計する
-        Map<Product, Integer> restoredStocks = new LinkedHashMap<>();
+        Map<Product, Integer> restoredStocks = new TreeMap<>(Comparator.comparing(Product::getId));
         for (OrderItem item : order.getOrderItems()) {
             Product product = item.getProduct();
             Integer quantity = item.getQuantity();
@@ -166,6 +179,12 @@ public class OrderService {
         }
         order.cancel();
         return orderRepository.save(order);
+    }
+
+    private Order findByIdForUpdate(Long id) {
+        Order order = orderRepository.findByIdForUpdate(id).orElseThrow(OrderNotFoundException::new);
+        entityManager.refresh(order, LockModeType.PESSIMISTIC_WRITE);
+        return order;
     }
 
     // CSV出力

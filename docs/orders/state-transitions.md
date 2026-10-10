@@ -31,6 +31,6 @@ cancelは全明細の復元後在庫をMath.addExactで事前計算する。同�
 回帰テストは全16通りの遷移、各APIの400/404/409、stock=10→数量5の注文→5→cancel→10→再cancel失敗→10、
 在庫上限、実SQL発行後の保存失敗とrollbackを検証する。Java 17で `./mvnw clean test` を実行する。
 
-所有者・認可（#5）、並行実行時の排他・競合対策（#12）、Order集約再設計（#14）、Flyway（#15）、
-CD修正（#17）は対象外。異なるTransactionが同時に変更する場合の競合は#12で扱い、今回ロックは追加しない。
+並行実行時のロック・version・Transactionの扱いは[在庫更新の並行制御（Issue #12）](inventory-concurrency.md)を参照。
+所有者・認可（#5）、Order集約再設計（#14）、Flyway（#15）、CD修正（#17）は対象外。
 READMEのPAID表記と、キャンセル済み注文を含む既存の売上集計仕様も変更しない。

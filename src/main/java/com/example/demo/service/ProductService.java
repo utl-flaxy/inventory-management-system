@@ -2,12 +2,17 @@ package com.example.demo.service;
 
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
+import com.example.demo.dto.ProductUpdateRequest;
 import com.example.demo.entity.Product;
+import com.example.demo.exception.InvalidProductUpdateException;
+import com.example.demo.exception.ProductVersionConflictException;
 import com.example.demo.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -57,18 +62,27 @@ public class ProductService {
     }
 
     // 商品更新
-    public ProductResponse update(Long id, ProductRequest request) {
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ProductResponse update(Long id, ProductUpdateRequest request) {
+
+        if (request == null || request.getVersion() == null || request.getVersion() < 0) {
+            throw new InvalidProductUpdateException();
+        }
 
         Product product = productRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("商品が存在しません"));
+
+        if (!request.getVersion().equals(product.getVersion())) {
+            throw new ProductVersionConflictException();
+        }
 
         product.setName(request.getName());
         product.setPrice(request.getPrice());
         product.setStock(request.getStock());
 
         return toResponse(
-                productRepository.save(product)
+                productRepository.saveAndFlush(product)
         );
     }
 
@@ -86,6 +100,7 @@ public class ProductService {
                 .name(product.getName())
                 .price(product.getPrice())
                 .stock(product.getStock())
+                .version(product.getVersion())
                 .build();
     }
 }

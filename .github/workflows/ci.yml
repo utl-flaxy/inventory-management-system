@@ -13,6 +13,7 @@ jobs:
   test:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
 
@@ -28,5 +29,5 @@ jobs:
       - name: Grant execute permission
         run: chmod +x mvnw
 
-      - name: Run Tests
+      - name: Run Tests (including MariaDB concurrency)
         run: ./mvnw test

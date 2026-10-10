@@ -1,5 +1,9 @@
 package com.example.demo.exception;
 
+import jakarta.persistence.LockTimeoutException;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PessimisticLockException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -10,6 +14,20 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler({ProductVersionConflictException.class, ConcurrencyFailureException.class,
+            OptimisticLockException.class, PessimisticLockException.class, LockTimeoutException.class})
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleConcurrentUpdate(Exception ex) {
+        return Map.of("code", "CONCURRENT_UPDATE", "message",
+                "商品または注文が他の処理で更新されています。最新の情報で再試行してください");
+    }
+
+    @ExceptionHandler(InvalidProductUpdateException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleInvalidProductUpdate(InvalidProductUpdateException ex) {
+        return Map.of("code", "INVALID_PRODUCT_UPDATE", "message", ex.getMessage());
+    }
 
     @ExceptionHandler(IllegalOrderStateTransitionException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
