@@ -49,11 +49,7 @@ public class ProductService {
     // 商品登録
     public ProductResponse save(ProductRequest request) {
 
-        Product product = new Product();
-
-        product.setName(request.getName());
-        product.setPrice(request.getPrice());
-        product.setStock(request.getStock());
+        Product product = new Product(null, request.getName(), request.getPrice(), request.getStock());
 
         return toResponse(
                 productRepository.save(product)
@@ -76,7 +72,6 @@ public class ProductService {
 
         product.setName(request.getName());
         product.setPrice(request.getPrice());
-        product.setStock(request.getStock());
 
         return toResponse(
                 productRepository.saveAndFlush(product)

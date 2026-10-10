@@ -23,10 +23,10 @@ class OrderInvariantTest {
     @ParameterizedTest
     @NullSource
     @ValueSource(ints = {-1})
-    void 不正在庫はSetterとConstructorとBuilderで拒否(Integer stock) {
+    void 不正在庫はConstructorとBuilderで拒否し公開Setterを持たない(Integer stock) {
         Product product = new Product(1L, "りんご", 100L, 10);
 
-        assertThrows(IllegalArgumentException.class, () -> product.setStock(stock));
+        assertTrue(java.util.Arrays.stream(Product.class.getMethods()).noneMatch(method -> method.getName().equals("setStock")));
         assertThrows(IllegalArgumentException.class, () -> new Product(1L, "りんご", 100L, stock));
         assertThrows(IllegalArgumentException.class, () -> Product.builder().stock(stock).build());
         assertEquals(10, product.getStock());

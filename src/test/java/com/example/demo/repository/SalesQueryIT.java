@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 // 売上・注文数は完了日時が判明したCOMPLETEDのみ。期間の境界も実MariaDBで検証する。
 @DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, CurrentUser.class})
+@Import({com.example.demo.config.ClockConfiguration.class, OrderService.class, com.example.demo.service.InventoryService.class, CurrentUser.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 class SalesQueryIT {

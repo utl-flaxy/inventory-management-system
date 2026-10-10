@@ -34,6 +34,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
+    @Mock private InventoryService inventoryService;
 
     @Mock
     private ProductRepository productRepository;
@@ -67,11 +68,7 @@ class OrderServiceTest {
     void 注文成功(int quantity) {
 
         // Arrange
-        Product product = new Product();
-        product.setId(1L);
-        product.setName("りんご");
-        product.setPrice(100L);
-        product.setStock(10);
+        Product product = new Product(1L, "りんご", 100L, 10);
 
         OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
@@ -185,11 +182,7 @@ class OrderServiceTest {
     void 在庫不足() {
 
         // Arrange
-        Product product = new Product();
-        product.setId(1L);
-        product.setName("りんご");
-        product.setPrice(100L);
-        product.setStock(2);
+        Product product = new Product(1L, "りんご", 100L, 2);
 
         OrderRequest request = com.example.demo.TestOrders.request(1L, 5);
 

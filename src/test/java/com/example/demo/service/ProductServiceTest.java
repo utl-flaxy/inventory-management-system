@@ -121,7 +121,6 @@ class ProductServiceTest {
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName("orange");
         request.setPrice(200L);
-        request.setStock(20);
         request.setVersion(version);
         return request;
     }

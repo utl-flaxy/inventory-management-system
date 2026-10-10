@@ -30,7 +30,6 @@ class ProductConcurrencyServiceTest {
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName("orange");
         request.setPrice(200L);
-        request.setStock(20);
         request.setVersion(version);
         return request;
     }
@@ -72,7 +71,7 @@ class ProductConcurrencyServiceTest {
 
         assertEquals("orange", response.getName());
         assertEquals(200, response.getPrice());
-        assertEquals(20, response.getStock());
+        assertEquals(10, response.getStock()); // metadata PUTは在庫を変更しない
         assertEquals(0L, response.getVersion());
         verify(productRepository).saveAndFlush(product);
     }

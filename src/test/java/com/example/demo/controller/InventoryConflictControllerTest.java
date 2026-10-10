@@ -58,7 +58,7 @@ class InventoryConflictControllerTest {
         when(orderService.cancelOrder(1L)).thenThrow(conflict);
 
         mvc.perform(put("/products/1").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"apple\",\"price\":100,\"stock\":20,\"version\":0}"))
+                        .content("{\"name\":\"apple\",\"price\":100,\"version\":0}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CONCURRENT_UPDATE"));
         mvc.perform(post("/api/v1/admin/orders/1/cancel"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CONCURRENT_UPDATE"));
@@ -68,7 +68,7 @@ class InventoryConflictControllerTest {
     @ValueSource(strings = {"", ",\"version\":null", ",\"version\":-1"})
     void missingOrInvalidUpdateVersionReturns400WithoutCallingService(String version) throws Exception {
         mvc.perform(put("/products/1").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"apple\",\"price\":100,\"stock\":20" + version + "}"))
+                        .content("{\"name\":\"apple\",\"price\":100" + version + "}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.version").exists());
         verifyNoInteractions(productService);
     }

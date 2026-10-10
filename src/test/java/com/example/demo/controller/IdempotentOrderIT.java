@@ -78,7 +78,7 @@ class IdempotentOrderIT {
     @AfterEach
     void cleanup() {
         SecurityContextHolder.clearContext();
-        for (String table : List.of("order_items", "orders", "products", "users")) jdbc.update("DELETE FROM " + table);
+        for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users")) jdbc.update("DELETE FROM " + table);
     }
 
     @Test
@@ -90,6 +90,7 @@ class IdempotentOrderIT {
         assertEquals(saved, snapshot());
         assertEquals(1, count("orders"));
         assertEquals(1, count("order_items"));
+        assertEquals(1, count("inventory_movements"));
         assertEquals(1L, jdbc.queryForObject("SELECT version FROM products WHERE id=1", Long.class));
     }
 
@@ -102,6 +103,7 @@ class IdempotentOrderIT {
         assertEquals(persistedPrecision(first), persistedPrecision(successful("alice", "reversed", reversed)));
         assertEquals(saved, snapshot());
         assertEquals(2, count("order_items"));
+        assertEquals(2, count("inventory_movements"));
         assertEquals(List.of(8, 17), jdbc.queryForList("SELECT stock FROM products ORDER BY id", Integer.class));
         assertEquals("163affc78005025f8d4a3f1856d60e8b958dc87fc8b4ec9750425806d10eb4eb",
                 jdbc.queryForObject("SELECT request_fingerprint FROM orders", String.class));
@@ -123,7 +125,7 @@ class IdempotentOrderIT {
         JsonNode original = successful("alice", "snapshot", body(3));
         mvc.perform(put("/products/1").header("Authorization", token("admin"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"changed\",\"price\":200,\"stock\":7,\"version\":1}"))
+                .content("{\"name\":\"changed\",\"price\":200,\"version\":1}"))
                 .andExpect(status().isOk());
         successful("bob", "another-order", body(7));
         assertEquals(0, stock());
@@ -288,6 +290,8 @@ class IdempotentOrderIT {
         }
         assertEquals(1, count("orders"));
         assertEquals(1, count("order_items"));
+        assertEquals(1, count("inventory_movements"));
+        assertEquals(id, jdbc.queryForObject("SELECT source_id FROM inventory_movements", Long.class));
         assertEquals(7, stock());
         assertEquals(1L, jdbc.queryForObject("SELECT version FROM products WHERE id=1", Long.class));
     }
@@ -313,6 +317,7 @@ class IdempotentOrderIT {
         assertEquals(10, results.stream().filter(result -> result.status == 409).count());
         assertEquals(1, count("orders"));
         assertEquals(1, count("order_items"));
+        assertEquals(1, count("inventory_movements"));
         assertEquals(10 - winnerQuantity, stock());
     }
 

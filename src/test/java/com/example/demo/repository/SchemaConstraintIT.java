@@ -143,7 +143,8 @@ class SchemaConstraintIT {
         for (String table : List.of("products", "orders")) {
             assertEquals("0", jdbc.queryForObject("SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME='version'", String.class, table));
         }
-        assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE()", Integer.class));
+        // V1の3本に、V5のproduct / actor / source orderの3本を追加。
+        assertEquals(6, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE()", Integer.class));
     }
 
     @Test

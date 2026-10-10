@@ -123,6 +123,7 @@ class AuthorizationMatrixIT {
     @AfterEach
     void cleanup() {
         SecurityContextHolder.clearContext();
+        jdbc.update("DELETE FROM inventory_movements");
         jdbc.update("DELETE FROM order_items");
         jdbc.update("DELETE FROM orders");
         jdbc.update("DELETE FROM products");

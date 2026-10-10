@@ -31,6 +31,13 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderStateServiceTest {
+    @Mock private InventoryService inventoryService;
+    @Mock private com.example.demo.security.CurrentUser currentUser;
+
+    @org.junit.jupiter.api.BeforeEach
+    void actor() {
+        lenient().when(currentUser.requireUser()).thenReturn(com.example.demo.TestOrders.customer());
+    }
 
     @Spy
     private java.time.Clock clock = java.time.Clock.fixed(

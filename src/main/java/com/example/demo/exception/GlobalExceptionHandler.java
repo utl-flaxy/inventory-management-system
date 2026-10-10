@@ -102,6 +102,16 @@ public class GlobalExceptionHandler {
         return ApiProblemFactory.response(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InventoryAdjustmentConflictException.class)
+    public ResponseEntity<ProblemDetail> handleInventoryConflict(InventoryAdjustmentConflictException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.CONFLICT, "INVENTORY_ADJUSTMENT_CONFLICT", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidInventoryAdjustmentException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidInventory(InvalidInventoryAdjustmentException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_INVENTORY_ADJUSTMENT", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ProblemDetail> handleUnreadableRequest(HttpMessageNotReadableException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", ApiProblemFactory.INVALID_REQUEST_DETAIL, request);

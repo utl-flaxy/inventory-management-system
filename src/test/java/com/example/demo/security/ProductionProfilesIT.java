@@ -105,7 +105,7 @@ class ProductionProfilesIT {
             assertTrue(grants.stream().allMatch(grant -> grant.startsWith("GRANT USAGE ON *.* TO ")
                     || grant.contains(databaseGrant)));
             assertTrue(grants.stream().noneMatch(grant -> grant.contains("ALL PRIVILEGES") || grant.contains("GRANT OPTION")));
-            assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+            assertEquals(5, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
             String username = "admin" + profile;
             assertEquals(200, post("/auth/register", Map.of("username", username, "password", PASSWORD), null).statusCode());
             jdbc.update("UPDATE users SET role='ROLE_ADMIN' WHERE username=?", username);

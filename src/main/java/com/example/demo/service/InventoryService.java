@@ -1,0 +1,68 @@
+package com.example.demo.service;
+
+import com.example.demo.dto.InventoryAdjustmentRequest;
+import com.example.demo.dto.InventoryMovementResponse;
+import com.example.demo.entity.*;
+import com.example.demo.exception.InvalidInventoryAdjustmentException;
+import com.example.demo.exception.ProductNotFoundException;
+import com.example.demo.repository.InventoryMovementRepository;
+import com.example.demo.repository.ProductRepository;
+import com.example.demo.security.CurrentUser;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.*;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.*;
+import java.time.Clock;
+
+@Service
+@RequiredArgsConstructor
+public class InventoryService {
+    private final ProductRepository products;
+    private final InventoryMovementRepository movements;
+    private final CurrentUser currentUser;
+    private final EntityManager entityManager;
+    private final Clock clock;
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public InventoryMovementResponse adjust(Long id, InventoryAdjustmentRequest request) {
+        User actor = requireAdmin();
+        if (request == null || request.getDelta() == null || request.getDelta() == 0 || request.getReason() == null
+                || (request.getNote() != null && request.getNote().length() > 500))
+            throw new InvalidInventoryAdjustmentException();
+        Product product = products.findByIdForUpdate(id).orElseThrow(ProductNotFoundException::new);
+        entityManager.refresh(product, LockModeType.PESSIMISTIC_WRITE);
+        int before = product.getStock();
+        product.adjustStock(request.getDelta());
+        InventoryMovement movement = InventoryMovement.create(product, request.getDelta(), before, product.getStock(),
+                request.getReason().movementReason(), InventorySourceType.MANUAL, null, actor, request.getNote(), clock.instant());
+        products.save(product);
+        return InventoryMovementResponse.from(movements.save(movement));
+    }
+
+    // OrderServiceが同じProductロック下で適用した差分を、そのbusiness transactionへ追記する。
+    // 単独commitやREQUIRES_NEWを許可しない。
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordOrderChange(Product product, int before, int delta, Order order,
+                                  InventoryMovementReason reason, User actor) {
+        movements.save(InventoryMovement.create(product, delta, before, product.getStock(), reason,
+                InventorySourceType.ORDER, order.getId(), actor, null, clock.instant()));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<InventoryMovementResponse> history(Long id, Pageable pageable) {
+        requireAdmin();
+        if (!products.existsById(id)) throw new ProductNotFoundException();
+        Pageable fixed = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
+        return movements.findByProductId(id, fixed).map(InventoryMovementResponse::from);
+    }
+
+    private User requireAdmin() {
+        User user = currentUser.requireUser();
+        if (!"ROLE_ADMIN".equals(user.getRole())) throw new AccessDeniedException("この操作を実行する権限がありません");
+        return user;
+    }
+}
