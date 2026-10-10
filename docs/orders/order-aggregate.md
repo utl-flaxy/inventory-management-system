@@ -56,8 +56,10 @@ PENDING→SHIPPED/CANCELLED、SHIPPED→COMPLETEDだけを許可し、二重復�
 
 ## 既存DBの移行
 
-新規DBはEntity定義から生成する。既存DBは新アプリを起動する前に次を実施する。
-本Issueの作業では本番DBへの接続・適用を行わない。Flywayへの取り込みは #15 で行う。
+新規DBはIssue #15のFlyway V1から生成し、Hibernateはvalidateのみ行う。
+既存DBは[Flyway移行手順](../db/README.md)のbackup・preflight・schema照合・手動baselineを完了してから起動する。
+以下はIssue #14の古いDBを段階的に補完するための履歴手順で、SQLはlegacyアーカイブにある。
+本Issueの作業では本番DBへの接続・適用を行わない。
 
 1. バックアップを取得し、アプリを停止して全ての書き込みを止める。DBセッションのtimezoneをUTCにする。
 2. `SHOW CREATE TABLE orders/order_items/users/products` と履歴を照合する。
@@ -66,7 +68,7 @@ PENDING→SHIPPED/CANCELLED、SHIPPED→COMPLETEDだけを許可し、二重復�
    復元できない情報がある場合は移行を止め、業務上の取扱いを決める。
    現在ユーザー・現在時刻・現在商品名を自動代入して履歴を捏造しない。
 3. 対象DBを選んだMariaDBクライアントで
-   `SOURCE docs/db/issue-14-order-aggregate-expand.sql;` を実行する。
+   `SOURCE docs/db/legacy/issue-14-order-aggregate-expand.sql;` を実行する。
    この段階はNULL許容の追加列とversion=0のみ。既存在庫・金額・明細数量は変更しない。再実行可能。
 4. 確認済みの注文ごとにcustomer_id/ordered_at/updated_atと各明細のproduct_name_snapshotを補完する。
    更新履歴が判明しないupdated_atは、確認済みordered_atと同じ値を使う方針を業務側で確認する。
@@ -86,13 +88,14 @@ GROUP BY o.id, o.total_price
 HAVING COUNT(i.id) = 0 OR o.total_price IS NULL OR o.total_price <> SUM(i.price * i.quantity);
 ```
 
-6. `SOURCE docs/db/issue-14-order-aggregate-constrain.sql;` を実行する。
+6. `SOURCE docs/db/legacy/issue-14-order-aggregate-constrain.sql;` を実行する。
    preflight CHECKで不足データ/空注文/合計不一致をDDL前に拒否し、NOT NULLとcustomer FKを追加する。
    `--force` は使用しない。DDLは暗黙commitするため、失敗時はSHOW CREATE TABLEで適用箇所を確認し、
    未適用のDDLだけを実行する。この段階は1回適用用。同名customer FKがある新規DBには適用しない。
    quantity/stock CHECKと既存order_id/product_id FKを維持する（#10の適用を前提とする）。
 7. 必須列・FK・既存CHECK・versionと注文/明細合計を確認し、新アプリと更新済みクライアントを起動する。
-   ddl-auto=updateだけで過去データを補完できないので、移行未完了のDBで新アプリを起動しない。
+   この旧手順だけでV1の全制約は満たさない。Flyway移行手順のpreflight・schema照合・手動baselineも完了する。
+   Hibernateによる履歴補完は行わないため、移行未完了のDBで新アプリを起動しない。
 
 ## 検証
 

@@ -72,12 +72,46 @@ ECサイト開発では、
 |Security|Spring Security + JWT|
 |ORM|Spring Data JPA|
 |Database|MariaDB|
+|Schema Migration|Flyway（Spring Boot管理）|
 |Build Tool|Maven|
 |API Document|Swagger(OpenAPI3)|
 |Container|Docker / Docker Compose|
 |Cloud|AWS EC2|
 |IaC|Terraform|
 |CI/CD|GitHub Actions|
+
+---
+
+## DBスキーマ管理
+
+Flywayの `src/main/resources/db/migration` がschemaのsource of truthです。
+通常起動はFlyway migrate → Hibernate validateで、Hibernateはschemaを変更しません。
+
+```properties
+spring.jpa.hibernate.ddl-auto=validate
+spring.flyway.enabled=true
+spring.flyway.locations=classpath:db/migration
+spring.flyway.baseline-on-migrate=false
+spring.flyway.clean-disabled=true
+```
+
+新規の空MariaDBは接続情報とJWT_SECRETを設定してJava 17で起動するとV1が全テーブルを作成します。
+既存DBはbackup・schema確認・data preflight・確認済み履歴の補完・schema照合を行い、
+手動baseline後にvalidateします。未確認DBの自動baselineは行いません。
+customer/日時/商品名snapshotを現在の値から推測で埋めないでください。
+暫定SQLは `docs/db/legacy` にアーカイブしました。
+起動・既存DB移行・rollbackの詳細は[DB運用手順](docs/db/README.md)を参照してください。
+
+- mainに入ったVersioned migrationは編集・削除せず、新しいVxを追加する。
+- migration名は目的を表し、schema変更はPR reviewを必須とする。
+- 適用前にbackupとpreflightを行う。
+- checksum mismatchは原因を調査し、repairで雑に直さない。
+- 本番で `flyway clean` を実行せず、clean-disabledも解除しない。
+- MariaDB DDLの失敗は完全なTransaction rollbackを保証しない。review済みの前進修復またはbackup復元を行う。
+
+Java 17とDockerで `./mvnw test` を実行すると、MariaDB 12.2.2でmigration・制約・再起動・
+認可・並行制御を検証します。Boot管理のFlyway 11.7.2による12.2未検証警告と実DB検証の扱いも
+[DB運用手順](docs/db/README.md)に記載しています。
 
 ---
 
