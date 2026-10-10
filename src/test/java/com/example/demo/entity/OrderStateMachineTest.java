@@ -20,7 +20,7 @@ class OrderStateMachineTest {
             "CANCELLED,PENDING,false", "CANCELLED,SHIPPED,false", "CANCELLED,COMPLETED,false", "CANCELLED,CANCELLED,false"
     })
     void allSixteenTransitionsFollowBusinessRules(OrderStatus from, OrderStatus to, boolean allowed) {
-        Order order = order(1L, from, OrderItem.create(new Product(1L, "apple", 100, 10), 1));
+        Order order = order(1L, from, OrderItem.create(new Product(1L, "apple", 100L, 10), 1));
         assertEquals(allowed, from.canTransitionTo(to));
         Runnable command = switch (to) {
             case SHIPPED -> order::ship;
@@ -41,12 +41,12 @@ class OrderStateMachineTest {
     @Test
     void newOrderStartsPending() {
         assertEquals(OrderStatus.PENDING,
-                Order.create(customer(), List.of(OrderItem.create(new Product(1L, "apple", 100, 10), 1))).getStatus());
+                Order.create(customer(), List.of(OrderItem.create(new Product(1L, "apple", 100L, 10), 1))).getStatus());
     }
 
     @Test
     void nullTargetIsRejectedWithoutChangingState() {
-        Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100, 10), 1));
+        Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100L, 10), 1));
         assertFalse(OrderStatus.PENDING.canTransitionTo(null));
         assertThrows(IllegalOrderStateTransitionException.class, () -> order.validateTransitionTo(null));
         assertEquals(OrderStatus.PENDING, order.getStatus());

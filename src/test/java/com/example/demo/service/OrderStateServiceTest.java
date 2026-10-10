@@ -65,7 +65,7 @@ class OrderStateServiceTest {
             "CANCELLED,PENDING,false", "CANCELLED,SHIPPED,false", "CANCELLED,COMPLETED,false", "CANCELLED,CANCELLED,false"
     })
     void commandsPreserveStockExceptSuccessfulCancellation(OrderStatus from, OrderStatus to, boolean allowed) {
-        Product product = new Product(1L, "apple", 100, 5);
+        Product product = new Product(1L, "apple", 100L, 5);
         Order order = order(from, product, 5);
 
         if (allowed) {
@@ -92,7 +92,7 @@ class OrderStateServiceTest {
     @ParameterizedTest
     @EnumSource(value = OrderStatus.class, names = {"SHIPPED", "COMPLETED", "CANCELLED"})
     void legacyStatusApiUsesTheSameCommands(OrderStatus target) {
-        Product product = new Product(1L, "apple", 100, 5);
+        Product product = new Product(1L, "apple", 100L, 5);
         Order order = order(target == OrderStatus.COMPLETED ? OrderStatus.SHIPPED : OrderStatus.PENDING, product, 5);
         when(orderRepository.save(order)).thenReturn(order);
 
@@ -104,7 +104,7 @@ class OrderStateServiceTest {
 
     @Test
     void cancelTwiceAndReturningToPendingNeverIncreaseStockAgain() {
-        Product product = new Product(1L, "apple", 100, 5);
+        Product product = new Product(1L, "apple", 100L, 5);
         Order order = order(OrderStatus.PENDING, product, 5);
         when(orderRepository.save(order)).thenReturn(order);
 
@@ -128,8 +128,8 @@ class OrderStateServiceTest {
 
     @Test
     void restorationOverflowFailsBeforeChangingAnyProductOrStatus() {
-        Product first = new Product(1L, "apple", 100, 5);
-        Product second = new Product(2L, "orange", 100, Integer.MAX_VALUE);
+        Product first = new Product(1L, "apple", 100L, 5);
+        Product second = new Product(2L, "orange", 100L, Integer.MAX_VALUE);
         Order order = order(OrderStatus.PENDING, first, 5);
         order = replaceItems(OrderItem.create(first, 5), OrderItem.create(second, 1));
 
@@ -144,7 +144,7 @@ class OrderStateServiceTest {
 
     @Test
     void repeatedProductLinesAreAccumulatedBeforeCheckingOverflow() {
-        Product product = new Product(1L, "apple", 100, Integer.MAX_VALUE - 1);
+        Product product = new Product(1L, "apple", 100L, Integer.MAX_VALUE - 1);
         Order order = order(OrderStatus.PENDING, product, 1);
         order = replaceItems(OrderItem.create(product, 1), OrderItem.create(product, 1));
 
@@ -158,7 +158,7 @@ class OrderStateServiceTest {
 
     @Test
     void restorationAtIntegerLimitSucceeds() {
-        Product product = new Product(1L, "apple", 100, Integer.MAX_VALUE - 1);
+        Product product = new Product(1L, "apple", 100L, Integer.MAX_VALUE - 1);
         Order order = order(OrderStatus.PENDING, product, 1);
         when(orderRepository.save(order)).thenReturn(order);
 
@@ -181,8 +181,8 @@ class OrderStateServiceTest {
 
     @Test
     void cancellationLocksOrderThenUniqueProductsInAscendingIdOrder() {
-        Product first = new Product(1L, "apple", 100, 5);
-        Product second = new Product(2L, "orange", 100, 7);
+        Product first = new Product(1L, "apple", 100L, 5);
+        Product second = new Product(2L, "orange", 100L, 7);
         Order order = order(OrderStatus.PENDING, first, 2);
         order = replaceItems(OrderItem.create(second, 3), OrderItem.create(first, 2), OrderItem.create(second, 1));
         when(orderRepository.save(order)).thenReturn(order);

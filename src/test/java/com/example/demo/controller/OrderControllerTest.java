@@ -45,7 +45,7 @@ class OrderControllerTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 3})
     void 注文登録成功(int quantity) throws Exception {
-        Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100, 10), quantity));
+        Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100L, 10), quantity));
         when(orderService.createOrder(any())).thenReturn(order);
 
         mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
@@ -134,10 +134,10 @@ class OrderControllerTest {
 
     @Test
     void detailAndListUseTheSameSnapshotResponse() throws Exception {
-        Product product = new Product(1L, "apple", 100, 10);
+        Product product = new Product(1L, "apple", 100L, 10);
         Order order = order(1L, OrderStatus.PENDING, OrderItem.create(product, 2));
         product.setName("renamed");
-        product.setPrice(900);
+        product.setPrice(900L);
         when(orderService.findById(1L)).thenReturn(order);
         when(orderService.findAll()).thenReturn(java.util.List.of(order));
         mvc.perform(get("/api/v1/admin/orders/1")).andExpect(status().isOk())

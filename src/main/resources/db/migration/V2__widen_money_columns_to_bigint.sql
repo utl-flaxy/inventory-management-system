@@ -1,0 +1,4 @@
+-- 金額は円の整数値。V1の値・非負CHECK・関連/indexを保ち、型とNOT NULLだけを明示する。
+ALTER TABLE products MODIFY COLUMN price BIGINT NOT NULL;
+ALTER TABLE orders MODIFY COLUMN total_price BIGINT NOT NULL;
+ALTER TABLE order_items MODIFY COLUMN price BIGINT NOT NULL;

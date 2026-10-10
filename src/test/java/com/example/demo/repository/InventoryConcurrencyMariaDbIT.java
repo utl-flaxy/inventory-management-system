@@ -124,7 +124,7 @@ class InventoryConcurrencyMariaDbIT {
     private ProductUpdateRequest updateRequest(long version) {
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName("orange");
-        request.setPrice(200);
+        request.setPrice(200L);
         request.setStock(20);
         request.setVersion(version);
         return request;
@@ -296,9 +296,9 @@ class InventoryConcurrencyMariaDbIT {
                     || outcomes.get(0).failure() instanceof OptimisticLockingFailureException, outcomes.toString());
         }
         assertEquals(updated ? 19 : 9, stock(1L));
-        assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT price FROM products WHERE id = 1", Integer.class));
-        assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT price FROM order_items", Integer.class));
-        assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT total_price FROM orders", Integer.class));
+        assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT price FROM products WHERE id = 1", Long.class));
+        assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT price FROM order_items", Long.class));
+        assertEquals(updated ? 200 : 100, jdbc.queryForObject("SELECT total_price FROM orders", Long.class));
         assertEquals(1, count("orders"));
         assertEquals(1, count("order_items"));
     }
@@ -324,7 +324,7 @@ class InventoryConcurrencyMariaDbIT {
         assertInstanceOf(OptimisticLockingFailureException.class, outcomes.get(0).failure());
         assertTrue(outcomes.get(1).succeeded(), outcomes.toString());
         assertEquals(9, stock(1L));
-        assertEquals(100, jdbc.queryForObject("SELECT price FROM products WHERE id = 1", Integer.class));
+        assertEquals(100, jdbc.queryForObject("SELECT price FROM products WHERE id = 1", Long.class));
         assertEquals(1, count("orders"));
     }
 
@@ -353,7 +353,7 @@ class InventoryConcurrencyMariaDbIT {
             productUpdated.countDown();
             return response;
         }, () -> {
-            assertEquals(100, jdbc.queryForObject("SELECT price FROM products WHERE id = 1", Integer.class));
+            assertEquals(100, jdbc.queryForObject("SELECT price FROM products WHERE id = 1", Long.class));
             snapshotRead.countDown();
             await(productUpdated);
             return order(1);
@@ -361,8 +361,8 @@ class InventoryConcurrencyMariaDbIT {
 
         successes(outcomes, 2);
         assertEquals(19, stock(1L));
-        assertEquals(200, jdbc.queryForObject("SELECT price FROM order_items", Integer.class));
-        assertEquals(200, jdbc.queryForObject("SELECT total_price FROM orders", Integer.class));
+        assertEquals(200, jdbc.queryForObject("SELECT price FROM order_items", Long.class));
+        assertEquals(200, jdbc.queryForObject("SELECT total_price FROM orders", Long.class));
         assertEquals(2L, productService.findById(1L).getVersion());
     }
 
@@ -487,7 +487,7 @@ class InventoryConcurrencyMariaDbIT {
         assertEquals(4, stock(2L));
         assertEquals(2, count("orders"));
         assertEquals(4, count("order_items"));
-        assertEquals(1000, jdbc.queryForObject("SELECT SUM(total_price) FROM orders", Integer.class));
+        assertEquals(1000, jdbc.queryForObject("SELECT SUM(total_price) FROM orders", Long.class));
         List<Outcome> cancellations = concurrently(outcomes.stream().<Supplier<?>>map(outcome ->
                 () -> orderService.cancelOrder(((Order) outcome.value()).getId())).toList());
         successes(cancellations, 2);
@@ -513,7 +513,7 @@ class InventoryConcurrencyMariaDbIT {
         assertEquals(0, count("orders"));
         assertEquals(0, count("order_items"));
 
-        jdbc.update("UPDATE products SET price = ?, stock = 10 WHERE id = 1", Integer.MAX_VALUE);
+        jdbc.update("UPDATE products SET price = ?, stock = 10 WHERE id = 1", Long.MAX_VALUE);
         jdbc.update("UPDATE products SET stock = 10 WHERE id = 2");
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(com.example.demo.TestOrders.request(
                 new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1))));
@@ -589,8 +589,8 @@ class InventoryConcurrencyMariaDbIT {
             confirmedMigrationMetadata();
             migrationScript("constrain");
             assertEquals(8, jdbc.queryForObject("SELECT stock FROM issue14_products", Integer.class));
-            assertEquals(200, jdbc.queryForObject("SELECT total_price FROM issue14_orders", Integer.class));
-            assertEquals(100, jdbc.queryForObject("SELECT price FROM issue14_order_items", Integer.class));
+            assertEquals(200, jdbc.queryForObject("SELECT total_price FROM issue14_orders", Long.class));
+            assertEquals(100, jdbc.queryForObject("SELECT price FROM issue14_order_items", Long.class));
             assertEquals("historical-name", jdbc.queryForObject("SELECT product_name_snapshot FROM issue14_order_items", String.class));
             for (String column : List.of("customer_id", "ordered_at", "updated_at", "version", "total_price")) {
                 assertThrows(DataIntegrityViolationException.class,

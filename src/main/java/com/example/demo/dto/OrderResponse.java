@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.List;
 
 public record OrderResponse(Long id, OrderStatus status, Instant orderedAt, Instant updatedAt,
-                            Integer totalPrice, Long version, CustomerResponse customer,
+                            Long totalPrice, Long version, CustomerResponse customer,
                             List<OrderItemResponse> items) {
     public record CustomerResponse(Long id, String username) { }
 

@@ -62,7 +62,7 @@ class ProductControllerTest {
                 ProductResponse.builder()
                         .id(1L)
                         .name("りんご")
-                        .price(300)
+                        .price(300L)
                         .stock(10)
                         .build();
 
@@ -87,7 +87,7 @@ class ProductControllerTest {
                 ProductResponse.builder()
                         .id(1L)
                         .name("ゲーミングPC")
-                        .price(150000)
+                        .price(150000L)
                         .stock(5)
                         .build();
 
@@ -115,7 +115,7 @@ class ProductControllerTest {
                 ProductResponse.builder()
                         .id(1L)
                         .name("りんご")
-                        .price(300)
+                        .price(300L)
                         .stock(10)
                         .version(0L)
                         .build();
@@ -137,14 +137,14 @@ class ProductControllerTest {
 
         ProductRequest request = new ProductRequest();
         request.setName("バナナ");
-        request.setPrice(200);
+        request.setPrice(200L);
         request.setStock(5);
 
         ProductResponse response =
                 ProductResponse.builder()
                         .id(1L)
                         .name("バナナ")
-                        .price(200)
+                        .price(200L)
                         .stock(5)
                         .build();
 
@@ -167,14 +167,14 @@ class ProductControllerTest {
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setVersion(0L);
         request.setName("みかん");
-        request.setPrice(150);
+        request.setPrice(150L);
         request.setStock(20);
 
         ProductResponse response =
                 ProductResponse.builder()
                         .id(1L)
                         .name("みかん")
-                        .price(150)
+                        .price(150L)
                         .stock(20)
                         .version(1L)
                         .build();
@@ -197,7 +197,7 @@ class ProductControllerTest {
 
         ProductRequest request = new ProductRequest();
         request.setName("");
-        request.setPrice(0);
+        request.setPrice(0L);
         request.setStock(-1);
 
         mockMvc.perform(post("/products")

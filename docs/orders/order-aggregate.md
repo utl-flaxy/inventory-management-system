@@ -24,7 +24,7 @@ OrderにもVersionを持たせ、商品側のVersionと既存の悲観ロック�
 
 各明細のproductId/quantityはnullを許さず正数。null明細も400。
 同一商品IDが複数行ある場合は400で全体を拒否する（暗黙の数量統合は行わない）。
-固定の数量上限は追加せず、Integerの明細金額・注文合計の表現範囲を超えた場合に400で拒否する。
+固定の数量上限は追加せず、Longの明細金額・注文合計の表現範囲を超えた場合に400で拒否する。
 旧形式 `{"productId":1,"quantity":2}` はitems未指定として400になるため、クライアント更新が必要。
 明細の商品IDはレスポンスでも昇順。
 
@@ -42,7 +42,9 @@ orderedAt/updatedAt/versionを追加する。ServiceがTransaction内で必要�
 OrderItem.createがロック下の商品名と単価をproductNameSnapshot/unitPriceへコピーする。
 unitPriceは既存DBのprice列を再利用する。明細はsetterを持たず、保存後に編集できない。
 詳細・一覧・CSVは保存した名前と単価を読み、現在の商品名/単価変更に影響されない。
-明細金額はMath.multiplyExact、注文合計はMath.addExactで算出する。
+Issue #25で価格・注文時単価・明細/注文合計は円整数のLong/longへ移行した。
+明細金額はMath.multiplyExact(long,long)、注文合計はMath.addExact(long,long)で算出する。
+30億円×2個=60億円を扱い、Long overflowは全在庫の変更前に400で拒否する。
 合計は生成時に確定し、商品や状態の更新では変化しない。
 
 ## Transactionとロック
@@ -56,7 +58,7 @@ PENDING→SHIPPED/CANCELLED、SHIPPED→COMPLETEDだけを許可し、二重復�
 
 ## 既存DBの移行
 
-新規DBはIssue #15のFlyway V1から生成し、Hibernateはvalidateのみ行う。
+新規DBはFlyway V1→V2から生成し、金額3列はBIGINT。Hibernateはvalidateのみ行う。
 既存DBは[Flyway移行手順](../db/README.md)のbackup・preflight・schema照合・手動baselineを完了してから起動する。
 以下はIssue #14の古いDBを段階的に補完するための履歴手順で、SQLはlegacyアーカイブにある。
 本Issueの作業では本番DBへの接続・適用を行わない。

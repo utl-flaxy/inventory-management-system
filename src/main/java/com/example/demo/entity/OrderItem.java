@@ -23,7 +23,7 @@ public class OrderItem {
 
     // 既存price列を注文時単価として維持し、破壊的な列名変更を避ける
     @Column(name = "price", nullable = false, updatable = false)
-    private Integer unitPrice;
+    private Long unitPrice;
 
     @Column(nullable = false, updatable = false)
     private String productNameSnapshot;
@@ -57,8 +57,8 @@ public class OrderItem {
         this.order = order;
     }
 
-    public int getLineTotal() {
-        return Math.multiplyExact(unitPrice, quantity);
+    public long getLineTotal() {
+        return Math.multiplyExact(unitPrice, quantity.longValue());
     }
 
     @PrePersist

@@ -22,7 +22,7 @@ public class Product {
     private String name;
 
     @Column(nullable = false)
-    private Integer price;
+    private Long price;
 
     @Column(nullable = false)
     private Integer stock;
@@ -33,7 +33,7 @@ public class Product {
     private Long version = 0L;
 
     @Builder
-    public Product(Long id, String name, Integer price, Integer stock) {
+    public Product(Long id, String name, Long price, Integer stock) {
         this.id = id;
         this.name = name;
         this.price = price;

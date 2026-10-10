@@ -143,7 +143,7 @@ public class OrderService {
     // 売上集計
     public SalesResponse getSales() {
 
-        Integer totalSales = orderRepository.getTotalSales();
+        Long totalSales = orderRepository.getTotalSales();
 
         Long totalOrders = orderRepository.count();
 

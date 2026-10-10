@@ -54,7 +54,7 @@ class EmptyDatabaseMigrationIT {
     }
 
     @Test
-    void emptyDatabaseMigratesValidatesAndRestartsWithoutReapplyingV1() {
+    void emptyDatabaseMigratesValidatesAndRestartsWithoutReapplyingV1OrV2() {
         assertEquals(0, jdbc().queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()", Integer.class));
         try (var context = start()) {
             assertEquals("validate", context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"));
@@ -64,17 +64,23 @@ class EmptyDatabaseMigrationIT {
             assertTrue(context.getBean(EntityManagerFactory.class).isOpen());
             var flyway = context.getBean(Flyway.class);
             assertEquals(0, flyway.info().pending().length);
-            assertEquals("1", flyway.info().current().getVersion().toString());
+            assertEquals("2", flyway.info().current().getVersion().toString());
             assertEquals(4, domainTables());
         }
         var history = jdbc().queryForList("SELECT version, description, type, script, checksum, success, installed_on FROM flyway_schema_history ORDER BY installed_rank");
-        assertEquals(1, history.size());
+        assertEquals(2, history.size());
         assertEquals("1", history.get(0).get("version"));
         assertEquals("baseline schema", history.get(0).get("description"));
         assertEquals("SQL", history.get(0).get("type"));
         assertEquals("V1__baseline_schema.sql", history.get(0).get("script"));
         assertNotNull(history.get(0).get("checksum"));
         assertEquals(true, history.get(0).get("success"));
+        assertEquals("2", history.get(1).get("version"));
+        assertEquals("widen money columns to bigint", history.get(1).get("description"));
+        assertEquals("SQL", history.get(1).get("type"));
+        assertEquals("V2__widen_money_columns_to_bigint.sql", history.get(1).get("script"));
+        assertNotNull(history.get(1).get("checksum"));
+        assertEquals(true, history.get(1).get("success"));
         jdbc().update("INSERT INTO users (username,password,role) VALUES ('alice','test-hash','ROLE_USER')");
         try (var context = start()) {
             assertEquals(0, context.getBean(Flyway.class).info().pending().length);
@@ -112,17 +118,18 @@ class EmptyDatabaseMigrationIT {
         jdbc().update("INSERT INTO products (id,name,price,stock) VALUES (1,'apple',100,8)");
         jdbc().update("INSERT INTO orders (id,customer_id,total_price,status,ordered_at,updated_at) VALUES (1,1,200,'PENDING','2000-01-01','2000-01-01')");
         jdbc().update("INSERT INTO order_items (id,quantity,price,product_name_snapshot,order_id,product_id) VALUES (1,2,100,'historical-apple',1,1)");
-        var before = jdbc().queryForList("SELECT * FROM order_items");
+        var before = jdbc().queryForList("SELECT id,quantity,CAST(price AS SIGNED) AS price,product_name_snapshot,order_id,product_id FROM order_items");
         new ResourceDatabasePopulator(new FileSystemResource("docs/db/preflight.sql")).execute(dataSource());
         Flyway.configure().dataSource(dataSource()).baselineVersion("1").baselineDescription("verified existing schema").load().baseline();
         try (var context = start()) {
             assertTrue(context.getBean(EntityManagerFactory.class).isOpen());
             assertEquals(0, context.getBean(Flyway.class).info().pending().length);
         }
-        assertEquals("BASELINE", jdbc().queryForObject("SELECT type FROM flyway_schema_history", String.class));
-        assertEquals(before, jdbc().queryForList("SELECT * FROM order_items"));
+        assertEquals("BASELINE", jdbc().queryForObject("SELECT type FROM flyway_schema_history WHERE version='1'", String.class));
+        assertEquals("SQL", jdbc().queryForObject("SELECT type FROM flyway_schema_history WHERE version='2' AND success=1", String.class));
+        assertEquals(before, jdbc().queryForList("SELECT id,quantity,CAST(price AS SIGNED) AS price,product_name_snapshot,order_id,product_id FROM order_items"));
         assertEquals(8, jdbc().queryForObject("SELECT stock FROM products", Integer.class));
-        assertEquals(200, jdbc().queryForObject("SELECT total_price FROM orders", Integer.class));
+        assertEquals(200, jdbc().queryForObject("SELECT total_price FROM orders", Long.class));
     }
 
     @Test

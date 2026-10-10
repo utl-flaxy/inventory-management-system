@@ -49,6 +49,8 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | LegacyDatabasePreflightIT | 既存DBの不正データ/不足履歴での停止とDB不変 |
 | AuthApiIT | register/login、BCrypt、資格情報非露出、role注入拒否、DB role優先 |
 | SalesQueryIT | 実Service/RepositoryのSUMとCOUNT、全4状態 |
+| MoneyApiIT | 高額Product/Order API、snapshot/CSV、OpenAPI int64、Long overflow時DB不変 |
+| MoneyMigrationIT | 既存値/V1履歴保持、V1→V2、BIGINT境界と制約、再実行なし |
 
 既存463件を維持し、MariaDB並行実行classだけを改名する。H2補助テストはSurefireに残す。
 H2の成功でMariaDB CHECK・lock・Flywayの正しさを代用しない。
@@ -87,6 +89,18 @@ Issue #4ではAuthの入力Validation/例外設計を変更しないため、以
 空なら0、totalOrdersは明細数ではなく注文数。0円注文も件数に含む。
 SalesQueryITはこの現行仕様を固定し、CANCELLED除外等は将来のsales Issueで変更する。
 このIssueでは売上の実装・仕様を変更しない。
+
+## 金額のLong/BIGINT回帰（Issue #25）
+
+金額は円の整数値をLong/longで扱い、DBはV2でBIGINTへ移行する。V1は不変。
+商品APIは1円以上でJSON number/field名を維持し、OpenAPIはint64。数量・在庫はint32のまま。
+Money Value Object、BigDecimal、小数/多通貨は未導入。
+Math.multiplyExact/addExactのlong演算で、注文のoverflowを在庫変更前に400で拒否する。
+UnitのOrderAggregateTest/OrderServiceTestもLong境界に対応し、Dockerなしで実行する。
+Integrationでは30億円×2個=60億円、複数明細180億円、価格変更後のsnapshot、CSVの整数出力、
+0L/70億円のJPQL SUM(Long)・totalSales、V1→V2の20億円保持・制約・再起動を検証する。
+Long.MAX_VALUEの商品も許可し、quantity=1は成功、quantity=2や合計のLong overflowは400となる。
+API clientもint64を保持できる型で扱う。売上は引き続きCANCELLEDを含む。
 
 ## 別Issueへ分離した内容
 

@@ -88,7 +88,7 @@ class OrderAggregatePersistenceTest {
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM order_items", Integer.class));
         assertEquals(500, order.getTotalPrice());
-        assertEquals(500, jdbc.queryForObject("SELECT SUM(price * quantity) FROM order_items", Integer.class));
+        assertEquals(500, jdbc.queryForObject("SELECT SUM(price * quantity) FROM order_items", Long.class));
         assertEquals(1L, jdbc.queryForObject("SELECT customer_id FROM orders", Long.class));
         assertNotNull(order.getOrderedAt());
         assertNotNull(order.getUpdatedAt());
@@ -101,7 +101,7 @@ class OrderAggregatePersistenceTest {
         assertEquals("orange", response.items().get(1).productName());
         assertEquals(100, response.items().get(0).unitPrice());
         assertEquals(300, response.items().get(1).unitPrice());
-        assertEquals(500, response.items().stream().mapToInt(item -> item.lineTotal()).sum());
+        assertEquals(500L, response.items().stream().mapToLong(item -> item.lineTotal()).sum());
         assertEquals(2, OrderResponse.from(service.findAll().get(0)).items().size());
     }
 
@@ -121,7 +121,7 @@ class OrderAggregatePersistenceTest {
 
     @Test
     void sumOverflowLeavesAllProductsAndSalesUnchanged() {
-        jdbc.update("UPDATE products SET price = ? WHERE id = 1", Integer.MAX_VALUE);
+        jdbc.update("UPDATE products SET price = ? WHERE id = 1", Long.MAX_VALUE);
         assertThrows(InvalidOrderRequestException.class, () -> service.createOrder(
                 request(new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1))));
         noOrderAndUnchangedStocks(5);

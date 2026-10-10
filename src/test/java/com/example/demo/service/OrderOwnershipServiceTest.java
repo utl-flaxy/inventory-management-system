@@ -47,7 +47,7 @@ class OrderOwnershipServiceTest {
 
     @Test
     void ownListUsesOnlyTheCustomerScopedQuery() {
-        Order order = order(101L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100, 8), 2));
+        Order order = order(101L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100L, 8), 2));
         when(orders.findAllByCustomerId(1L)).thenReturn(List.of(order));
         assertEquals(List.of(order), service.findMyOrders());
         verify(orders).findAllByCustomerId(1L);
@@ -57,7 +57,7 @@ class OrderOwnershipServiceTest {
 
     @Test
     void ownDetailUsesOnlyTheIdAndCustomerQuery() {
-        Order order = order(101L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100, 8), 2));
+        Order order = order(101L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100L, 8), 2));
         when(orders.findByIdAndCustomerId(101L, 1L)).thenReturn(Optional.of(order));
         assertSame(order, service.findMyOrder(101L));
         verify(orders).findByIdAndCustomerId(101L, 1L);
@@ -87,7 +87,7 @@ class OrderOwnershipServiceTest {
 
     @Test
     void ownerCancellationLocksWithOwnershipAndRestoresOnlyOnce() {
-        Product product = new Product(1L, "apple", 100, 8);
+        Product product = new Product(1L, "apple", 100L, 8);
         Order order = order(101L, OrderStatus.PENDING, OrderItem.create(product, 2));
         when(orders.findByIdAndCustomerIdForUpdate(101L, 1L)).thenReturn(Optional.of(order));
         when(orders.save(order)).thenReturn(order);

@@ -7,6 +7,6 @@ import lombok.Getter;
 @AllArgsConstructor
 public class SalesResponse {
 
-    private Integer totalSales;
+    private Long totalSales;
     private Long totalOrders;
 }
