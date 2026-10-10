@@ -75,6 +75,10 @@ sleepは使わず、同期ポイント・Transaction/test/Futureのtimeout・全
 - OrderのrefreshがProductを暗黙ロックしないことを、商品更新との同期テストで検証。
 - 既存DBへのversion列追加のbackfillと再適用を検証。
 
-JWT（#9）、入力Validation・Product/OrderItem/DB不変条件（#10）、状態遷移・cancel rollback（#11）を維持する。
-所有者/認可（#5）、Order集約の全面再設計（#14）、Flyway（#15）、CD全面修正（#17）、
+Issue #5のself cancelは所有者条件とPESSIMISTIC_WRITEを同じqueryに含め、同じ復元処理を使う。
+owner cancel対ADMIN shipと他人のcancel拒否も実MariaDBで検証する。
+認可の詳細は[注文APIの認可](../security/order-authorization.md)を参照。
+
+JWT（#9）、入力Validation・Product/OrderItem/DB不変条件（#10）、状態遷移・cancel rollback（#11）、Order集約（#14）を維持する。
+Flyway（#15）、CD全面修正（#17）、
 売上集計変更、金額型変更、OAuth2移行は対象外。

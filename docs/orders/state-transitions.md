@@ -12,11 +12,12 @@
 
 | API | 動作 |
 | --- | --- |
-| POST /orders/{id}/ship | PENDINGから発送済みへ変更。在庫は変更しない |
-| POST /orders/{id}/complete | SHIPPEDから完了へ変更。在庫は変更しない |
-| POST /orders/{id}/cancel | PENDINGからキャンセルへ変更し、在庫を復元する |
-| PATCH /orders/{id}/cancel | 既存APIの互換入口。POSTのcancelと同じ処理 |
-| PATCH /orders/{id}/status | 既存APIの互換入口。SHIPPED/COMPLETED/CANCELLEDをそれぞれ業務コマンドへ振り分ける |
+| POST /api/v1/me/orders/{id}/cancel | 所有者のPENDING注文をキャンセルし、在庫を復元する |
+| POST /api/v1/admin/orders/{id}/ship | ADMIN: PENDINGから発送済みへ変更。在庫は変更しない |
+| POST /api/v1/admin/orders/{id}/complete | ADMIN: SHIPPEDから完了へ変更。在庫は変更しない |
+| POST /api/v1/admin/orders/{id}/cancel | ADMIN: PENDINGからキャンセルへ変更し、在庫を復元する |
+| PATCH /api/v1/admin/orders/{id}/cancel | ADMIN: POSTのcancelと同じ処理 |
+| PATCH /api/v1/admin/orders/{id}/status | ADMIN: SHIPPED/COMPLETED/CANCELLEDをそれぞれ業務コマンドへ振り分ける |
 
 status APIのCANCELLED指定もcancel処理を通り、直接状態を書き換えない。
 PENDINGへの変更は禁止。statusが未指定・null、または未知の値なら400。
@@ -32,5 +33,6 @@ cancelは全明細の復元後在庫をMath.addExactで事前計算する。同�
 在庫上限、実SQL発行後の保存失敗とrollbackを検証する。Java 17で `./mvnw clean test` を実行する。
 
 並行実行時のロック・version・Transactionの扱いは[在庫更新の並行制御（Issue #12）](inventory-concurrency.md)を参照。
-所有者・認可（#5）、Order集約再設計（#14）、Flyway（#15）、CD修正（#17）は対象外。
-READMEのPAID表記と、キャンセル済み注文を含む既存の売上集計仕様も変更しない。
+所有者・認可と旧URLの廃止は[注文APIの認可（Issue #5）](../security/order-authorization.md)、
+集約・複数明細は[Order集約（Issue #14）](order-aggregate.md)を参照。
+Flyway（#15）、CD修正（#17）、キャンセル済み注文を含む既存の売上集計仕様はこの状態遷移の対象外。

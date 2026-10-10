@@ -411,10 +411,15 @@ DELETE /products/{id}
 
 # 🛒 注文管理機能
 
+注文APIは自分用 `/api/v1/me/orders` と管理用 `/api/v1/admin/orders` に分離しています。
+USERは自分の注文の作成・一覧・詳細・PENDINGのcancel、ADMINは管理操作を利用できます。
+ADMINも自分用APIを利用できますが、その入口では自分の注文だけが対象です。
+旧 `/orders/**` は廃止しました。権限表・404・ロックの詳細は[注文APIの認可](docs/security/order-authorization.md)を参照してください。
+
 ## 注文作成
 
 ```http
-POST /orders
+POST /api/v1/me/orders
 ```
 
 注文時に必須・非空の `items` 配列（商品IDと正の数量）を受け取り、認証済みUserを注文者として保存します。
@@ -437,40 +442,47 @@ POST /orders
 ## 注文一覧取得
 
 ```http
-GET /orders
+GET /api/v1/me/orders
+GET /api/v1/admin/orders
 ```
+
+自分用APIはDB queryで注文者を絞り、管理用APIはADMINに全注文を返します。
 
 ---
 
 ## 注文詳細取得
 
 ```http
-GET /orders/{id}
+GET /api/v1/me/orders/{id}
+GET /api/v1/admin/orders/{id}
 ```
+
+自分用APIで他人の注文を指定した場合は、存在しない注文と同じ404です。
 
 ---
 
-## 注文ステータス変更
+## 注文操作
 
 ```http
-PATCH /orders/{id}/status
+POST /api/v1/me/orders/{id}/cancel
+POST /api/v1/admin/orders/{id}/ship
+POST /api/v1/admin/orders/{id}/complete
+POST /api/v1/admin/orders/{id}/cancel
+PATCH /api/v1/admin/orders/{id}/status
 ```
 
-対応ステータス
-
-- PENDING
-- PAID
-- SHIPPED
-- COMPLETED
+自分用cancel以外はADMIN専用です。status互換APIも既存の業務コマンドへ振り分けます。
+状態遷移と二重cancelの防止は[注文状態遷移](docs/orders/state-transitions.md)を参照してください。
+未認証401、USERの管理API利用403、他人/不存在404、不正状態遷移409を返します。
 
 ---
 
 # 📈 売上集計機能
 
-売上情報を取得できます。
+ADMINが売上情報を取得できます。
 
 ```http
-GET /orders/sales
+GET /api/v1/admin/orders/sales
 ```
 
 取得内容
@@ -482,10 +494,10 @@ GET /orders/sales
 
 # 📄 CSV出力機能
 
-注文データをCSV形式で出力できます。
+ADMINが注文データをCSV形式で出力できます。
 
 ```http
-GET /orders/export
+GET /api/v1/admin/orders/export
 ```
 
 ---
@@ -550,12 +562,18 @@ POST /auth/login
 |POST|/products|商品登録|
 |PUT|/products/{id}|商品更新|
 |DELETE|/products/{id}|商品削除|
-|GET|/orders|注文一覧|
-|GET|/orders/{id}|注文詳細|
-|POST|/orders|注文作成|
-|PATCH|/orders/{id}/status|ステータス変更|
-|GET|/orders/sales|売上集計|
-|GET|/orders/export|CSV出力|
+|POST|/api/v1/me/orders|USER/ADMIN: 自分の注文作成|
+|GET|/api/v1/me/orders|USER/ADMIN: 自分の注文一覧|
+|GET|/api/v1/me/orders/{id}|USER/ADMIN: 自分の注文詳細|
+|POST|/api/v1/me/orders/{id}/cancel|USER/ADMIN: 自分のPENDINGをcancel|
+|GET|/api/v1/admin/orders|ADMIN: 全注文一覧|
+|GET|/api/v1/admin/orders/{id}|ADMIN: 任意の注文詳細|
+|POST|/api/v1/admin/orders/{id}/ship|ADMIN: 出荷|
+|POST|/api/v1/admin/orders/{id}/complete|ADMIN: 完了|
+|POST/PATCH|/api/v1/admin/orders/{id}/cancel|ADMIN: cancel|
+|PATCH|/api/v1/admin/orders/{id}/status|ADMIN: 状態変更の互換API|
+|GET|/api/v1/admin/orders/sales|ADMIN: 売上集計|
+|GET|/api/v1/admin/orders/export|ADMIN: CSV出力|
 
 ---
 
