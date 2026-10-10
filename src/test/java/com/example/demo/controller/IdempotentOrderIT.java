@@ -273,7 +273,9 @@ class IdempotentOrderIT {
         assertTrue(header.path("description").asText().contains("409"));
         assertFalse(header.path("example").asText().isBlank());
         document.path("paths").fields().forEachRemaining(path -> path.getValue().fields().forEachRemaining(operation -> {
-            if (path.getKey().equals(ME) && operation.getKey().equals("post")) return;
+            // Issue #43 adds the required header only to manual adjustment POST; all other operations remain unchanged.
+            if (operation.getKey().equals("post") && List.of(ME,
+                    "/api/v1/admin/products/{id}/inventory-adjustments").contains(path.getKey())) return;
             operation.getValue().path("parameters").forEach(parameter ->
                     assertNotEquals("Idempotency-Key", parameter.path("name").asText()));
         }));

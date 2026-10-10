@@ -11,7 +11,7 @@ ComposeのMARIADB_USER/MARIADB_PASSWORDとdb-init scriptは空volumeの初期化
 既存volumeのuser/password/権限はenvironment変更だけでは更新されない。volumeを削除して移行しない。
 
 必要な権限はSELECT/INSERT/UPDATE/DELETE（業務処理とFlyway history）と
-CREATE/ALTER/INDEX/REFERENCES（V1〜V5のtable/column/index/FK変更）。
+CREATE/ALTER/INDEX/REFERENCES（V1〜V6のtable/column/index/FK変更）。
 global ALL、GRANT OPTIONは付与しない。clean-disabled=trueなのでDROPは不要。
 将来migrationが別の権限を必要とする場合は、そのmigrationと権限を一緒にレビューする。
 新規Compose DBはscripts/db-init/01-app-privileges.shが同じ権限を設定する。
@@ -75,6 +75,7 @@ Boot管理のFlyway 11.7.2はMariaDB 12.2に上流での未検証警告を出す
 | V3__add_order_completed_at.sql | orders.completed_at DATETIME(6) NULLと(status,completed_at)索引。既存日時を補完しない |
 | V4__add_order_idempotency.sql | nullable key VARCHAR(128)/fingerprint CHAR(64)、ascii_bin、UNIQUE(customer_id,key)。legacy NULLを保持 |
 | V5__create_inventory_movements.sql | immutable履歴の新table。非0差分/非負在庫/前後関係/reason-source CHECK、3FK、商品別履歴索引。backfillなし |
+| V6__add_inventory_adjustment_idempotency.sql | nullable key/hash（ascii_bin）、actor/key UNIQUE、pair/ORDER/hash CHECK。既存履歴のmetadataはNULL |
 
 | Entity / table | 必須列 | CHECK / UNIQUE / FK |
 | --- | --- | --- |
@@ -82,7 +83,7 @@ Boot管理のFlyway 11.7.2はMariaDB 12.2に上流での未検証警告を出す
 | Product / products | id, name, price, stock, version | stock>=0、price>=0、version DEFAULT 0 |
 | Order / orders | id, customer_id, total_price, status, ordered_at, updated_at, version | total_price>=0、4状態のCHECK、customer→users、version DEFAULT 0 |
 | OrderItem / order_items | id, quantity, price, product_name_snapshot, order_id, product_id | quantity>0、price>=0、order→orders、product→products |
-| InventoryMovement / inventory_movements | id, product_id, delta, stock_before, stock_after, reason, source_type, actor_user_id, created_at（source_id/noteはnullable） | 非0/非負/前後関係/reason-source CHECK、product/actor/order FK RESTRICT |
+| InventoryMovement / inventory_movements | id, product_id, delta, stock_before, stock_after, reason, source_type, actor_user_id, created_at（source_id/note/key/hashはnullable） | 非0/非負/前後関係/reason-source、key/hash pair・ORDER NULL・hex CHECK、actor/key UNIQUE、product/actor/order FK RESTRICT |
 
 全idはBIGINT AUTO_INCREMENT PK、全テーブルはInnoDB/utf8mb4。
 注文の日時はDATETIME(6)。円整数の金額はJava Long/long・DB BIGINT、数量・在庫はInteger/INT。
@@ -118,7 +119,7 @@ SUM(totalPrice)のRepository/DTOはLong（空なら0L）。現在の売上対象
 Money Value Object/BigDecimal、小数、税・割引、通貨コード、多通貨は未導入。
 
 既存のFlyway管理済みV1 DBは、書き込み停止・backup・preflight・検証DBでの適用確認後に、
-新artifactの通常migrateでV2、V3、V4、V5を順に適用する。再baselineやV1再実行はしない。
+新artifactの通常migrateでV2、V3、V4、V5、V6を順に適用する。再baselineやV1再実行はしない。
 3テーブルのDDLは暗黙commitされ、途中失敗が全体rollbackされるとは限らない。
 移行に伴うlock時間・容量と各列/historyを確認し、失敗時は書き込みを再開せず、適用状況に応じて前進修復またはbackup復元を行う。
 拡張後にInteger上限を超えるデータがあれば旧アプリ/INT列へ戻せない。自動でINTへ縮小するrollbackは用意しない。
@@ -152,9 +153,9 @@ V3適用前のbackup・V1/V2履歴確認・既存COMPLETED件数確認、適用�
    接続情報をGitやshell履歴へ書かない。既存データがあるDBを空DBとして扱わない。
 3. Java 17で `./mvnw spring-boot:run`（Windows: `mvnw.cmd spring-boot:run`）。
    jar/Composeによる通常起動でも同じmigrate→validateが動く。
-4. `flyway_schema_history` のversion=1/2/3/4/5、type=SQL/success=1/checksumと、5テーブル・金額BIGINT・key/fingerprint/UNIQUE・在庫履歴の制約/索引を確認する。
+4. `flyway_schema_history` のversion=1〜6、type=SQL/success=1/checksumと、5テーブル・金額BIGINT・注文/手動調整のkey/fingerprint/UNIQUE・在庫履歴の制約/索引を確認する。
    migrationがなければHibernate validateで起動に失敗する。
-5. 再起動ではpending migrationがなければV1/V2/V3/V4/V5を再実行せず、既存データを保持する。
+5. 再起動ではpending migrationがなければV1〜V6を再実行せず、既存データを保持する。
 
 ## Flyway未管理の既存DB
 
@@ -194,7 +195,7 @@ flyway validate
 flyway info
 ```
 
-7. **起動と検証**: 通常設定の新アプリを起動し、baseline済みV1相当schemaへV2/V3/V4/V5が適用され、
+7. **起動と検証**: 通常設定の新アプリを起動し、baseline済みV1相当schemaへV2〜V6が適用され、
    金額BIGINTでのHibernate validate成功、pendingなし、
    件数・在庫・合計・customer・日時・snapshot・制約を確認する。成功後に書き込みを再開する。
 
@@ -206,7 +207,7 @@ V1のCHECK/FK/indexの正しさをFlyway baseline/validateが自動認定する�
 
 Issue #10/#12/#14の4本は `docs/db/legacy` に内容を保ったまま移動した。
 過去の限定的なupgrade手順・回帰fixtureとして保存し、現行schemaの定義には使わない。
-新規DBは正式migrationのV1→V2→V3→V4→V5を使用し、将来のschema変更をlegacy SQLへ追記しない。
+新規DBは正式migrationのV1→V2→V3→V4→V5→V6を使用し、将来のschema変更をlegacy SQLへ追記しない。
 旧DBの段階的な履歴補完については[Issue #14の既存DB手順](../orders/order-aggregate.md#既存dbの移行)と
 [legacy文書](legacy/README.md)を参照し、その後に上のpreflight/照合/baselineを完了する。
 legacy SQLだけでは新しいV1の全制約を満たさないため、適用済みという理由だけでbaselineしない。
@@ -238,7 +239,7 @@ Issue #15では既存344件を維持し、schema制約41件・空DB/起動5件�
 - IdempotencyMigrationIT: V3→V4で全4状態のlegacy値・V1/V2/V3履歴/checksum保持、nullable列/型/長さ/ascii_bin、
   UNIQUE重複拒否・customer分離・case-distinct key、Hibernate validateと2回再起動pending0。
 - IdempotentOrderIT: 実JWT/API、sequential/20同時replay・mixed body・customer分離・対象UNIQUE失敗rollback・legacyコマンド。
-- AuthorizationMatrixITとInventoryConcurrencyMariaDbITもV1→V2→V3→V4→V5+validateで実DB回帰する。
+- AuthorizationMatrixITとInventoryConcurrencyMariaDbITもV1〜V6+validateで実DB回帰する。
 - MoneyMigrationITは既存20億円の値・他の全データ・V1 checksum/historyを維持し、BIGINT/制約/DEFAULT/FK/index、
   0/Integer上限超/Long最大値のraw INSERT/UPDATEと負数・NULL・BIGINT範囲外の拒否、再実行なしを検証する。
 - MoneyApiITは実Security/API/DBで高額商品・注文・snapshot・CSV・OpenAPI int64・overflow時DB不変を検証する。
@@ -265,11 +266,31 @@ product / actor / source OrderはFK RESTRICT。MANUAL source_idはNULL。cascade
 
 履歴ありProductのDELETEは注文参照と同じ409 PRODUCT_DELETE_CONFLICTで拒否される（Issue #41）。
 Product行ロックと参照チェックに加え、既存FK RESTRICTを最終防御に維持する。監査履歴は削除しない。
-V1〜V5を変更せず、V6や新しいGRANTも追加しない。soft deleteは対象外。
-既存専用DB userの対象DB限定権限でV1〜V5が成功することをProductionProfilesITで確認する。
+Issue #41ではV1〜V5を変更せず、migrationや新しいGRANTを追加しない。soft deleteは対象外。
+既存専用DB userの対象DB限定権限で、Issue #43のV6も成功することをProductionProfilesITで確認する。
 global privilege・GRANT OPTION・DB初期化script・Compose/CD設定を追加/変更しない。
 
 InventoryMovementMigrationITはV4データ保持、V1〜V4 SHA-256/history保持、V5、raw SQLのNOT NULL/CHECK/FK、
 INT境界の加算、binary照合、複合索引/EXPLAIN、2回再起動/validate/pending0を検証する。
 InventoryApiITは同じMariaDB12.2.2でAPI/Transaction/並行変更/履歴immutabilityを検証する。
-既存のmigration/API/並行制御テストもV5まで適用して継続する。[在庫仕様](../inventory.md)を参照。
+既存のmigration/API/並行制御テストも最新V6まで適用して継続する。[在庫仕様](../inventory.md)を参照。
+
+## V5→V6の手動調整冪等性移行（Issue #43）
+
+V1〜V5 SQL/checksumは不変。V6はinventory_movementsへidempotency_key VARCHAR(128) NULLと
+request_fingerprint CHAR(64) NULLを追加する。どちらもCHARACTER SET ascii COLLATE ascii_bin。
+scopeはactor_user_id + keyで、商品IDをUNIQUEへ含めない。
+uk_inventory_movements_actor_idempotency_key(actor_user_id,idempotency_key)を最終防御とする。
+
+CHECKは両列が両方NULL/非NULL、ORDERは両方NULL、fingerprintはlowercase hex 64文字を保証する。
+既存MANUAL/ORDER履歴は両列NULLのまま。旧行へ推測key/hashをbackfillせず、stock・履歴内容を変更しない。
+成功したkeyは監査履歴が残る限り保持する。TTL・cleanup・履歴削除は導入しない。
+
+既存DBのbackupとV1〜V5 schema/history照合後、検証DBでV6を適用してから通常起動する。
+既存専用userの対象DB限定ALTER/INDEX等を使用し、GRANT/global privilege/GRANT OPTIONを追加しない。
+Compose/db-init/CD scriptも変更しない。本作業は使い捨てMariaDBで検証し、本番DBのmigrationは実行しない。
+
+InventoryAdjustmentMigrationITはMariaDB12.2.2でV5旧MANUAL/ORDER・V1〜V5 SHA-256/history保持、
+列型/長さ/ascii_bin、case-distinct key、別actor、重複1062、pair/hash/ORDER CHECKを実SQLで確認する。
+2回再起動でHibernate validate成功・pending0・再適用なしも確認する。
+ProductionProfilesITではComposeと同じinit script/専用userでV1〜V6が成功することを確認する。

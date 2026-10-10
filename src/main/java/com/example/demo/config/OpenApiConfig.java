@@ -59,8 +59,10 @@ public class OpenApiConfig {
                     responses.putIfAbsent("409", new ApiResponse().description("PRODUCT_DELETE_CONFLICT / CONCURRENT_UPDATE"));
                 if (path.startsWith("/api/v1/admin/products/{id}/inventory-")) {
                     responses.putIfAbsent("404", new ApiResponse().description("PRODUCT_NOT_FOUND"));
-                    if (method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST)
-                        responses.putIfAbsent("409", new ApiResponse().description("INVENTORY_ADJUSTMENT_CONFLICT / CONCURRENT_UPDATE"));
+                    if (method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
+                        responses.put("400", new ApiResponse().description("INVALID_IDEMPOTENCY_KEY / INVALID_INVENTORY_ADJUSTMENT / 入力不正・Validation"));
+                        responses.putIfAbsent("409", new ApiResponse().description("IDEMPOTENCY_KEY_CONFLICT / INVENTORY_ADJUSTMENT_CONFLICT / CONCURRENT_UPDATE"));
+                    }
                 }
                 responses.forEach((status, response) -> {
                     if (status.matches("[45][0-9]{2}")) {

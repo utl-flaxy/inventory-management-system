@@ -95,6 +95,7 @@ class InventoryApiIT {
     }
     ResultActions adjustment(long id, String body) throws Exception {
         return mvc.perform(post(BASE + id + "/inventory-adjustments").header("Authorization", token("admin"))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
     String adjustmentBody(int delta, String reason, String note) throws Exception {
@@ -178,7 +179,7 @@ class InventoryApiIT {
     @ParameterizedTest @MethodSource("authorization")
     void authorizationPrecedesResourceLookupAndParsing(String user, boolean exists, String method) throws Exception {
         long id = exists ? 1 : 999;
-        var request = method.equals("post") ? post(BASE + id + "/inventory-adjustments")
+        var request = method.equals("post") ? post(BASE + id + "/inventory-adjustments").header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON).content(user.equals("admin") ? adjustmentBody(1, "RECEIPT", null) : "{")
                 : get(BASE + id + "/inventory-movements");
         if (!user.equals("anonymous")) request.header("Authorization", token(user));
@@ -352,7 +353,7 @@ class InventoryApiIT {
     }
     @Test void twentyConcurrentManualChangesHaveNoLostUpdatesAndContiguousHistory() throws Exception {
         jdbc.update("UPDATE products SET stock=100 WHERE id=1");
-        var results = concurrent(Collections.nCopies(20, () -> authenticated("admin", () -> inventory.adjust(1L, request(-1)))));
+        var results = concurrent(Collections.nCopies(20, () -> authenticated("admin", () -> inventory.adjust(1L, request(-1), UUID.randomUUID().toString()))));
         assertTrue(results.stream().allMatch(Objects::isNull), results.toString());
         assertChain(100, 80, 20);
         assertEquals(20L, jdbc.queryForObject("SELECT version FROM products WHERE id=1", Long.class));
@@ -360,7 +361,7 @@ class InventoryApiIT {
     @Test void concurrentOrderAndDamageCannotBothConsumeMoreThanAvailableStock() throws Exception {
         var results = concurrent(List.of(
                 () -> authenticated("alice", () -> orders.createOrder(com.example.demo.TestOrders.request(1L, 7), "concurrent")),
-                () -> authenticated("admin", () -> inventory.adjust(1L, request(-4)))));
+                () -> authenticated("admin", () -> inventory.adjust(1L, request(-4), "damage"))));
         assertEquals(1, results.stream().filter(Objects::isNull).count());
         Throwable failure = results.stream().filter(Objects::nonNull).findFirst().orElseThrow();
         assertTrue(failure instanceof InventoryAdjustmentConflictException || failure instanceof OutOfStockException, failure.toString());
@@ -370,7 +371,7 @@ class InventoryApiIT {
         long id = createOrder(5);
         var results = concurrent(List.of(
                 () -> authenticated("admin", () -> orders.cancelOrder(id)),
-                () -> authenticated("admin", () -> inventory.adjust(1L, request(-2)))));
+                () -> authenticated("admin", () -> inventory.adjust(1L, request(-2), "damage"))));
         assertTrue(results.stream().allMatch(Objects::isNull), results.toString());
         assertChain(10, 8, 3);
     }

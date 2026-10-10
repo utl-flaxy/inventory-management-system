@@ -51,6 +51,8 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | ProblemDetailContractIT | 実Security/DB、主要4xx、JWT/DB user、filter/method 403一致、firewall、在庫不変、OpenAPI Problem schema |
 | ProductNotFoundIT | 実MariaDB/SecurityのGET/PUT/DELETE未存在404、認可優先、DB不変、stale/Validation、注文冪等性、OpenAPI |
 | ProductDeletionIT | Product参照409、限定FK fallback・rollback、認可優先、delete/order/manual/cancel並行整合、OpenAPI |
+| InventoryAdjustmentIdempotencyIT | 手動再送・20同時×3・mixed body/別商品/別actor、失敗key再利用、rollback、cancelロック順、非露出/OpenAPI |
+| InventoryAdjustmentMigrationIT | V5→V6、旧履歴/checksum保持、ascii_bin/UNIQUE/pair/ORDER/hash CHECK、validate・2回再起動 |
 | SalesQueryIT | COMPLETEDのSUM/COUNT、全4状態、期間境界、legacy NULL、UTCマッピング |
 | MoneyApiIT | 高額Product/Order API、snapshot/CSV、OpenAPI int64、Long overflow時DB不変 |
 | MoneyMigrationIT | 既存値/V1履歴保持、V1→V2、BIGINT境界と制約、再実行なし |
@@ -64,7 +66,7 @@ Issue #37のProductionConfigurationTestは実prod設定を読み、DataSource/Fl
 blank、root、credential付きURL、弱いJWT鍵の停止と非露出を検証する。
 ConfigurationContractTestはsafe defaults/local差分・Boot管理Actuator・H2 test scopeを固定する。
 ProductionProfilesITはComposeと同じdb-init scriptで専用user権限を絞った実MariaDB12.2.2で
-V1〜V5 migrationとHibernate validate、3profileの実HTTP、health details非公開を検証する。
+V1〜V6 migrationとHibernate validate、3profileの実HTTP、health details非公開を検証する。
 既存OpenAPIテストだけlocalを明示し、production要件をtest profileで無効化しない。
 Deployment testsはActuator target、labelに基づくlegacy/modern rollback、DB設定不足、prod必須、
 root/不正identifier拒否、secret非出力と既存SHA/image/lock/app-only安全性を検証する。
@@ -241,3 +243,30 @@ Java 17 (Temurin 17.0.18)でDOCKER_HOSTを接続不能なローカルportへ向�
 main988件 + Unit15件 + ProductDeletionIT38件であり、既存テストを削除していない。
 重点verify（Product Service/Controller/ProblemDetail、ProductDeletion/ProductNotFound/Inventory API/production profile）も
 Unit80件 + IT121件で全件成功した。
+
+## 手動調整の冪等性（Issue #43）
+
+main基準1041件を削除しない。既存manual POSTへ一意keyを付け、最新migration期待値をV6へ更新する。
+Orderのkey/fingerprint/scope/UNIQUE契約は変更せず、既存IdempotentOrderITを継続する。
+
+- IdempotencyKeyTest: 共通validatorとOrder delegatorのASCII/空白/制御文字/長さ/case契約（15件）。
+- InventoryAdjustmentFingerprintTest: 既知UTF-8/SHA-256、null/blank note、非blank保持、意味値4fieldの差（8件）。
+- InventoryAdjustmentIdempotencyTest: MANUAL key/hash防御、legacy/ORDER NULL、immutable・DTO metadata非露出（10件）。
+- InventoryServiceTest: 15件追加。入力/key検証前後の副作用、User→lookup→Product lock、歴史response再送、
+  4field mismatch時Product未アクセス、対象1062/正確な制約だけ409、他障害の再throw・再照会なし。
+- InventoryAdjustmentIdempotencyIT: 59件。実JWT・MariaDB12.2.2で10回再送、note/JSON順序、6種mismatch、
+  key境界、USER403/未認証401優先、underflow/overflow/missing/Validation/INSERT失敗後のkey再利用。
+  実UNIQUE衝突と対象外SQLのrollback、20同時same body×3、20同時mixed body×3、別商品競合×3、
+  別actor/別keyの独立成功、Product削除409、履歴/ProblemDetail/OpenAPI非露出を確認する。
+  cancelがactor行ロックで待っている間に同actorの手動Transactionを完了させるテストを3反復し、
+  Order→User→Productの順がUser→Productと循環待ちを作らず、連続stock/historyを保つことを確認する。
+- InventoryAdjustmentMigrationIT: 13件。V5 legacy MANUAL/ORDERからV6だけを適用し、旧全行とV1〜V5履歴/SQL hash保持、
+  列・UNIQUE・pair/hex/ORDER CHECK・binary照合を実SQLで検証。2回再起動でvalidate・pending0・history不変。
+- ProductionProfilesIT: 既存専用userの対象DB限定権限でV6も成功。追加GRANTなし、prod docs/H2/Actuator契約維持。
+
+Java 17 (Temurin 17.0.18)でDOCKER_HOSTを接続不能なローカルportへ向けた
+`mvnw.cmd clean test` は **583件成功**（Docker不要）、failures/errors/skipped=0。
+実MariaDB12.2.2の `mvnw.cmd clean verify` はSurefire583件 + Failsafe578件 = **1161件成功**、
+failures/errors/skipped=0。既存1041件 + 新規Unit48件/IT72件 = 120件追加で、既存テストの削除なし。
+CIのJava 17 verifyにも同じテストを含める。
+Testcontainers未起動時にskipする設定・timeout緩和・MariaDB downgradeは行わない。

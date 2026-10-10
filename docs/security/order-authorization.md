@@ -57,7 +57,8 @@ CurrentUserが解決したcustomer IDを使い、DB queryに所有者条件を�
   通常findで所有者を調べてから別途lockする経路は作らない。
 
 self/admin cancelは、ロック済みOrderに対する同じ復元処理を使う。
-READ_COMMITTEDでOrderロック・状態検証・Product ID昇順ロック・復元後在庫の事前検証・更新を行う。
+READ_COMMITTEDでOrderロック・状態検証・User(actor)ロック・Product ID昇順ロック・復元後在庫の事前検証・更新を行う。
+Issue #43からactor FKの待ち順を手動調整のUser → Productと統一する。[在庫仕様](../inventory.md)を参照。
 Orderのrefresh、Math.addExact、全体rollback、状態遷移ルールは従来通り。
 customerは保存後に変更できないため、ロック待ち後のrefreshでも所有者は変わらない。
 

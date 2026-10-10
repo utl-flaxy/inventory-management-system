@@ -1,4 +1,4 @@
-# APIエラー契約（Issue #33 / #35 / #39 / #41）
+# APIエラー契約（Issue #33 / #35 / #39 / #41 / #43）
 
 主要REST APIのエラーはSpringの `org.springframework.http.ProblemDetail` をruntime responseに使う。
 Content-Typeは `application/problem+json`。ControllerAdvice、Security filter、method security、firewallで共通契約となる。
@@ -214,5 +214,23 @@ responseにSQL・SQLException・constraint名・内部table名・password/hash�
 409/失敗時にTransactionをrollbackし、Product/Order/OrderItem/InventoryMovementとstockを維持する。
 
 DELETE OpenAPIの409はapplication/problem+json・ApiProblemを使用する。
-Flyway V1〜V5不変、V6なし、cascade削除なし、新しいDB権限なし。
+Issue #41ではFlyway V1〜V5不変、migration追加なし、cascade削除なし、新しいDB権限なし。
 soft delete・archive・商品状態追加・Product復元・履歴削除は対象外。
+
+## 手動調整の冪等性（Issue #43）
+
+ADMIN POST /api/v1/admin/products/{id}/inventory-adjustmentsはIdempotency-Key必須。
+missing/空/空白/非ASCII/129文字以上は400 INVALID_IDEMPOTENCY_KEY。
+制御文字も拒否し、注文と同様にfirewallが先に拒否する改行等は400 INVALID_REQUEST。
+USER403・未認証401をheader/body解析・商品lookup前に返す。
+同actor/keyの別商品・delta・reason・正規化noteは409 IDEMPOTENCY_KEY_CONFLICT。
+detailは固定の「同じIdempotency-Keyに対する在庫調整内容が競合しています」。
+同内容replayは200で最初のmovementを返し、現在stockを再計算しない。
+
+対象UNIQUEのMariaDB 1062だけ同じ409へ変換する。失敗Transactionの再照会はしない。
+その他のSQL/INSERT/flush障害は500 SYSTEM_ERRORで全体rollbackし、失敗keyを消費しない。
+ProblemDetailは既存type/title/status/detail/instance/code契約とapplication/problem+jsonを維持する。
+SQL・constraint・内部table・key/hash・password等を公開しない。
+local OpenAPIに必須headerと400/401/403/404/409 ApiProblemを掲載する。
+成功DTO/schemaと履歴GETに冪等性metadataを追加しない。prod docs404は維持する。
+詳細は[在庫仕様](inventory.md)を参照。

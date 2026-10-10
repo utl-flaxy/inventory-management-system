@@ -33,10 +33,12 @@ import static org.mockito.Mockito.*;
 class OrderStateServiceTest {
     @Mock private InventoryService inventoryService;
     @Mock private com.example.demo.security.CurrentUser currentUser;
+    @Mock private com.example.demo.repository.UserRepository userRepository;
 
     @org.junit.jupiter.api.BeforeEach
     void actor() {
         lenient().when(currentUser.requireUser()).thenReturn(com.example.demo.TestOrders.customer());
+        lenient().when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(com.example.demo.TestOrders.customer()));
     }
 
     @Spy

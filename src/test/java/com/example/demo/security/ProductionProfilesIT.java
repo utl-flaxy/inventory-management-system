@@ -96,7 +96,7 @@ class ProductionProfilesIT {
             assertEquals("UNAUTHENTICATED", json.readTree(unauthenticated.body()).path("code").asText());
             assertNoSecrets(unauthenticated.body());
 
-            // Flyway V1〜V5と実APIのDMLを同じ専用userで実行できること。
+            // Flyway V1〜V6と実APIのDMLを同じ専用userで実行できること。
             var jdbc = context.getBean(JdbcTemplate.class);
             assertTrue(jdbc.queryForObject("SELECT CURRENT_USER()", String.class).startsWith("inventory_app@"));
             var grants = jdbc.queryForList("SHOW GRANTS FOR CURRENT_USER", String.class);
@@ -105,7 +105,7 @@ class ProductionProfilesIT {
             assertTrue(grants.stream().allMatch(grant -> grant.startsWith("GRANT USAGE ON *.* TO ")
                     || grant.contains(databaseGrant)));
             assertTrue(grants.stream().noneMatch(grant -> grant.contains("ALL PRIVILEGES") || grant.contains("GRANT OPTION")));
-            assertEquals(5, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+            assertEquals(6, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
             String username = "admin" + profile;
             assertEquals(200, post("/auth/register", Map.of("username", username, "password", PASSWORD), null).statusCode());
             jdbc.update("UPDATE users SET role='ROLE_ADMIN' WHERE username=?", username);
@@ -161,6 +161,7 @@ class ProductionProfilesIT {
         var request = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5))
                 .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
         if (token != null) request.header("Authorization", "Bearer " + token);
+        if (path.endsWith("/inventory-adjustments")) request.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 

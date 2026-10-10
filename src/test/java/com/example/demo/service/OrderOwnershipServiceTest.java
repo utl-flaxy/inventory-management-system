@@ -36,6 +36,7 @@ class OrderOwnershipServiceTest {
     private ProductRepository products;
     @Mock
     private CurrentUser currentUser;
+    @Mock private com.example.demo.repository.UserRepository users;
     @Mock
     private EntityManager entityManager;
     @InjectMocks
@@ -44,6 +45,7 @@ class OrderOwnershipServiceTest {
     @BeforeEach
     void authenticatedCustomer() {
         when(currentUser.requireUser()).thenReturn(customer());
+        lenient().when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(customer()));
     }
 
     @Test
@@ -94,9 +96,10 @@ class OrderOwnershipServiceTest {
         when(orders.save(order)).thenReturn(order);
 
         assertSame(order, service.cancelMyOrder(101L));
-        var sequence = inOrder(orders, entityManager, products);
+        var sequence = inOrder(orders, users, entityManager, products);
         sequence.verify(orders).findByIdAndCustomerIdForUpdate(101L, 1L);
         sequence.verify(entityManager).refresh(order, LockModeType.PESSIMISTIC_WRITE);
+        sequence.verify(users).findByIdForUpdate(1L);
         sequence.verify(entityManager).refresh(product, LockModeType.PESSIMISTIC_WRITE);
         sequence.verify(products).save(product);
         sequence.verify(orders).save(order);

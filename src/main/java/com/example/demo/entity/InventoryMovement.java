@@ -13,7 +13,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 @Entity
-@Table(name = "inventory_movements", indexes =
+@Table(name = "inventory_movements", uniqueConstraints =
+        @UniqueConstraint(name = "uk_inventory_movements_actor_idempotency_key", columnNames = {"actor_user_id", "idempotency_key"}), indexes =
         @Index(name = "idx_inventory_movements_product_created_id", columnList = "product_id,created_at,id"))
 @Immutable
 @Check(name = "ck_inventory_movement_delta", constraints = "delta <> 0")
@@ -55,6 +56,24 @@ public class InventoryMovement {
     private String note;
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "idempotency_key", length = 128, updatable = false)
+    private String idempotencyKey;
+    @Column(name = "request_fingerprint", length = 64, updatable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    private String requestFingerprint;
+
+    public static InventoryMovement createManual(Product product, Integer delta, Integer before, Integer after,
+            InventoryMovementReason reason, User actor, String note, Instant createdAt, String key, String fingerprint) {
+        IdempotencyKey.validate(key);
+        if (fingerprint == null || !fingerprint.matches("[0-9a-f]{64}"))
+            throw new IllegalArgumentException("在庫調整fingerprintはSHA-256の64文字lowercase hexが必須です");
+        InventoryMovement movement = create(product, delta, before, after, reason, InventorySourceType.MANUAL,
+                null, actor, note, createdAt);
+        movement.idempotencyKey = key;
+        movement.requestFingerprint = fingerprint;
+        return movement;
+    }
 
     public static InventoryMovement create(Product product, Integer delta, Integer before, Integer after,
             InventoryMovementReason reason, InventorySourceType sourceType, Long sourceId,

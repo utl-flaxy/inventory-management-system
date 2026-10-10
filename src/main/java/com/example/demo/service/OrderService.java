@@ -5,7 +5,7 @@ import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
-import com.example.demo.entity.OrderIdempotency;
+import com.example.demo.entity.IdempotencyKey;
 import com.example.demo.entity.OrderStatus;
 import com.example.demo.entity.InventoryMovementReason;
 import com.example.demo.entity.Product;
@@ -58,7 +58,7 @@ public class OrderService {
     public Order createOrder(OrderRequest request, String idempotencyKey) {
 
         try {
-            OrderIdempotency.validateKey(idempotencyKey);
+            IdempotencyKey.validate(idempotencyKey);
         } catch (IllegalArgumentException ex) {
             throw new InvalidIdempotencyKeyException(ex.getMessage());
         }
@@ -246,9 +246,12 @@ public class OrderService {
     // self/adminの両方で、取得済みの注文ロック下で既存の復元処理を使う
     private Order cancelLockedOrder(Order order) {
         order.validateTransitionTo(OrderStatus.CANCELLED);
-        User actor = currentUser.requireUser();
+        User authenticatedActor = currentUser.requireUser();
+        // 手動調整のUser -> Productと整合させる。actor FKのINSERT時ロックをProduct後に待たない。
+        User actor = userRepository.findByIdForUpdate(authenticatedActor.getId())
+                .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("認証ユーザーが存在しません"));
 
-        // Order -> ProductのID昇順。関連読み取りで先にロードされた商品もrefreshしてから計算する
+        // Order -> User(actor) -> ProductのID昇順。先にロードされた商品もrefreshしてから計算する
         order.getOrderItems().stream().map(OrderItem::getProduct)
                 .distinct().sorted(Comparator.comparing(Product::getId))
                 .forEach(product -> entityManager.refresh(product, LockModeType.PESSIMISTIC_WRITE));
