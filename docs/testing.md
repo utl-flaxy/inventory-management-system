@@ -49,6 +49,7 @@ TestcontainersをDocker未起動時にskipしない。接続不能やpull失敗�
 | LegacyDatabasePreflightIT | 既存DBの不正データ/不足履歴での停止とDB不変 |
 | AuthApiIT | Authの400/409/401契約、UTF-8/文字数境界、10件同時登録、BCrypt、非露出、OpenAPI、DB role優先 |
 | ProblemDetailContractIT | 実Security/DB、主要4xx、JWT/DB user、filter/method 403一致、firewall、在庫不変、OpenAPI Problem schema |
+| ProductNotFoundIT | 実MariaDB/SecurityのGET/PUT/DELETE未存在404、認可優先、DB不変、stale/Validation、注文冪等性、OpenAPI |
 | SalesQueryIT | COMPLETEDのSUM/COUNT、全4状態、期間境界、legacy NULL、UTCマッピング |
 | MoneyApiIT | 高額Product/Order API、snapshot/CSV、OpenAPI int64、Long overflow時DB不変 |
 | MoneyMigrationIT | 既存値/V1履歴保持、V1→V2、BIGINT境界と制約、再実行なし |
@@ -138,3 +139,27 @@ Issue #33のJava 17検証は、Docker接続先を無効にした `mvnw.cmd clean
 `mvnw.cmd clean verify` はSurefire408件 + Failsafe350件 = 758件成功（既存709件 + 契約49件追加）、
 failures/errors/skipped=0。新規ProblemDetailContractTest31件、ProblemDetailContractIT18件を含む。
 coverage/scanner gate、branch protection変更、Deploy有効化、JWT_SECRET設定、EC2操作も対象外。
+
+## Product resource未存在（Issue #35）
+
+ProductServiceTestはlookup未存在の専用例外とRepository未保存/未flush/未削除、
+存在する商品の取得/削除、Repository例外を404へ誤変換しないことをDockerなしで検証する。
+ProductConcurrencyServiceTestのrequest/version防御・stale409も維持する。
+ProductControllerTestはGET/PUT/DELETEの404全field/content-type、Service例外の安全な500、
+INVALID_PRODUCT_UPDATEの400と成功DELETEの200を検証する。
+ProblemDetailContractTestには専用例外とfactoryのtitle/type/detail/instanceを追加する。
+ProblemDetailContractITの旧Product未存在500の期待値は、テストを残して正式な404契約へ更新する。
+
+ProductNotFoundITは実MariaDB12.2.2・JWT・Securityを通し、3操作の404 body完全一致、
+USERの既存/未存在PUT/DELETE403、ADMIN404、anonymous401、通常CRUD200を確認する。
+各失敗前後のproducts/orders/order_items全行を比較して副作用を検出する。
+missing + version123は404、staleは409、HTTP version null/負値・name/price/stock不正は400、
+malformed idは400、0/-1はlookup404、空の一覧/検索は200を固定する。
+注文の商品未存在400と失敗時key再利用、実FK削除失敗の安全な500、3操作のOpenAPI404も検証する。
+Flyway V1〜V4、JWT/Security policy、CI/CDは変更しない。
+
+Java 17でDocker接続先を無効にした `mvnw.cmd clean test` はSurefire427件成功。
+絞り込みなしの `mvnw.cmd clean verify` はSurefire427件 + Failsafe376件 = 803件成功
+（既存758件 + Unit19件 + IT26件追加）、failures/errors/skipped=0。
+初回全verifyでは既存在庫並行テストの100worker接続取得がtimeoutしたが、
+同じコード・設定の単独40件再実行と全verify再実行は成功。timeout/pool設定は変更していない。

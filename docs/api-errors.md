@@ -1,8 +1,8 @@
-# APIエラー契約（Issue #33）
+# APIエラー契約（Issue #33 / #35）
 
 主要REST APIのエラーはSpringの `org.springframework.http.ProblemDetail` をruntime responseに使う。
 Content-Typeは `application/problem+json`。ControllerAdvice、Security filter、method security、firewallで共通契約となる。
-成功レスポンスのJSON/CSV・HTTP status、既存業務のstatus/codeは維持する。
+成功レスポンスのJSON/CSV・HTTP statusは維持する。Issue #35でProduct resource未存在を404へ統一する。
 
 **API契約の破壊的変更**: 旧code/message Mapのmessageはdetailへ、旧Validationのfield Mapはerrorsへ移る。
 クライアントはcodeで分類し、detailを表示し、Validationのerrorsでfieldを特定する。
@@ -38,6 +38,7 @@ JSON propertyの順序は契約にしない。
 | 401 | UNAUTHENTICATED | Unauthenticated |
 | 403 | ACCESS_DENIED | Access Denied |
 | 404 | ORDER_NOT_FOUND | Order Not Found |
+| 404 | PRODUCT_NOT_FOUND | Product Not Found |
 | 409 | USERNAME_ALREADY_EXISTS | Username Already Exists |
 | 409 | IDEMPOTENCY_KEY_CONFLICT | Idempotency Key Conflict |
 | 409 | CONCURRENT_UPDATE | Concurrent Update |
@@ -89,6 +90,35 @@ SecurityはSpring管理ObjectMapperと共通factoryを使い、status/content-ty
 JWT parse/署名/issuer/DB role優先、CSRF/session/matcher/roles/permitAllは変更しない。
 firewallのDispatcherServlet前の拒否も共通writerで400にする。
 
+## Product resource未存在（Issue #35）
+
+```json
+{
+  "type": "https://inventory-management-system.example/problems/product-not-found",
+  "title": "Product Not Found",
+  "status": 404,
+  "detail": "商品が存在しません",
+  "instance": "/products/999",
+  "code": "PRODUCT_NOT_FOUND"
+}
+```
+
+GET /products/{id}、ADMINのPUT/DELETE /products/{id}は未存在なら同じ404契約となる。
+同じpathなら全fieldが一致する。従来のGET/PUTの500・DELETEの未存在成功からの仕様変更。
+認証済みUSERのPUT/DELETEは商品の存在に関係なく403 ACCESS_DENIED、anonymousは3操作とも401。
+成功時のGET/PUT/DELETEは200を維持する。空の一覧・検索は200のempty pageであり404にしない。
+
+PUTはrequest/version Validation → 商品lookup → version一致確認 → 更新の順で処理する。
+有効な非負versionを指定しても商品自体がなければ404、既存商品のversion不一致は409 CONCURRENT_UPDATE。
+versionのnull/負値はHTTPのBean Validationで400 VALIDATION_ERROR（errors.version）。
+Service直接呼び出しのrequest/version防御は従来の400 INVALID_PRODUCT_UPDATEを維持する。
+name/price/stockのValidationも400 VALIDATION_ERRORのまま。
+
+数値に変換できないidは400 INVALID_REQUEST。0/-1には新しいpath制約を追加せずlookup結果で404とする。
+注文作成でのproductId未存在は従来の400 INVALID_ORDER_REQUESTを維持し、注文/在庫/冪等keyを変更しない。
+DELETEは同じTransactionで存在確認後にentityを削除する。新しいlockは追加せず、既存の競合409処理を使う。
+外部キー制約等のRepository失敗をPRODUCT_NOT_FOUNDへ変換しない。
+
 ## Concurrency / 500
 
 optimistic/pessimistic lock、timeout、Spring ConcurrencyFailureExceptionは既存通り409。
@@ -107,20 +137,20 @@ optimistic/pessimistic lock、timeout、Spring ConcurrencyFailureExceptionは既
 exception message/class/stack、SQL/constraint/DB URL/file path、password/hash/token/JWT secretを露出しない。
 新しいSystem.out.printlnやcredential loggingは追加しない。
 
-Product未存在は現行実装で汎用RuntimeExceptionによる500。そのstatusを今回維持しsafe ProblemDetailとする。
-Product未存在を404へ整理するdomain/API仕様変更は別Issue。Orderの既存404は維持する。
+ProductNotFoundExceptionだけを404 PRODUCT_NOT_FOUNDへ変換する。
+Product APIでも予期しないRuntimeException・制約違反は安全な500 SYSTEM_ERRORを維持する。
 
 ## OpenAPI / 検証 / 対象外
 
 ApiProblem schemaは標準5fieldとcode、Validation用errorsを表示し、共通customizerで主要endpointの4xx/5xxを
 application/problem+jsonへ揃える。成功schema/contentは変更しない。
-Auth register/login、order create、sales、product updateを実/v3/api-docsで確認する。
+Auth register/login、order create、sales、product updateとProduct GET/PUT/DELETEの404を実/v3/api-docsで確認する。
 
 Docker不要のProblemDetailContractTestと、MariaDB12.2.2/実SecurityのProblemDetailContractITを追加する。
 既存AuthApiIT、AuthorizationMatrixIT、Idempotency等を削除せず、Map期待値を正式な契約へ更新する。
 Accept: application/jsonでも実responseはapplication/problem+jsonを優先する。
 
-Flyway V1〜V4・schema/型・業務Transaction・JWT/Security policy・CI/CD設定は変更しない。
+Flyway V1〜V4・schema/型・注文Transaction・JWT/Security policy・CI/CD設定は変更しない。
 i18n、trace ID/structured logging（Issue #3）、例外階層の全面再設計、GraphQL、OAuth2/OIDC、特殊method全対応は対象外。
 
 参照: [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html)、
