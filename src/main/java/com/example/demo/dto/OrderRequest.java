@@ -1,19 +1,17 @@
 package com.example.demo.dto;
 
-import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class OrderRequest {
 
-    @NotNull(message = "商品IDは必須です")
-    @Positive(message = "商品IDは正の値を入力してください")
-    private Long productId;
-
-    @NotNull(message = "数量は必須です")
-    @Min(value = 1, message = "数量は1以上を入力してください")
-    private Integer quantity;
+    @NotEmpty(message = "注文明細は1件以上必要です")
+    @Valid
+    private List<@NotNull(message = "注文明細は必須です") OrderItemRequest> items;
 
 }

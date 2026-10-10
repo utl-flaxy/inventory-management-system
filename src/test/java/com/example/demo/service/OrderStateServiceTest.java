@@ -22,7 +22,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,8 +43,7 @@ class OrderStateServiceTest {
     private OrderService orderService;
 
     private Order order(OrderStatus status, Product product, int quantity) {
-        Order order = new Order(1L, 500, status, List.of());
-        order.setOrderItems(List.of(new OrderItem(null, quantity, 100, order, product)));
+        Order order = com.example.demo.TestOrders.order(1L, status, OrderItem.create(product, quantity));
         when(orderRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(order));
         return order;
     }
@@ -133,7 +131,7 @@ class OrderStateServiceTest {
         Product first = new Product(1L, "apple", 100, 5);
         Product second = new Product(2L, "orange", 100, Integer.MAX_VALUE);
         Order order = order(OrderStatus.PENDING, first, 5);
-        order.setOrderItems(List.of(new OrderItem(null, 5, 100, order, first), new OrderItem(null, 1, 100, order, second)));
+        order = replaceItems(OrderItem.create(first, 5), OrderItem.create(second, 1));
 
         assertThrows(OrderInventoryRestorationException.class, () -> orderService.cancelOrder(1L));
 
@@ -148,7 +146,7 @@ class OrderStateServiceTest {
     void repeatedProductLinesAreAccumulatedBeforeCheckingOverflow() {
         Product product = new Product(1L, "apple", 100, Integer.MAX_VALUE - 1);
         Order order = order(OrderStatus.PENDING, product, 1);
-        order.setOrderItems(List.of(new OrderItem(null, 1, 100, order, product), new OrderItem(null, 1, 100, order, product)));
+        order = replaceItems(OrderItem.create(product, 1), OrderItem.create(product, 1));
 
         assertThrows(OrderInventoryRestorationException.class, () -> orderService.cancelOrder(1L));
 
@@ -186,8 +184,8 @@ class OrderStateServiceTest {
         Product first = new Product(1L, "apple", 100, 5);
         Product second = new Product(2L, "orange", 100, 7);
         Order order = order(OrderStatus.PENDING, first, 2);
-        order.setOrderItems(List.of(new OrderItem(null, 3, 100, order, second),
-                new OrderItem(null, 2, 100, order, first), new OrderItem(null, 1, 100, order, second)));
+        order = replaceItems(OrderItem.create(second, 3), OrderItem.create(first, 2), OrderItem.create(second, 1));
+        when(orderRepository.save(order)).thenReturn(order);
 
         orderService.cancelOrder(1L);
 
@@ -201,5 +199,11 @@ class OrderStateServiceTest {
         verify(entityManager, times(1)).refresh(second, LockModeType.PESSIMISTIC_WRITE);
         assertEquals(7, first.getStock());
         assertEquals(11, second.getStock());
+    }
+
+    private Order replaceItems(OrderItem... items) {
+        Order order = com.example.demo.TestOrders.order(1L, OrderStatus.PENDING, items);
+        when(orderRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(order));
+        return order;
     }
 }

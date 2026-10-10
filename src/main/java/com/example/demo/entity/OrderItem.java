@@ -1,56 +1,74 @@
 package com.example.demo.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.Check;
 
 @Entity
 @Table(name = "order_items")
 @Check(name = "ck_order_items_quantity_positive", constraints = "quantity IS NOT NULL AND quantity > 0")
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private Integer quantity;
 
-    private Integer price;
+    // 既存price列を注文時単価として維持し、破壊的な列名変更を避ける
+    @Column(name = "price", nullable = false, updatable = false)
+    private Integer unitPrice;
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
-    @JsonBackReference
+    @Column(nullable = false, updatable = false)
+    private String productNameSnapshot;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false, updatable = false)
     private Order order;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false, updatable = false)
     private Product product;
 
-    public OrderItem(Long id, Integer quantity, Integer price, Order order, Product product) {
-        this.id = id;
-        setQuantity(quantity);
-        this.price = price;
-        this.order = order;
-        this.product = product;
+    public static OrderItem create(Product product, Integer quantity) {
+        validateQuantity(quantity);
+        if (product == null || product.getName() == null || product.getPrice() == null
+                || product.getPrice() < 0) {
+            throw new IllegalArgumentException("商品名と非負の単価は必須です");
+        }
+        OrderItem item = new OrderItem();
+        item.product = product;
+        item.quantity = quantity;
+        item.unitPrice = product.getPrice();
+        item.productNameSnapshot = product.getName();
+        return item;
     }
 
-    public void setQuantity(Integer quantity) {
-        if (quantity == null || quantity <= 0) {
-            throw new IllegalArgumentException("数量は1以上を入力してください");
+    void attachTo(Order order) {
+        if (order == null || this.order != null) {
+            throw new IllegalArgumentException("明細の注文を差し替えることはできません");
         }
-        this.quantity = quantity;
+        this.order = order;
+    }
+
+    public int getLineTotal() {
+        return Math.multiplyExact(unitPrice, quantity);
     }
 
     @PrePersist
     @PreUpdate
     private void validateQuantity() {
-        setQuantity(quantity);
+        validateQuantity(quantity);
+    }
+
+    private static void validateQuantity(Integer quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new IllegalArgumentException("数量は1以上を入力してください");
+        }
     }
 }

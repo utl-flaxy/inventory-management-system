@@ -5,6 +5,7 @@ import com.example.demo.exception.InvalidOrderRequestException;
 import com.example.demo.service.OrderService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -22,7 +23,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest(showSql = false, properties = "spring.jpa.hibernate.ddl-auto=create-drop")
-@Import(OrderService.class)
+@Import({OrderService.class, com.example.demo.security.CurrentUser.class})
 class OrderDataIntegrityTest {
 
     @Autowired
@@ -39,8 +40,15 @@ class OrderDataIntegrityTest {
 
     @BeforeEach
     void setup() {
+        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1, 'alice', 'test-hash', 'ROLE_USER')");
+        com.example.demo.TestOrders.authenticate();
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1, 'apple', 100, 10)");
-        jdbc.update("INSERT INTO orders (id, total_price, status) VALUES (1000, 25, 'PENDING')");
+        jdbc.update("INSERT INTO orders (id, total_price, status, customer_id, ordered_at, updated_at) VALUES (1000, 25, 'PENDING', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+    }
+
+    @AfterEach
+    void clearAuthentication() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     static Stream<Arguments> invalidRequests() {
@@ -52,9 +60,7 @@ class OrderDataIntegrityTest {
     @ParameterizedTest
     @MethodSource("invalidRequests")
     void 不正注文で在庫と注文と明細と既存売上は変化しない(Long productId, Integer quantity) {
-        OrderRequest request = new OrderRequest();
-        request.setProductId(productId);
-        request.setQuantity(quantity);
+        OrderRequest request = com.example.demo.TestOrders.request(productId, quantity);
 
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
 
@@ -67,9 +73,7 @@ class OrderDataIntegrityTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 3})
     void 正常注文は在庫と明細と売上を更新する(int quantity) {
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(quantity);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
         orderService.createOrder(request);
         entityManager.flush();
@@ -83,9 +87,7 @@ class OrderDataIntegrityTest {
     @Test
     void 金額上限超過で在庫と注文と明細と既存売上は変化しない() {
         jdbc.update("UPDATE products SET price = 2, stock = ? WHERE id = 1", Integer.MAX_VALUE);
-        OrderRequest request = new OrderRequest();
-        request.setProductId(1L);
-        request.setQuantity(Integer.MAX_VALUE / 2 + 1);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, Integer.MAX_VALUE / 2 + 1);
 
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
 
@@ -112,10 +114,10 @@ class OrderDataIntegrityTest {
     @NullSource
     @ValueSource(ints = {0, -1})
     void 生SQLの不正数量INSERTとUPDATEを拒否(Integer quantity) {
-        jdbc.update("INSERT INTO order_items (id, quantity, price, order_id, product_id) VALUES (1000, 1, 100, 1000, 1)");
+        jdbc.update("INSERT INTO order_items (id, quantity, price, product_name_snapshot, order_id, product_id) VALUES (1000, 1, 100, 'apple', 1000, 1)");
 
         assertThrows(DataIntegrityViolationException.class,
-                () -> jdbc.update("INSERT INTO order_items (quantity, price, order_id, product_id) VALUES (?, 100, 1000, 1)", quantity));
+                () -> jdbc.update("INSERT INTO order_items (quantity, price, product_name_snapshot, order_id, product_id) VALUES (?, 100, 'apple', 1000, 1)", quantity));
         assertThrows(DataIntegrityViolationException.class,
                 () -> jdbc.update("UPDATE order_items SET quantity = ? WHERE id = 1000", quantity));
 
