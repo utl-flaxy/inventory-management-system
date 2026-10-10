@@ -30,7 +30,7 @@ cancelは全明細の復元後在庫をMath.addExactで事前計算する。同�
 直列の再cancelでは状態検証により再度の在庫復元を拒否する。
 
 回帰テストは全16通りの遷移、各APIの400/404/409、stock=10→数量5の注文→5→cancel→10→再cancel失敗→10、
-在庫上限、実SQL発行後の保存失敗とrollbackを検証する。Java 17で `./mvnw clean test` を実行する。
+在庫上限、実SQL発行後の保存失敗とrollbackを検証する。Java 17とDockerで `./mvnw clean verify` を実行する。
 
 並行実行時のロック・version・Transactionの扱いは[在庫更新の並行制御（Issue #12）](inventory-concurrency.md)を参照。
 所有者・認可と旧URLの廃止は[注文APIの認可（Issue #5）](../security/order-authorization.md)、

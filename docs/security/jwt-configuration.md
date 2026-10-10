@@ -22,7 +22,7 @@ issuerは空にできず、有効期間は正の値が必要。JWTの署名・is
 公開済みの旧鍵は再利用しない。鍵を変更してアプリを再起動すると、旧鍵で発行されたJWTは無効になる。
 本対応は設定による鍵の差し替えであり、複数鍵を同時に扱う仕組みは導入しない。
 
-Java 17で `./mvnw clean test`（Windows: `mvnw.cmd clean test`）を実行する。
+Java 17とDockerで `./mvnw clean verify`（Windows: `mvnw.cmd clean verify`）を実行する。
 JWTテストには本番の秘密値・DBを使わず、署名検証と実SecurityFilterChainの401/200応答、
 本番用application.propertiesでの起動失敗、各リクエストのparseが1回であることを検証する。
 Issue #10の注文・商品・ドメイン・DB制約テストも全件実行する。

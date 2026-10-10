@@ -109,9 +109,17 @@ customer/日時/商品名snapshotを現在の値から推測で埋めないで�
 - 本番で `flyway clean` を実行せず、clean-disabledも解除しない。
 - MariaDB DDLの失敗は完全なTransaction rollbackを保証しない。review済みの前進修復またはbackup復元を行う。
 
-Java 17とDockerで `./mvnw test` を実行すると、MariaDB 12.2.2でmigration・制約・再起動・
+Java 17とDockerで `./mvnw verify` を実行すると、MariaDB 12.2.2でmigration・制約・再起動・
 認可・並行制御を検証します。Boot管理のFlyway 11.7.2による12.2未検証警告と実DB検証の扱いも
 [DB運用手順](docs/db/README.md)に記載しています。
+
+## テスト品質ゲート
+
+- ローカル高速テスト: `./mvnw test`（Windows: `mvnw.cmd test`）。SurefireでUnit・domain・Mockito・Controller slice・H2補助テストを実行し、Dockerは不要です。
+- 完全検証・PR前必須: `./mvnw verify`（Windows: `mvnw.cmd verify`）。Surefireに加えFailsafeでMariaDB/Testcontainers統合テストを実行します。Java 17と起動済みDockerが必要です。
+- GitHub CIも `./mvnw verify` を使用します。IT失敗・Docker未起動はbuild失敗となり、skipしません。
+
+命名・実行phase・レポート・Auth/Salesの現行仕様は[テスト手順](docs/testing.md)を参照してください。
 
 ---
 
