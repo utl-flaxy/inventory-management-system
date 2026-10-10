@@ -55,7 +55,7 @@ public class OrderController {
     @PatchMapping("/{id}/status")
     public Order updateStatus(
             @PathVariable Long id,
-            @RequestBody StatusUpdateRequest request) {
+            @Valid @RequestBody StatusUpdateRequest request) {
 
         return orderService.updateStatus(
                 id,
@@ -64,10 +64,20 @@ public class OrderController {
     }
 
     // 注文キャンセル
-    @PatchMapping("/{id}/cancel")
+    @RequestMapping(value = "/{id}/cancel", method = {RequestMethod.POST, RequestMethod.PATCH})
     public Order cancel(@PathVariable Long id) {
 
         return orderService.cancelOrder(id);
+    }
+
+    @PostMapping("/{id}/ship")
+    public Order ship(@PathVariable Long id) {
+        return orderService.shipOrder(id);
+    }
+
+    @PostMapping("/{id}/complete")
+    public Order complete(@PathVariable Long id) {
+        return orderService.completeOrder(id);
     }
 
     // CSV出力

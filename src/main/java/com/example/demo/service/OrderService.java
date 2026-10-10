@@ -7,6 +7,8 @@ import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderStatus;
 import com.example.demo.entity.Product;
 import com.example.demo.exception.InvalidOrderRequestException;
+import com.example.demo.exception.OrderInventoryRestorationException;
+import com.example.demo.exception.OrderNotFoundException;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
@@ -17,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +62,6 @@ public class OrderService {
         // 注文作成
         Order order = new Order();
         order.setTotalPrice(totalPrice);
-        order.setStatus(OrderStatus.PENDING);
 
         Order savedOrder = orderRepository.save(order);
 
@@ -84,8 +87,7 @@ public class OrderService {
     public Order findById(Long id) {
 
         return orderRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("注文が存在しません"));
+                .orElseThrow(OrderNotFoundException::new);
     }
 
     // 売上集計
@@ -101,16 +103,37 @@ public class OrderService {
         );
     }
 
-    // 注文ステータス更新
+    // 既存APIの互換入口。必ず業務コマンドを経由する
     @Transactional
     public Order updateStatus(Long id, OrderStatus status) {
 
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("注文が存在しません"));
+        if (status == null) {
+            throw new InvalidOrderRequestException("注文ステータスは必須です");
+        }
+        return switch (status) {
+            case SHIPPED -> shipOrder(id);
+            case COMPLETED -> completeOrder(id);
+            case CANCELLED -> cancelOrder(id);
+            case PENDING -> {
+                Order order = findById(id);
+                // PENDINGは遷移先にできないため、ドメインの検証で拒否する
+                order.validateTransitionTo(status);
+                yield order;
+            }
+        };
+    }
 
-        order.setStatus(status);
+    @Transactional
+    public Order shipOrder(Long id) {
+        Order order = findById(id);
+        order.ship();
+        return orderRepository.save(order);
+    }
 
+    @Transactional
+    public Order completeOrder(Long id) {
+        Order order = findById(id);
+        order.complete();
         return orderRepository.save(order);
     }
 
@@ -118,38 +141,30 @@ public class OrderService {
     @Transactional
     public Order cancelOrder(Long id) {
 
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("注文が存在しません"));
+        Order order = findById(id);
+        order.validateTransitionTo(OrderStatus.CANCELLED);
 
-        // キャンセル済みチェック
-        if (order.getStatus() == OrderStatus.CANCELLED) {
-
-            throw new RuntimeException("既にキャンセル済みです");
-        }
-
-        // 発送済み・完了済みはキャンセル不可
-        if (order.getStatus() == OrderStatus.SHIPPED
-                || order.getStatus() == OrderStatus.COMPLETED) {
-
-            throw new RuntimeException("この注文はキャンセルできません");
-        }
-
-        // 在庫を戻す
+        // 全明細の復元後在庫を変更前に検証。同じ商品が複数明細にあっても累計する
+        Map<Product, Integer> restoredStocks = new LinkedHashMap<>();
         for (OrderItem item : order.getOrderItems()) {
-
             Product product = item.getProduct();
-
-            product.setStock(
-                    product.getStock() + item.getQuantity()
-            );
-
-            productRepository.save(product);
+            Integer quantity = item.getQuantity();
+            if (quantity == null || quantity <= 0) {
+                throw new OrderInventoryRestorationException("復元する数量は1以上である必要があります");
+            }
+            try {
+                int stock = restoredStocks.getOrDefault(product, product.getStock());
+                restoredStocks.put(product, Math.addExact(stock, quantity));
+            } catch (ArithmeticException ex) {
+                throw new OrderInventoryRestorationException("在庫復元で在庫数の上限を超えます", ex);
+            }
         }
 
-        // ステータス変更
-        order.setStatus(OrderStatus.CANCELLED);
-
+        for (Map.Entry<Product, Integer> entry : restoredStocks.entrySet()) {
+            entry.getKey().setStock(entry.getValue());
+            productRepository.save(entry.getKey());
+        }
+        order.cancel();
         return orderRepository.save(order);
     }
 

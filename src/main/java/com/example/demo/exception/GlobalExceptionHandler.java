@@ -11,6 +11,24 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(IllegalOrderStateTransitionException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleIllegalOrderStateTransition(IllegalOrderStateTransitionException ex) {
+        return Map.of("code", "ILLEGAL_ORDER_STATE_TRANSITION", "message", ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderInventoryRestorationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleOrderInventoryRestoration(OrderInventoryRestorationException ex) {
+        return Map.of("code", "ORDER_INVENTORY_RESTORATION_FAILED", "message", ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleOrderNotFound(OrderNotFoundException ex) {
+        return Map.of("code", "ORDER_NOT_FOUND", "message", ex.getMessage());
+    }
+
     // Integer/Longの範囲外を含むJSON入力エラー
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
