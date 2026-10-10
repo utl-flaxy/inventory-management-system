@@ -54,6 +54,11 @@ malformed JSON/missing/null body、parameter type mismatch、firewall拒否は40
 Idempotency-Key missingだけINVALID_IDEMPOTENCY_KEY。他required headerのmissingはINVALID_REQUEST。
 その他Spring MVC標準4xxは元のHTTP statusを維持しINVALID_REQUESTと固定detailで返す。
 
+Issue #2: GET `/products` と `/products/search` のsortはid/name/price/stock/versionだけを許可する。
+未知の項目はRepositoryアクセス前に400 INVALID_REQUESTで拒否し、detailは固定の
+`リクエストの形式が不正です`。入力sort・内部クラス名は返さない。
+page/sizeはSpring Data標準resolverを使用し、page不正は0、size不正は20、size上限超過は100へ解決する。
+
 ## Validation
 
 ```json

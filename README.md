@@ -450,6 +450,24 @@ POST /products
 GET /products
 ```
 
+一覧・検索は同じページング契約です（Issue #2）。
+
+| parameter | 契約 |
+|---|---|
+| page | 0-based。default 0 |
+| size | default 20、max 100。500など上限超過は100へ制限 |
+| sort | default `id,asc`。許可項目は `id,name,price,stock,version` |
+
+`sort=price,asc&sort=name,desc` のように複数指定できます。
+指定順序を維持し、id未指定時だけ最後にid ASCを補完します。明示したid DESCも尊重します。
+未知のsortはDBアクセス前に400 INVALID_REQUEST（application/problem+json）で拒否します。
+pageの負数・数値以外は0、sizeの0・負数・数値以外は20となるSpring標準挙動を維持します。
+max 100はprofile共通のPageable resolver設定なので、在庫履歴のページサイズにも適用されます。
+
+レスポンスは `content,page,size,totalElements,totalPages,first,last` の7項目です。
+旧PageImplの `number,pageable,sort,numberOfElements,empty` 等に依存するクライアントは移行が必要です。
+0件も200で、content=[]、page=0、size=20、totalElements=0、totalPages=0、first/last=trueです。
+
 ---
 
 ## 商品詳細取得
@@ -467,6 +485,9 @@ GET /products/{id}
 ```http
 GET /products/search?keyword=apple
 ```
+
+一覧と同じpage/size/sort・ページレスポンスを使用します。
+keywordは従来通りnameの部分一致検索へそのまま渡します（trim等の変換なし）。
 
 ---
 
@@ -717,20 +738,18 @@ GET /products
 ### Response
 
 ```json
-[
-  {
-    "id": 1,
-    "name": "Apple",
-    "price": 100,
-    "stock": 50
-  },
-  {
-    "id": 2,
-    "name": "Orange",
-    "price": 200,
-    "stock": 20
-  }
-]
+{
+  "content": [
+    {"id": 1, "name": "Apple", "price": 100, "stock": 50, "version": 0},
+    {"id": 2, "name": "Orange", "price": 200, "stock": 20, "version": 0}
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 2,
+  "totalPages": 1,
+  "first": true,
+  "last": true
+}
 ```
 
 ---
