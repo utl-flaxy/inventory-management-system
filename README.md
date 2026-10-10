@@ -358,23 +358,15 @@ CI/CD による自動デプロイ。
 # 🚀 デプロイフロー
 
 ```text
-git push
+main push → CI success（PR / failureは配備しない）
+   ↓ workflow_run.head_shaをDEPLOY_SHAに固定
+secrets検証 → SSH → 同時配備lock
    ↓
-GitHub Actions
-   ↓
-Build & Test
-   ↓
-SSH
-   ↓
-AWS EC2
-   ↓
-git reset --hard origin/main
-   ↓
-./mvnw clean package
-   ↓
-docker compose up -d
-   ↓
-Deploy Complete
+指定SHA checkout → Java 17 package → Compose検証 → SHA image build
+   ↓ 既存appはここまで稼働
+appだけ切替（DBは継続稼働）→ HTTP確認
+   ├─ 成功: current revisionを確定
+   └─ 失敗: previous app image/設定へrollback → HTTP確認
 ```
 
 # 📋 主な機能
@@ -1298,46 +1290,26 @@ CI/CD環境を構築しています。
 
 実施内容
 
-* EC2へSSH接続
-* Git同期
-* Maven Build
-* Docker再起動
-* 自動デプロイ
+* main pushのCI成功のみ起動し、CIで検証したSHAに固定
+* secrets検証・concurrency・EC2上のflockで切替前を保護
+* Java 17 Maven package・Compose検証・SHA image buildを既存app稼働中に実施
+* appだけ更新し、DB container/volumeを継続
+* HTTP確認失敗時は直前app image/Compose設定へ復元
+
+詳細・導入手順・failure scenarioは [配備手順](docs/deployment.md) を参照。
+app rollbackはDB rollbackではありません。Flyway migrationを自動undoせず、
+後方互換性・backup・forward-fixを配備前に確認します。
 
 ---
 
 # 🚀 CI/CDフロー
 
 ```text
-git push
-
-↓
-
-GitHub Actions
-
-↓
-
-Build
-
-↓
-
-Test
-
-↓
-
-Deploy
-
-↓
-
-AWS EC2
-
-↓
-
-docker compose up -d
-
-↓
-
-Deploy Complete
+PR → CI → 配備なし
+main push → CI success → head_sha固定 → 直列deploy
+  → secrets / checkout / package / config / image build
+  → appだけ切替 → HTTP確認 → current確定
+                         └─失敗: previous app復元 / HTTP確認
 ```
 
 ---
