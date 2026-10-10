@@ -65,7 +65,7 @@ class OrderAggregatePersistenceTest {
     }
 
     private Order multiOrder() {
-        return service.createOrder(request(new OrderItemRequest(2L, 1), new OrderItemRequest(1L, 2)));
+        return service.createOrder(request(new OrderItemRequest(2L, 1), new OrderItemRequest(1L, 2)), com.example.demo.TestOrders.key());
     }
 
     private int stock(long id) {
@@ -115,7 +115,7 @@ class OrderAggregatePersistenceTest {
     @Test
     void missingLaterProductDoesNotCreateAnOrderOrReduceEarlierInventory() {
         assertThrows(InvalidOrderRequestException.class, () -> service.createOrder(
-                request(new OrderItemRequest(1L, 2), new OrderItemRequest(999L, 1))));
+                request(new OrderItemRequest(1L, 2), new OrderItemRequest(999L, 1)), com.example.demo.TestOrders.key()));
         noOrderAndUnchangedStocks(5);
     }
 
@@ -123,7 +123,7 @@ class OrderAggregatePersistenceTest {
     void sumOverflowLeavesAllProductsAndSalesUnchanged() {
         jdbc.update("UPDATE products SET price = ? WHERE id = 1", Long.MAX_VALUE);
         assertThrows(InvalidOrderRequestException.class, () -> service.createOrder(
-                request(new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1))));
+                request(new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1)), com.example.demo.TestOrders.key()));
         noOrderAndUnchangedStocks(5);
     }
 
@@ -164,7 +164,7 @@ class OrderAggregatePersistenceTest {
     void duplicateProductReturns400WithoutAnySideEffect() throws Exception {
         var mvc = MockMvcBuilders.standaloneSetup(new SelfOrderController(service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2},{\"productId\":1,\"quantity\":3}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_ORDER_REQUEST"));
         noOrderAndUnchangedStocks(5);
@@ -174,7 +174,7 @@ class OrderAggregatePersistenceTest {
     void customerComesFromAuthenticationAndCannotBeChosenByRequest() throws Exception {
         var mvc = MockMvcBuilders.standaloneSetup(new SelfOrderController(service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":2,\"customer\":{\"id\":2},\"items\":[{\"productId\":1,\"quantity\":1}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.customer.id").value(1))
                 .andExpect(jsonPath("$.customer.username").value("alice"))
@@ -187,7 +187,7 @@ class OrderAggregatePersistenceTest {
         SecurityContextHolder.clearContext();
         var mvc = MockMvcBuilders.standaloneSetup(new SelfOrderController(service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-        mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":1}]}"))
                 .andExpect(status().isUnauthorized());
         noOrderAndUnchangedStocks(5);

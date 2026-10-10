@@ -8,7 +8,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
@@ -17,6 +19,25 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // header解決時のSecurity firewallによる改行/control拒否も500にしない。
+    @ExceptionHandler(RequestRejectedException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleRejectedRequest(RequestRejectedException ex) {
+        return Map.of("code", "INVALID_REQUEST", "message", "リクエストの形式が不正です");
+    }
+
+    @ExceptionHandler({InvalidIdempotencyKeyException.class, MissingRequestHeaderException.class})
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleInvalidIdempotencyKey(Exception ex) {
+        return Map.of("code", "INVALID_IDEMPOTENCY_KEY", "message", "有効なIdempotency-Keyヘッダは必須です");
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleIdempotencyConflict(IdempotencyConflictException ex) {
+        return Map.of("code", "IDEMPOTENCY_KEY_CONFLICT", "message", ex.getMessage());
+    }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)

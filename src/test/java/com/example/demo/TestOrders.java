@@ -16,6 +16,8 @@ import java.util.List;
 public final class TestOrders {
     private TestOrders() { }
 
+    public static String key() { return java.util.UUID.randomUUID().toString(); }
+
     public static User customer() {
         return new User(1L, "alice", "test-password-hash", "ROLE_USER");
     }

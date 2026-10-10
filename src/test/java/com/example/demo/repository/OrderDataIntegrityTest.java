@@ -62,7 +62,7 @@ class OrderDataIntegrityTest {
     void 不正注文で在庫と注文と明細と既存売上は変化しない(Long productId, Integer quantity) {
         OrderRequest request = com.example.demo.TestOrders.request(productId, quantity);
 
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
 
         assertEquals(10, jdbc.queryForObject("SELECT stock FROM products WHERE id = 1", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));
@@ -75,7 +75,7 @@ class OrderDataIntegrityTest {
     void 正常な未完了注文は在庫と明細を更新し売上には計上しない(int quantity) {
         OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
-        orderService.createOrder(request);
+        orderService.createOrder(request, com.example.demo.TestOrders.key());
         entityManager.flush();
 
         assertEquals(10 - quantity, jdbc.queryForObject("SELECT stock FROM products WHERE id = 1", Integer.class));
@@ -89,7 +89,7 @@ class OrderDataIntegrityTest {
         jdbc.update("UPDATE products SET price = ?, stock = 10 WHERE id = 1", Long.MAX_VALUE);
         OrderRequest request = com.example.demo.TestOrders.request(1L, 2);
 
-        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
+        assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
 
         assertEquals(10, jdbc.queryForObject("SELECT stock FROM products WHERE id = 1", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));

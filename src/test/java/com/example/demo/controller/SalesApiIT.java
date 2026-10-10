@@ -172,7 +172,7 @@ class SalesApiIT {
     }
 
     private long createOrder() throws Exception {
-        String response = mvc.perform(post("/api/v1/me/orders").header("Authorization", "Bearer " + jwt.generateToken("alice"))
+        String response = mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).header("Authorization", "Bearer " + jwt.generateToken("alice"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"productId\":1,\"quantity\":1}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.completedAt").value(org.hamcrest.Matchers.nullValue()))
                 .andReturn().getResponse().getContentAsString();

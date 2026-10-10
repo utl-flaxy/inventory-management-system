@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.service.OrderService;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,8 +19,12 @@ public class SelfOrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public OrderResponse create(@Valid @RequestBody OrderRequest request) {
-        return OrderResponse.from(orderService.createOrder(request));
+    public OrderResponse create(
+            @Parameter(description = "customer単位の必須key。retryは同じkeyを再利用。同key/別内容は409。",
+                    example = "01J9VQW2M7MX7KQ7S2H4F7ABCD")
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody OrderRequest request) {
+        return OrderResponse.from(orderService.createOrder(request, idempotencyKey));
     }
 
     @GetMapping

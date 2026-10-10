@@ -15,6 +15,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findAllByCustomerId(Long customerId);
 
+    Optional<Order> findByCustomerIdAndIdempotencyKey(Long customerId, String idempotencyKey);
+
     Optional<Order> findByIdAndCustomerId(Long id, Long customerId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

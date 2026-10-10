@@ -5,20 +5,26 @@ import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
+import com.example.demo.entity.OrderIdempotency;
 import com.example.demo.entity.OrderStatus;
 import com.example.demo.entity.Product;
 import com.example.demo.entity.User;
 import com.example.demo.exception.InvalidOrderRequestException;
+import com.example.demo.exception.InvalidIdempotencyKeyException;
+import com.example.demo.exception.IdempotencyConflictException;
 import com.example.demo.exception.OrderInventoryRestorationException;
 import com.example.demo.exception.OrderNotFoundException;
 import com.example.demo.exception.OutOfStockException;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
+import com.example.demo.repository.UserRepository;
 import com.example.demo.security.CurrentUser;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,14 +49,33 @@ public class OrderService {
     private final CurrentUser currentUser;
     private final EntityManager entityManager;
     private final Clock clock;
+    private final UserRepository userRepository;
 
     // 注文作成
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public Order createOrder(OrderRequest request) {
+    public Order createOrder(OrderRequest request, String idempotencyKey) {
+
+        try {
+            OrderIdempotency.validateKey(idempotencyKey);
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidIdempotencyKeyException(ex.getMessage());
+        }
 
         // DTO Validationに依存せず、全明細を読み取り・更新前に検証する
         Map<Long, Integer> quantities = validatedQuantities(request);
-        User customer = currentUser.requireUser();
+        String fingerprint = OrderRequestFingerprint.fromValidatedItems(quantities);
+        User authenticated = currentUser.requireUser();
+        // 同customerのcreateを直列化。User -> Product IDs昇順、既存Orderは通常queryで読む。
+        User customer = userRepository.findByIdForUpdate(authenticated.getId())
+                .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("認証ユーザーが存在しません"));
+        var existing = orderRepository.findByCustomerIdAndIdempotencyKey(customer.getId(), idempotencyKey);
+        if (existing.isPresent()) {
+            Order order = existing.get();
+            if (!fingerprint.equals(order.getRequestFingerprint())) {
+                throw new IdempotencyConflictException();
+            }
+            return responseReady(order);
+        }
         Map<Long, Product> products = new TreeMap<>();
         for (Long productId : quantities.keySet()) {
             Product product = productRepository.findByIdForUpdate(productId)
@@ -71,7 +96,7 @@ public class OrderService {
                 }
                 items.add(OrderItem.create(entry.getValue(), quantity));
             }
-            order = Order.create(customer, items);
+            order = Order.create(customer, items, idempotencyKey, fingerprint);
         } catch (ArithmeticException ex) {
             throw new InvalidOrderRequestException("注文金額が上限を超えています");
         } catch (IllegalArgumentException ex) {
@@ -83,7 +108,18 @@ public class OrderService {
             productRepository.save(entry.getValue());
         }
         // 明細はOrderからcascade保存する。途中の永続化失敗も同じTransactionでrollbackする。
-        return responseReady(orderRepository.save(order));
+        try {
+            return responseReady(orderRepository.save(order));
+        } catch (DataIntegrityViolationException ex) {
+            // rollback-onlyのTransaction内で再照会/replayしない。限定したUNIQUE違反だけ409。
+            for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+                if (cause instanceof java.sql.SQLException sql && sql.getErrorCode() == 1062
+                        && sql.getMessage() != null && sql.getMessage().contains("uk_orders_customer_idempotency_key")) {
+                    throw new IdempotencyConflictException(ex);
+                }
+            }
+            throw ex;
+        }
     }
 
     private Map<Long, Integer> validatedQuantities(OrderRequest request) {
