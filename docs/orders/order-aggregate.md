@@ -33,9 +33,9 @@ Issue #5でURLをself/adminへ分離した。旧 `/orders/**` は廃止し、ク
 作成/一覧/詳細/cancel/ship/complete/statusの返却はOrderResponseに統一する。
 `items` はproductId/productName/unitPrice/quantity/lineTotalを持ち、customerはid/usernameだけを返す。
 EntityのorderItemsやネストしたProduct、Userのpassword/roleは返さない。
-orderedAt/updatedAt/versionを追加する。ServiceがTransaction内で必要な関連を初期化するためOSIVは不要。
+orderedAt/updatedAt/completedAt/versionを含める。ServiceがTransaction内で必要な関連を初期化するためOSIVは不要。
 不正数量/金額/重複/存在しない商品は400、不正状態遷移は409、存在しない注文は404。
-売上集計の仕様（cancelled注文を含む既存の合計）は今回変更しない。
+売上集計はIssue #27でCOMPLETEDかつcompletedAt非NULLに限定し、[完了日時で期間を絞る](../sales.md)。
 
 ## スナップショットと合計
 
@@ -58,7 +58,7 @@ PENDING→SHIPPED/CANCELLED、SHIPPED→COMPLETEDだけを許可し、二重復�
 
 ## 既存DBの移行
 
-新規DBはFlyway V1→V2から生成し、金額3列はBIGINT。Hibernateはvalidateのみ行う。
+新規DBはFlyway V1→V2→V3から生成し、金額3列はBIGINT。Hibernateはvalidateのみ行う。
 既存DBは[Flyway移行手順](../db/README.md)のbackup・preflight・schema照合・手動baselineを完了してから起動する。
 以下はIssue #14の古いDBを段階的に補完するための履歴手順で、SQLはlegacyアーカイブにある。
 本Issueの作業では本番DBへの接続・適用を行わない。
