@@ -50,6 +50,7 @@ public final class ApiProblemFactory {
             case "ILLEGAL_ORDER_STATE_TRANSITION" -> "Illegal Order State Transition";
             case "ORDER_INVENTORY_RESTORATION_FAILED" -> "Order Inventory Restoration Failed";
             case "ORDER_NOT_FOUND" -> "Order Not Found";
+            case "PRODUCT_NOT_FOUND" -> "Product Not Found";
             case "INVALID_ORDER_REQUEST" -> "Invalid Order Request";
             case "OUT_OF_STOCK" -> "Out of Stock";
             case "VALIDATION_ERROR" -> "Validation Error";

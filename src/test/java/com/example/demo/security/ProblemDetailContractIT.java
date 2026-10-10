@@ -221,10 +221,10 @@ class ProblemDetailContractIT {
     }
 
     @Test
-    void existingProductNotFoundGenericErrorIsSafe500WithoutDomainRedesign() throws Exception {
+    void productNotFoundHasDedicated404Contract() throws Exception {
         mvc.perform(as(userToken, get("/products/999999")))
-                .andExpect(problem(500, "SYSTEM_ERROR", "System Error", "/products/999999"))
-                .andExpect(jsonPath("$.detail").value("予期しないエラーが発生しました"));
+                .andExpect(problem(404, "PRODUCT_NOT_FOUND", "Product Not Found", "/products/999999"))
+                .andExpect(jsonPath("$.detail").value("商品が存在しません"));
     }
 
     @Test

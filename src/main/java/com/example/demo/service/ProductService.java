@@ -5,6 +5,7 @@ import com.example.demo.dto.ProductResponse;
 import com.example.demo.dto.ProductUpdateRequest;
 import com.example.demo.entity.Product;
 import com.example.demo.exception.InvalidProductUpdateException;
+import com.example.demo.exception.ProductNotFoundException;
 import com.example.demo.exception.ProductVersionConflictException;
 import com.example.demo.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,9 +41,7 @@ public class ProductService {
     // 商品詳細取得
     public ProductResponse findById(Long id) {
 
-        Product product = productRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("商品が存在しません"));
+        Product product = findProductOrThrow(id);
 
         return toResponse(product);
     }
@@ -69,9 +68,7 @@ public class ProductService {
             throw new InvalidProductUpdateException();
         }
 
-        Product product = productRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("商品が存在しません"));
+        Product product = findProductOrThrow(id);
 
         if (!request.getVersion().equals(product.getVersion())) {
             throw new ProductVersionConflictException();
@@ -87,9 +84,16 @@ public class ProductService {
     }
 
     // 商品削除
+    @Transactional
     public void delete(Long id) {
 
-        productRepository.deleteById(id);
+        Product product = findProductOrThrow(id);
+        productRepository.delete(product);
+    }
+
+    private Product findProductOrThrow(Long id) {
+        return productRepository.findById(id)
+                .orElseThrow(ProductNotFoundException::new);
     }
 
     // DTO変換
