@@ -65,7 +65,7 @@ class OrderServiceTest {
         Product product = new Product();
         product.setId(1L);
         product.setName("りんご");
-        product.setPrice(100);
+        product.setPrice(100L);
         product.setStock(10);
 
         OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
@@ -101,7 +101,7 @@ class OrderServiceTest {
     void 不正数量では保存も在庫変更も行わない(Integer quantity) {
 
         // Arrange
-        Product product = new Product(1L, "りんご", 100, 10);
+        Product product = new Product(1L, "りんご", 100L, 10);
         lenient().when(productRepository.findByIdForUpdate(any())).thenReturn(Optional.of(product));
         OrderRequest request = com.example.demo.TestOrders.request(1L, quantity);
 
@@ -120,7 +120,7 @@ class OrderServiceTest {
     void 不正商品IDでは保存も在庫変更も行わない(Long productId) {
 
         // Arrange
-        Product product = new Product(1L, "りんご", 100, 10);
+        Product product = new Product(1L, "りんご", 100L, 10);
         lenient().when(productRepository.findByIdForUpdate(any())).thenReturn(Optional.of(product));
         OrderRequest request = com.example.demo.TestOrders.request(productId, 1);
 
@@ -143,13 +143,13 @@ class OrderServiceTest {
     void 金額上限超過では保存も在庫変更も行わない() {
 
         // Arrange
-        Product product = new Product(1L, "りんご", 2, Integer.MAX_VALUE);
+        Product product = new Product(1L, "りんご", Long.MAX_VALUE, 10);
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
-        OrderRequest request = com.example.demo.TestOrders.request(1L, Integer.MAX_VALUE / 2 + 1);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, 2);
 
         // Act & Assert
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
-        assertEquals(Integer.MAX_VALUE, product.getStock());
+        assertEquals(10, product.getStock());
         verify(productRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
         verify(orderItemRepository, never()).save(any());
@@ -159,16 +159,16 @@ class OrderServiceTest {
     void 金額上限ちょうどの注文は成功する() {
 
         // Arrange
-        Product product = new Product(1L, "りんご", 1, Integer.MAX_VALUE);
+        Product product = new Product(1L, "りんご", Long.MAX_VALUE, 1);
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        OrderRequest request = com.example.demo.TestOrders.request(1L, Integer.MAX_VALUE);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, 1);
 
         // Act
         Order order = orderService.createOrder(request);
 
         // Assert
-        assertEquals(Integer.MAX_VALUE, order.getTotalPrice());
+        assertEquals(Long.MAX_VALUE, order.getTotalPrice());
         assertEquals(0, product.getStock());
         verify(productRepository).save(product);
         verify(orderRepository).save(order);
@@ -183,7 +183,7 @@ class OrderServiceTest {
         Product product = new Product();
         product.setId(1L);
         product.setName("りんご");
-        product.setPrice(100);
+        product.setPrice(100L);
         product.setStock(2);
 
         OrderRequest request = com.example.demo.TestOrders.request(1L, 5);
@@ -228,8 +228,8 @@ class OrderServiceTest {
 
     @Test
     void reverseInputLocksAllProductsInIdOrderBeforeAnyInventoryWrite() {
-        Product first = new Product(1L, "apple", 100, 10);
-        Product second = new Product(2L, "orange", 300, 5);
+        Product first = new Product(1L, "apple", 100L, 10);
+        Product second = new Product(2L, "orange", 300L, 5);
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
         when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
         when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -279,8 +279,8 @@ class OrderServiceTest {
 
     @Test
     void laterOutOfStockLineDoesNotChangeEarlierProductEvenWithoutTransactionProxy() {
-        Product first = new Product(1L, "apple", 100, 10);
-        Product second = new Product(2L, "orange", 300, 0);
+        Product first = new Product(1L, "apple", 100L, 10);
+        Product second = new Product(2L, "orange", 300L, 0);
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
         when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(2L, 1));
@@ -293,8 +293,8 @@ class OrderServiceTest {
 
     @Test
     void totalSumOverflowDoesNotChangeAnyInventory() {
-        Product first = new Product(1L, "apple", Integer.MAX_VALUE, 10);
-        Product second = new Product(2L, "orange", 1, 10);
+        Product first = new Product(1L, "apple", Long.MAX_VALUE, 10);
+        Product second = new Product(2L, "orange", 1L, 10);
         when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
         when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 1), new OrderItemRequest(2L, 1));

@@ -157,6 +157,6 @@ class OrderStateControllerTest {
 
     private Order responseOrder(OrderStatus status) {
         return com.example.demo.TestOrders.order(1L, status,
-                OrderItem.create(new Product(1L, "apple", 100, 10), 5));
+                OrderItem.create(new Product(1L, "apple", 100L, 10), 5));
     }
 }

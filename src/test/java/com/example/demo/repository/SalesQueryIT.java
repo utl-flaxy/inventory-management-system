@@ -8,6 +8,7 @@ import com.example.demo.entity.Product;
 import com.example.demo.entity.User;
 import com.example.demo.security.CurrentUser;
 import com.example.demo.service.OrderService;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,6 +51,7 @@ class SalesQueryIT {
     @Autowired private ProductRepository products;
     @Autowired private OrderRepository orders;
     @Autowired private OrderService service;
+    @Autowired private EntityManager entityManager;
     private User customer;
 
     @BeforeEach
@@ -74,8 +76,8 @@ class SalesQueryIT {
 
     @Test
     void multipleOrdersSumPersistedTotalsAndCountOrdersRatherThanItems() {
-        Product first = products.saveAndFlush(Product.builder().name("apple").price(100).stock(10).build());
-        Product second = products.saveAndFlush(Product.builder().name("orange").price(250).stock(10).build());
+        Product first = products.saveAndFlush(Product.builder().name("apple").price(100L).stock(10).build());
+        Product second = products.saveAndFlush(Product.builder().name("orange").price(250L).stock(10).build());
         orders.saveAndFlush(Order.create(customer,
                 List.of(OrderItem.create(first, 2), OrderItem.create(second, 3))));
         saveOrder(50, 4, OrderStatus.PENDING);
@@ -97,7 +99,7 @@ class SalesQueryIT {
         assertSales(0, 1);
     }
 
-    private void saveOrder(int price, int quantity, OrderStatus status) {
+    private void saveOrder(long price, int quantity, OrderStatus status) {
         Product product = products.saveAndFlush(Product.builder()
                 .name("sales-product").price(price).stock(20).build());
         Order order = Order.create(customer, List.of(OrderItem.create(product, quantity)));
@@ -110,12 +112,31 @@ class SalesQueryIT {
         orders.saveAndFlush(order);
     }
 
-    private void assertSales(int totalSales, long totalOrders) {
+    private void assertSales(long totalSales, long totalOrders) {
         // 実Service -> 実Repository -> MariaDB query。mockの集計値では検証しない。
         SalesResponse response = service.getSales();
         assertEquals(totalSales, response.getTotalSales());
         assertEquals(totalOrders, response.getTotalOrders());
         assertEquals(totalSales, orders.getTotalSales());
         assertEquals(totalOrders, orders.count());
+        Object jpqlTotal = entityManager.createQuery("SELECT COALESCE(SUM(o.totalPrice), 0) FROM Order o")
+                .getSingleResult();
+        assertInstanceOf(Long.class, jpqlTotal);
+        assertEquals(totalSales, jpqlTotal);
+    }
+
+    @Test
+    void highValueSalesSumIsLongAndIncludesCancelledOrdersUnderCurrentSemantics() {
+        saveOrder(3_000_000_000L, 1, OrderStatus.CANCELLED);
+        saveOrder(4_000_000_000L, 1, OrderStatus.COMPLETED);
+        assertSales(7_000_000_000L, 2);
+        assertInstanceOf(Long.class, orders.getTotalSales());
+    }
+
+    @Test
+    void sumsOfSmallPricesCanExceedIntegerMaximum() {
+        saveOrder(2_000_000_000L, 1, OrderStatus.PENDING);
+        saveOrder(2_000_000_000L, 1, OrderStatus.SHIPPED);
+        assertSales(4_000_000_000L, 2);
     }
 }

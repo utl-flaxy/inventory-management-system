@@ -13,7 +13,7 @@ public class ProductRequest {
 
     @NotNull(message = "価格は必須です")
     @Min(value = 1, message = "価格は1円以上を入力してください")
-    private Integer price;
+    private Long price;
 
     @NotNull(message = "在庫数は必須です")
     @Min(value = 0, message = "在庫数は0以上を入力してください")

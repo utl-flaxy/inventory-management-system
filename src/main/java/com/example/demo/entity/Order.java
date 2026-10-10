@@ -32,7 +32,7 @@ public class Order {
     private User customer;
 
     @Column(nullable = false, updatable = false)
-    private Integer totalPrice = 0;
+    private Long totalPrice = 0L;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -75,7 +75,7 @@ public class Order {
         if (item == null || item.getOrder() != null) {
             throw new IllegalArgumentException("明細が未指定、または既に注文に属しています");
         }
-        int nextTotal = Math.addExact(totalPrice, item.getLineTotal());
+        long nextTotal = Math.addExact(totalPrice, item.getLineTotal());
         item.attachTo(this);
         orderItems.add(item);
         totalPrice = nextTotal;
@@ -90,7 +90,7 @@ public class Order {
         if (customer == null || orderedAt == null || updatedAt == null || orderItems.isEmpty()) {
             throw new IllegalArgumentException("注文者・日時・注文明細は必須です");
         }
-        int sum = 0;
+        long sum = 0L;
         for (OrderItem item : orderItems) {
             if (item.getOrder() != this) {
                 throw new IllegalArgumentException("注文と明細の関連が不正です");

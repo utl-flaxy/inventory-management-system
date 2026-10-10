@@ -86,12 +86,12 @@ class OrderDataIntegrityTest {
 
     @Test
     void 金額上限超過で在庫と注文と明細と既存売上は変化しない() {
-        jdbc.update("UPDATE products SET price = 2, stock = ? WHERE id = 1", Integer.MAX_VALUE);
-        OrderRequest request = com.example.demo.TestOrders.request(1L, Integer.MAX_VALUE / 2 + 1);
+        jdbc.update("UPDATE products SET price = ?, stock = 10 WHERE id = 1", Long.MAX_VALUE);
+        OrderRequest request = com.example.demo.TestOrders.request(1L, 2);
 
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request));
 
-        assertEquals(Integer.MAX_VALUE, jdbc.queryForObject("SELECT stock FROM products WHERE id = 1", Integer.class));
+        assertEquals(10, jdbc.queryForObject("SELECT stock FROM products WHERE id = 1", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM order_items", Integer.class));
         assertEquals(25, orderRepository.getTotalSales());

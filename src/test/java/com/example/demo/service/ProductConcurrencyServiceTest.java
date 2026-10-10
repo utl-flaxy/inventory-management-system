@@ -29,7 +29,7 @@ class ProductConcurrencyServiceTest {
     private ProductUpdateRequest request(Long version) {
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName("orange");
-        request.setPrice(200);
+        request.setPrice(200L);
         request.setStock(20);
         request.setVersion(version);
         return request;
@@ -51,7 +51,7 @@ class ProductConcurrencyServiceTest {
 
     @Test
     void staleVersionDoesNotMutateProduct() {
-        Product product = new Product(1L, "apple", 100, 10);
+        Product product = new Product(1L, "apple", 100L, 10);
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
         assertThrows(ProductVersionConflictException.class, () -> productService.update(1L, request(1L)));
@@ -64,7 +64,7 @@ class ProductConcurrencyServiceTest {
 
     @Test
     void matchingVersionUpdatesAndFlushesInsideServiceTransaction() {
-        Product product = new Product(1L, "apple", 100, 10);
+        Product product = new Product(1L, "apple", 100L, 10);
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
         when(productRepository.saveAndFlush(product)).thenReturn(product);
 

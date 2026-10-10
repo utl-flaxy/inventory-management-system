@@ -27,6 +27,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             SELECT COALESCE(SUM(o.totalPrice), 0)
             FROM Order o
             """)
-    Integer getTotalSales();
+    Long getTotalSales();
 
 }
