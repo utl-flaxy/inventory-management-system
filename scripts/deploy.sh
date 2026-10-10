@@ -10,6 +10,14 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 [[ -n "${JWT_SECRET:-}" ]] || fail "JWT_SECRET is required"
 [[ $(printf '%s' "$JWT_SECRET" | wc -c) -ge 32 ]] || fail "JWT_SECRET must be at least 32 bytes"
 export JWT_SECRET
+for name in DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD; do
+  [[ -n "${!name:-}" ]] || fail "$name is required"
+done
+[[ "$DB_NAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || fail "DB_NAME must be a simple database identifier"
+[[ "$DB_USERNAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || fail "DB_USERNAME must be a simple user identifier"
+[[ "${DB_USERNAME,,}" != root ]] || fail "DB_USERNAME must not be root"
+export DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD
+export SPRING_PROFILES_ACTIVE=prod
 
 cd "${DEPLOY_DIR:-$HOME/inventory-management-system}"
 [[ -d .git ]] || fail "Deployment directory must be a Git checkout"
@@ -35,8 +43,9 @@ compose=(docker compose -p "$project")
 work=$(mktemp -d "$PWD/.deploy/pending.XXXXXX")
 previous_image=''
 previous_sha='unknown'
+previous_health='/v3/api-docs'
 cutover=false
-secret_values=("$JWT_SECRET")
+secret_values=("$JWT_SECRET" "$DB_PASSWORD" "$DB_ROOT_PASSWORD")
 
 remember_secrets() {
   local entry="$1" key value
@@ -69,12 +78,16 @@ app_logs() {
 }
 
 health() {
-  local attempt
-  # Public, read-only HTTP endpoint; Boot/Flyway must finish startup to serve it.
+  local attempt body path="${1:-/actuator/health}"
+  local endpoint="http://127.0.0.1:8080/actuator/health"
+  # 旧imageのsnapshotで選択した場合だけ旧OpenAPI healthを使う。
+  [[ "$path" != /v3/api-docs ]] || endpoint="http://127.0.0.1:8080/v3/api-docs"
   for ((attempt=1; attempt<=30; attempt++)); do
-    if curl --fail --silent --output /dev/null --connect-timeout 2 --max-time 5 \
-        http://127.0.0.1:8080/v3/api-docs; then
-      return 0
+    if curl --fail --silent --output "$work/health-response" --connect-timeout 2 --max-time 5 "$endpoint"; then
+      [[ "$path" != /v3/api-docs ]] || return 0
+      body=$(cat "$work/health-response")
+      # health detailsを公開しない新appはstatusのみ。200/DOWNも成功扱いしない。
+      [[ "$body" =~ ^[[:space:]]*\{[[:space:]]*\"status\"[[:space:]]*:[[:space:]]*\"UP\"[[:space:]]*\}[[:space:]]*$ ]] && return 0
     fi
     sleep 2
   done
@@ -92,7 +105,7 @@ finish() {
         echo "Restoring previous app image $previous_image (revision $previous_sha)" >&2
         if "${compose[@]}" -f "$work/previous-compose.yml" -f "$work/previous-image.yml" \
             up -d --no-deps --no-build --pull never --force-recreate app && \
-            [[ $(docker inspect inventory-app --format '{{.Image}}') == "$previous_image" ]] && health; then
+            [[ $(docker inspect inventory-app --format '{{.Image}}') == "$previous_image" ]] && health "$previous_health"; then
           echo "Previous app is healthy; deployment failed and current is unchanged" >&2
         else
           echo "ERROR: App rollback failed. DB was not rolled back; operator recovery is required." >&2
@@ -124,6 +137,13 @@ if previous_image=$(docker inspect inventory-app --format '{{.Image}}' 2>/dev/nu
   docker image inspect "$previous_image" >/dev/null
   previous_sha=$(docker image inspect "$previous_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
   [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]] || previous_sha=unknown
+  # 新imageはDockerfile labelでcapabilityを固定。欠落した旧imageだけlegacy扱い。
+  previous_health=$(docker image inspect "$previous_image" --format '{{index .Config.Labels "inventory-management-system.health-path"}}')
+  case "$previous_health" in
+    /actuator/health) ;;
+    ''|'<no value>') previous_health='/v3/api-docs' ;;
+    *) fail "Unsupported previous health endpoint" ;;
+  esac
   # NUL preserves embedded newlines/quotes in secrets and the previous JWT environment.
   docker inspect inventory-app --format '{{range .Config.Env}}{{printf "%s%c" . 0}}{{end}}' >"$work/previous-environment"
   old_secret="$JWT_SECRET"
@@ -160,6 +180,8 @@ docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" -t "$image"
     || fail "Built image revision does not match DEPLOY_SHA"
 target_image=$(docker image inspect "$image" --format '{{.Id}}')
 [[ "$target_image" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "Invalid target image ID"
+[[ $(docker image inspect "$target_image" --format '{{index .Config.Labels "inventory-management-system.health-path"}}') == /actuator/health ]] \
+  || fail "Target image must declare Actuator health"
 # Pin the actual built image too; changing a tag cannot change the cutover.
 printf 'services:\n  app:\n    image: %s\n' "$target_image" >"$work/target-image.yml"
 [[ $(git rev-parse HEAD) == "$DEPLOY_SHA" ]] || fail "HEAD changed before cutover"

@@ -25,12 +25,16 @@ jobs:
       EC2_USER: ${{ secrets.EC2_USER }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      DB_NAME: ${{ vars.DB_NAME }}
+      DB_USERNAME: ${{ vars.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
     steps:
       - name: Validate deployment inputs before SSH
         shell: bash
         run: |
           set -euo pipefail
-          for name in EC2_HOST EC2_USER EC2_SSH_KEY JWT_SECRET; do
+          for name in EC2_HOST EC2_USER EC2_SSH_KEY JWT_SECRET DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD; do
             if [[ -z "${!name}" ]]; then
               echo "::error::$name is required"
               exit 1
@@ -38,6 +42,9 @@ jobs:
           done
           [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid DEPLOY_SHA"; exit 1; }
           [[ $(printf '%s' "$JWT_SECRET" | wc -c) -ge 32 ]] || { echo "::error::JWT_SECRET must be at least 32 bytes"; exit 1; }
+          [[ "$DB_NAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "::error::DB_NAME must be a simple database identifier"; exit 1; }
+          [[ "$DB_USERNAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "::error::DB_USERNAME must be a simple user identifier"; exit 1; }
+          [[ "${DB_USERNAME,,}" != root ]] || { echo "::error::DB_USERNAME must not be root"; exit 1; }
       - name: Read deployment script from the verified commit
         uses: actions/checkout@v4
         with:
@@ -51,5 +58,5 @@ jobs:
           key: ${{ env.EC2_SSH_KEY }}
           timeout: 60s
           command_timeout: 30m
-          envs: DEPLOY_SHA,JWT_SECRET
+          envs: DEPLOY_SHA,JWT_SECRET,DB_NAME,DB_USERNAME,DB_PASSWORD,DB_ROOT_PASSWORD
           script_path: scripts/deploy.sh

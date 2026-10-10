@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.http.HttpStatus;
+import org.springframework.core.env.Environment;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +24,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SecurityProblemWriter problemWriter;
+    private final Environment environment;
 
     @Bean
     public WebSecurityCustomizer problemRequestRejectedHandler() {
@@ -46,20 +48,17 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 problemWriter.write(request, response, HttpStatus.FORBIDDEN, "ACCESS_DENIED",
                                         ApiProblemFactory.ACCESS_DENIED_DETAIL)))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/auth/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/h2-console/**"
-                        ).permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers("/auth/**", "/actuator/health").permitAll();
+                    if (environment.matchesProfiles("local & !prod")) {
+                        auth.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll();
+                    }
+                    auth.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/me/**").hasAnyRole("USER", "ADMIN")
                         // 廃止した旧入口から認可境界を迂回させない
                         .requestMatchers("/orders", "/orders/**").denyAll()
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated();
+                })
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .formLogin(form -> form.disable());
 
@@ -68,8 +67,8 @@ public class SecurityConfig {
                 UsernamePasswordAuthenticationFilter.class
         );
 
-        http.headers(headers ->
-                headers.frameOptions(frame -> frame.disable()));
+        http.addFilterBefore(new UnavailableEndpointsFilter(environment, problemWriter),
+                JwtAuthenticationFilter.class);
 
         return http.build();
     }

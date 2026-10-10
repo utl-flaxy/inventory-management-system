@@ -96,8 +96,10 @@ terraform/.terraform.lock.hcl
 
 .env
 .env.*
+!.env.example
 
 application-local.properties
+!src/main/resources/application-local.properties
 
 
 # ==========================================

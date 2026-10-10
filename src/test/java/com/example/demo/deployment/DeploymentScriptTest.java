@@ -25,7 +25,9 @@ class DeploymentScriptTest {
             "maven-failure", "missing-jar", "config-failure", "docker-failure", "image-mismatch",
             "success", "legacy-success", "first-success", "health-retry", "health-failure",
             "startup-failure", "rollback-start-failure", "rollback-health-failure", "first-health-failure",
-            "multiline-secret"})
+            "multiline-secret", "missing-db-name", "missing-db-user", "missing-db-password",
+            "missing-db-root-password", "root-db-user", "bad-db-name", "bad-db-user",
+            "modern-rollback", "modern-rollback-failure", "health-status-down", "health-details"})
     void executesDeploymentAgainstOnlyMockCommands(String scenario) throws Exception {
         var output = Files.createTempFile("deployment-test-", ".log");
         try {
