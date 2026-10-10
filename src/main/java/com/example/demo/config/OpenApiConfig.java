@@ -48,6 +48,11 @@ public class OpenApiConfig {
                         responses.putIfAbsent("409", new ApiResponse().description("注文の競合"));
                     if (path.endsWith("/sales")) responses.putIfAbsent("400", new ApiResponse().description("期間の形式・範囲が不正"));
                 }
+                if (path.equals("/products/{id}") && java.util.Set.of(
+                        io.swagger.v3.oas.models.PathItem.HttpMethod.GET,
+                        io.swagger.v3.oas.models.PathItem.HttpMethod.PUT,
+                        io.swagger.v3.oas.models.PathItem.HttpMethod.DELETE).contains(method))
+                    responses.putIfAbsent("404", new ApiResponse().description("PRODUCT_NOT_FOUND"));
                 if (path.startsWith("/products") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.PUT)
                     responses.putIfAbsent("409", new ApiResponse().description("CONCURRENT_UPDATE"));
                 responses.forEach((status, response) -> {

@@ -56,6 +56,7 @@ class ProblemDetailContractTest {
             Arguments.of(new IllegalOrderStateTransitionException(OrderStatus.CANCELLED, OrderStatus.PENDING), 409, "ILLEGAL_ORDER_STATE_TRANSITION", "Illegal Order State Transition"),
             Arguments.of(new OrderInventoryRestorationException("在庫の復元に失敗しました"), 409, "ORDER_INVENTORY_RESTORATION_FAILED", "Order Inventory Restoration Failed"),
             Arguments.of(new OrderNotFoundException(), 404, "ORDER_NOT_FOUND", "Order Not Found"),
+            Arguments.of(new ProductNotFoundException(), 404, "PRODUCT_NOT_FOUND", "Product Not Found"),
             Arguments.of(new InvalidOrderRequestException("注文金額が上限を超えています"), 400, "INVALID_ORDER_REQUEST", "Invalid Order Request"),
             Arguments.of(new OutOfStockException("在庫が不足しています"), 400, "OUT_OF_STOCK", "Out of Stock"),
             Arguments.of(new RequestRejectedException("sensitive firewall message"), 400, "INVALID_REQUEST", "Invalid Request"));
@@ -76,6 +77,20 @@ class ProblemDetailContractTest {
         failure = new RuntimeException("SQL constraint uk_secret jdbc:mysql://private/db C:/private/key password hash $2a$ token JWT_SECRET");
         mvc.perform(get(path)).andExpect(problem(500, "SYSTEM_ERROR", "System Error", path))
                 .andExpect(jsonPath("$.detail").value("予期しないエラーが発生しました"));
+    }
+
+    @Test
+    void productNotFoundFactoryHasStableTitleTypeAndDetail() {
+        var problem = ApiProblemFactory.create(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND",
+                new ProductNotFoundException().getMessage(), new MockHttpServletRequest("GET", "/products/999"));
+
+        assertEquals("Product Not Found", ApiProblemFactory.title("PRODUCT_NOT_FOUND"));
+        assertEquals("Product Not Found", problem.getTitle());
+        assertEquals("https://inventory-management-system.example/problems/product-not-found", problem.getType().toString());
+        assertEquals(404, problem.getStatus());
+        assertEquals("商品が存在しません", problem.getDetail());
+        assertEquals("/products/999", problem.getInstance().toString());
+        assertEquals(java.util.Map.of("code", "PRODUCT_NOT_FOUND"), problem.getProperties());
     }
 
     @Test

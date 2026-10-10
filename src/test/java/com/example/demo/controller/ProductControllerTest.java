@@ -3,11 +3,15 @@ package com.example.demo.controller;
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
 import com.example.demo.dto.ProductUpdateRequest;
+import com.example.demo.exception.InvalidProductUpdateException;
+import com.example.demo.exception.ProductNotFoundException;
 import com.example.demo.security.JwtAuthenticationFilter;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.service.ProductService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -18,13 +22,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static com.example.demo.TestApiProblems.problem;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -204,6 +211,52 @@ class ProductControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "PUT", "DELETE"})
+    void missingProductHasComplete404Contract(String method) throws Exception {
+        stubFailure(method, new ProductNotFoundException());
+
+        mockMvc.perform(resourceRequest(method))
+                .andExpect(problem(404, "PRODUCT_NOT_FOUND", "Product Not Found", "/products/999"))
+                .andExpect(jsonPath("$.detail").value("商品が存在しません"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "PUT", "DELETE"})
+    void unexpectedServiceFailureKeepsSafe500(String method) throws Exception {
+        stubFailure(method, new RuntimeException("jdbc password=private"));
+
+        mockMvc.perform(resourceRequest(method))
+                .andExpect(problem(500, "SYSTEM_ERROR", "System Error", "/products/999"))
+                .andExpect(jsonPath("$.detail").value("予期しないエラーが発生しました"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private"))));
+    }
+
+    @Test
+    void invalidUpdateServiceGuardKeeps400Contract() throws Exception {
+        stubFailure("PUT", new InvalidProductUpdateException());
+
+        mockMvc.perform(resourceRequest("PUT"))
+                .andExpect(problem(400, "INVALID_PRODUCT_UPDATE", "Invalid Product Update", "/products/999"));
+    }
+
+    private void stubFailure(String method, RuntimeException failure) {
+        switch (method) {
+            case "GET" -> when(productService.findById(999L)).thenThrow(failure);
+            case "PUT" -> when(productService.update(eq(999L), any(ProductUpdateRequest.class))).thenThrow(failure);
+            default -> doThrow(failure).when(productService).delete(999L);
+        }
+    }
+
+    private MockHttpServletRequestBuilder resourceRequest(String method) {
+        return switch (method) {
+            case "GET" -> get("/products/999");
+            case "PUT" -> put("/products/999").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"apple\",\"price\":100,\"stock\":10,\"version\":0}");
+            default -> delete("/products/999");
+        };
     }
 
     @Test

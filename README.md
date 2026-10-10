@@ -398,6 +398,11 @@ appだけ切替（DBは継続稼働）→ HTTP確認
 
 商品のCRUD操作を実装しています。
 
+Issue #35から、GET/PUT/DELETE `/products/{id}` の商品未存在は404 `PRODUCT_NOT_FOUND`
+（`application/problem+json`）です。PUT/DELETEはADMINのみで、USERは商品存在に関係なく403、
+未認証は401を維持します。DELETE成功は200、空の一覧・検索も200です。
+詳細は[APIエラー契約](docs/api-errors.md)を参照してください。
+
 ## 商品登録
 
 ```http

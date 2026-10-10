@@ -97,6 +97,11 @@ public class GlobalExceptionHandler {
         return ApiProblemFactory.response(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleProductNotFound(ProductNotFoundException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ProblemDetail> handleUnreadableRequest(HttpMessageNotReadableException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", ApiProblemFactory.INVALID_REQUEST_DETAIL, request);
