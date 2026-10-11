@@ -20,6 +20,10 @@ Windowsでは `mvnw.cmd test` / `mvnw.cmd verify`。Java 17をJAVA_HOMEで選択
 
 ## Flyway / MariaDB互換性（Issue #69）
 
+Issue #74のlogin回帰は[Auth設計とテスト](auth.md#制限と回帰検証)を参照。
+既存1673件を維持し、追加のClock/BCrypt/proxy/429テストをfull verifyへ含める。
+production log監査はresponseやsource literalではなく、実stdout/stderrを全logger対象に検証する。
+
 [調査と対応判断](db/flyway-mariadb-compatibility.md)にeffective POM、公式情報の取得日/URL、
 警告原文、候補Flyway 12.11.0の実起動失敗と現行維持の理由を記録する。
 候補の18件失敗は調査用の一時version指定であり、採用版のテスト結果とは分ける。

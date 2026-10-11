@@ -37,6 +37,15 @@ import java.util.TreeMap;
 @Hidden // OpenAPIのerror契約は共通customizerで定義する。
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(LoginRateLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleLoginRateLimit(LoginRateLimitExceededException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(org.springframework.http.HttpHeaders.RETRY_AFTER, Long.toString(ex.retryAfterSeconds()))
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(ApiProblemFactory.create(HttpStatus.TOO_MANY_REQUESTS, "LOGIN_RATE_LIMITED",
+                        LoginRateLimitExceededException.DETAIL, request));
+    }
+
     @ExceptionHandler(OrderCsvExportException.class)
     public ResponseEntity<ProblemDetail> handleCsvExport(OrderCsvExportException ex,
                                                         HttpServletRequest request,

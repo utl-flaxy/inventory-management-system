@@ -80,9 +80,12 @@ class AuthApiIT {
     @MockitoSpyBean private JwtUtil jwt;
     @Autowired private PasswordEncoder encoder;
     @Autowired private JdbcTemplate jdbc;
+    private static final java.util.concurrent.atomic.AtomicInteger CLIENT_SEQUENCE = new java.util.concurrent.atomic.AtomicInteger();
+    private int clientSequence;
 
     @BeforeEach
     void cleanStart() {
+        clientSequence = CLIENT_SEQUENCE.incrementAndGet(); // Independent callers; default production quotas remain enabled.
         assertEquals(0, users.count(), "Tests must not depend on another test's registered users");
     }
 
@@ -334,7 +337,10 @@ class AuthApiIT {
         assertEquals(3, schemas.path("RegisterResponse").path("properties").size());
         assertFalse(schemas.path("RegisterResponse").path("properties").has("password"));
         for (String code : List.of("200", "400", "409")) assertTrue(document.path("paths").path("/auth/register").path("post").path("responses").has(code));
-        for (String code : List.of("200", "400", "401")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
+        for (String code : List.of("200", "400", "401", "429")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
+        var limited = document.path("paths").path("/auth/login").path("post").path("responses").path("429");
+        assertTrue(limited.path("content").has("application/problem+json"));
+        assertEquals(1, limited.path("headers").path("Retry-After").path("schema").path("minimum").asInt());
     }
 
     @Test
@@ -452,6 +458,7 @@ class AuthApiIT {
 
     private ResultActions auth(String endpoint, Map<String, ?> body) throws Exception {
         return mvc.perform(post(endpoint).contentType(MediaType.APPLICATION_JSON)
+                .with(request -> { request.setRemoteAddr("198.51.100." + clientSequence); return request; })
                 .content(json.writeValueAsString(body)));
     }
 

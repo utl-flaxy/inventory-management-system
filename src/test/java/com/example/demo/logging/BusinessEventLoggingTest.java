@@ -10,6 +10,8 @@ import com.example.demo.exception.GlobalExceptionHandler;
 import com.example.demo.exception.IllegalOrderStateTransitionException;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtUtil;
+import com.example.demo.security.LoginDummyPassword;
+import com.example.demo.security.LoginRateLimiter;
 import com.example.demo.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +46,8 @@ class BusinessEventLoggingTest {
 
     @BeforeEach
     void setup() {
-        mvc = MockMvcBuilders.standaloneSetup(new AuthController(new AuthService(users, passwords, jwt)),
+        mvc = MockMvcBuilders.standaloneSetup(new AuthController(
+                        new AuthService(users, passwords, jwt, mock(LoginDummyPassword.class)), mock(LoginRateLimiter.class)),
                         new SelfOrderController(orders), new AdminOrderController(orders), new InventoryController(inventory))
                 .setControllerAdvice(new GlobalExceptionHandler()).addFilters(new RequestCorrelationFilter()).build();
     }

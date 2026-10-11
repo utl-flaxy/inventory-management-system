@@ -39,6 +39,13 @@ Issue #37では参照するコード・契約だけを追加し、実際の設�
 |DB_PASSWORD（Secret）|app userのpassword。固定fallbackなし|
 |DB_ROOT_PASSWORD（Secret）|MariaDB管理用。app containerには渡さない|
 
+Issue #74のlogin制限は[接続元の信頼境界](auth.md#接続元とプロキシの信頼境界)を参照。
+公開前に運用者がCaddy→appの実際のsocket peerを確認し、hostローカル `.env` の
+`LOGIN_TRUSTED_PROXIES` に完全一致IPだけを設定する（環境/secretのdumpは不要）。
+Docker bridge gatewayを含む可能性があり、loopbackやprivate CIDR全体を自動許可しない。
+未設定でも制限は有効だがproxy背後でsource枠を共有する。閾値/windowはSpring外部設定で調整できる。
+Deploy workflowの有効化や本番設定変更はこのPRでは行わない。
+
 runnerはSSH前に8項目の非空とSHA形式、JWT鍵長、DB名/userの英字開始の英数字・underscore、root禁止を検証する。
 EC2側もDEPLOY_SHA/JWT_SECRET/DB設定を再検証し、SPRING_PROFILES_ACTIVE=prodを保証する。
 DB URLはComposeがDB_NAMEからjdbc:mariadb://db:3306/DB_NAMEへ導出するため、別のDB_URL secretは不要。

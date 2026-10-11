@@ -43,6 +43,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      # Empty is safe: ignore proxy headers until the actual Docker transport peer is verified.
+      APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES: ${LOGIN_TRUSTED_PROXIES:-}
 
 volumes:
   mariadb_data:

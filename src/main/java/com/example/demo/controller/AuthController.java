@@ -5,6 +5,10 @@ import com.example.demo.dto.LoginResponse;
 import com.example.demo.dto.RegisterRequest;
 import com.example.demo.dto.RegisterResponse;
 import com.example.demo.exception.InvalidCredentialsException;
+import com.example.demo.exception.LoginRateLimitExceededException;
+import com.example.demo.security.LoginClientAddressFilter;
+import com.example.demo.security.LoginRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import com.example.demo.service.AuthService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -20,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginRateLimiter loginRateLimiter;
 
     // ユーザー登録
     @PostMapping("/register")
@@ -39,11 +44,16 @@ public class AuthController {
     @PostMapping("/login")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "JWTを返却"),
             @ApiResponse(responseCode = "400", description = "入力形式が不正"),
-            @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS")})
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+            @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS"),
+            @ApiResponse(responseCode = "429", description = "LOGIN_RATE_LIMITED; Retry-After seconds")})
+    public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
 
         try {
+            loginRateLimiter.acquire(LoginClientAddressFilter.source(servletRequest), request.getUsername());
             return authService.login(request);
+        } catch (LoginRateLimitExceededException ex) {
+            log.atWarn().addKeyValue("event", "auth.login.throttled").log("Login rate limited");
+            throw ex;
         } catch (InvalidCredentialsException ex) {
             log.atWarn().addKeyValue("event", "auth.login.failed").log("Login failed");
             throw ex;
