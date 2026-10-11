@@ -117,6 +117,14 @@ prod総合healthはstatusと標準groups metadata、probeはstatus-only、defaul
 先行実行: `./mvnw -Dtest=ConfigurationContractTest,DeploymentWorkflowTest,DeploymentScriptTest,StructuredLoggingTest,JwtAuthenticationTest -Dit.test=ProbeHealthIT,ProductionProfilesIT,ProductionLoggingIT verify`。
 PR前には絞り込みなしのJava17 `./mvnw verify`も実行する。Windowsは`mvnw.cmd`を使う。
 
+Issue #57のBackupRestoreScriptTestはmock Dockerで実backup/restore scriptの失敗cleanup、checksum-first、
+manifest/identifier、非空DB・exact confirmation・production app-running guard・import失敗・秘密値非出力を検証する。
+BackupRestoreITは実MariaDB12.2の別container間でV1〜V6＋全主要dataをbackup/restoreし、history/checksum/row/metadataを比較する。
+dedicated app userによるFlyway/Hibernate validate、pending0、改ざん/非空/誤確認時の不変、disposable replaceも検証する。
+POSIXでは0700/0600を実検証し、WindowsではPOSIX assertionだけ分岐する（JUnit skipなし）。
+先行実行: `./mvnw -Dtest=BackupRestoreScriptTest -Dit.test=BackupRestoreIT verify`。
+本番DB・AWS/EC2を使用せず、secret/dump bodyをログへ出さない。[runbook](db/backup-restore.md)参照。
+
 Issue #27はmain基準519件を削除せず、売上の期待値を正式なCOMPLETED計上ルールへ更新する。H2補助テストはSurefireに残す。
 Issue #27のJava 17検証はSurefire 288件 + Failsafe 277件 = 565件（46件追加）、failures/errors/skipped=0。
 Docker接続先を無効にしたclean testでも288件成功し、Docker不要のUnit品質ゲートを維持する。

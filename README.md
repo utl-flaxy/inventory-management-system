@@ -149,6 +149,22 @@ db/app双方の`restart: unless-stopped`はprocess crashやDocker再起動に対
 rollbackは旧labelの`/readyz`または`/actuator/health`を尊重し、labelのないlegacy imageだけ`/v3/api-docs`へ戻ります。
 DB/volumeはrollbackせず、Deploy workflowも無効のままです。[配備手順](docs/deployment.md)を参照してください。
 
+## Production backup / restore（Issue #57）
+
+`bash scripts/db/backup.sh`でMariaDB12.2のschema/data/Flyway historyを取得します。
+default sourceはinventory-db、出力はrepo外の`$HOME/inventory-management-system-backups`。
+InnoDB single-transaction snapshotを使い、**backup中のFlyway migrate/DDLは禁止**です。
+private directory（0700）にgzip・SHA-256・non-secret manifest（各0600）を完成させ、最後にatomic publishします。
+root credentialはcontainer内だけで使用し、host argvやlogへ展開しません。
+
+dumpはpassword hash・username・注文・冪等性metadataを含む機密artifactです。Gitや公開/shared storageへ置かず、
+アクセス制御されたstorage側暗号化を必須とします。checksumは破損検知でありprovenanceも別途確認します。
+restoreはbundle/container/DBを明示し、checksum確認後に空DBだけへimportします。
+非空DBは`--replace --confirm-db <exact DB>`が必要で、production app稼働中は拒否します。
+実scriptを使うdisposable MariaDBへのrestore drillとFlyway/Hibernate validateをCIで検証します。
+手順・write freeze・readiness確認は[backup/restore runbook](docs/db/backup-restore.md)を参照してください。
+backup/restoreをdeployへ自動接続せず、Deployは無効のまま、本番DB操作も行っていません。
+
 ## Production logging（Issue #3）
 
 prodのconsole出力はSpring Boot標準のLogstash JSONです。default/localは通常のtext出力を維持し、
@@ -1638,7 +1654,7 @@ Deploy workflowは実装済みですが、本番設定・DB専用user移行・EC
 - 負荷試験の実施
 - HTTPS/TLS対応
 - 構造化ログ・監視などobservabilityの改善
-- backup/restoreの運用整備（readiness/liveness・restart方針はIssue #55で実装）
+- backup暗号化・offsite保管・retentionの運用整備（logical backup/restore drillはIssue #57で実装）
 - Terraformによる環境再現性の改善
 
 未完了項目は[改善ロードマップ（Issue #8）](https://github.com/utl-flaxy/inventory-management-system/issues/8)を参照してください。
