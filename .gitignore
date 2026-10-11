@@ -178,4 +178,8 @@ Desktop.ini
 # ==========================================
 
 **/.terraform/*
+
+# Python quality gate bytecode
+__pycache__/
+*.pyc
 ```

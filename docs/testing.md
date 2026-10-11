@@ -1,5 +1,9 @@
 # テスト品質ゲート
 
+Issue #80の[CI品質ゲート・依存監査・main保護手順](ci-quality-gates.md)を参照。
+現mainのJava基準はSurefire 1014 + Failsafe 737 = 1751件、F/E/S=0。
+Secret/Java SECURITY静的解析の失敗検証と、未解消の依存66アドバイザリを区別して報告する。
+
 ## Java 17・実行コマンド
 
 高速なローカル回帰（Docker不要）:
