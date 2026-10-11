@@ -129,6 +129,12 @@ rollback成功でも配備jobは失敗終了する。target成功と扱わず、
 
 ## Flywayとrollbackの限界
 
+Issue #69の[互換性判断](db/flyway-mariadb-compatibility.md)では、Boot管理Flyway 11.7.2とMariaDB 12.2を維持する。
+全回帰成功を上流の12.2認証とみなさず、互換性WARNを非表示にしない。
+12.11.0の単独更新はJacksonの不整合で起動に失敗したため採用していない。
+本Issueの反映でFlyway/DB tagを上書きしたり、既存volumeのDBをupgrade/downgradeしたりしない。
+Deploy再有効化・本番操作は本Issueに含めない。
+
 **app image rollbackはDB rollbackではない。** versioned migrationを自動undo/downしない。Flyway migrationはtarget app起動時に実行される。失敗時はHTTP確認が通らず旧appへの復元を試すが、MariaDB DDLは完全にtransactionalではなく、一部DDLが適用済みの可能性がある。
 
 旧appと新schemaの互換性をmigration reviewで確認する。expand/contractで追加→両version対応→旧appを使わなくなってから削除、など後方互換を維持する。互換性のないschema変更は配備前にrollback可否、停止計画、DB backup/restore計画を判断する。

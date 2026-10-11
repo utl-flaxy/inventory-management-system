@@ -18,6 +18,19 @@ Windowsでは `mvnw.cmd test` / `mvnw.cmd verify`。Java 17をJAVA_HOMEで選択
 古いレポートを消して件数を比較する場合は `clean test` / `clean verify` を使う。
 `test` の成功だけではmerge可能とは判断しない。
 
+## Flyway / MariaDB互換性（Issue #69）
+
+[調査と対応判断](db/flyway-mariadb-compatibility.md)にeffective POM、公式情報の取得日/URL、
+警告原文、候補Flyway 12.11.0の実起動失敗と現行維持の理由を記録する。
+候補の18件失敗は調査用の一時version指定であり、採用版のテスト結果とは分ける。
+通常のJava 17 `mvnw verify` はoverrideなしのcore/mysql 11.7.2 / JDBC 3.5.7で実行する。
+既存Surefire 948 + Failsafe 725 = 1673件を削除/skipせず、F/E/S=0を要求する。
+V1〜V6 fresh migration、Hibernate validate、再起動時のhistory/checksum、実backup/restore、
+認証・注文・在庫・売上・CSV・ページング・readiness/livenessも既存ITで検証する。
+baseline CI run 38131627192のFlyway warning 95件と、採用版の実logでの出現回数を比較する。
+警告を消して件数を合わせない。実件数/CIはPRへ記録し、上流認証とは区別する。
+Terraform mock27件とJava/Terraform両CIも維持する。
+
 ## request correlationとsafe logging（Issue #3）
 
 最初にlogging回帰を実行し、その後Auth/JWT・注文・在庫の関連回帰、最後に`./mvnw verify`を実行します。
