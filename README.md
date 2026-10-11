@@ -121,12 +121,33 @@ DB接続情報の固定値はなく、専用userの`SPRING_DATASOURCE_URL/USERNA
 32 UTF-8 bytes以上の`JWT_SECRET`が必要です。prodは不足・root・URL内credentialを起動前に拒否します。
 Compose用の`.env.example`はsecretが空のサンプルです。実値の`.env`をcommitしないでください。
 
-匿名healthは`/actuator/health`の200 `{"status":"UP"}`のみを公開します。
+匿名healthは`/actuator/health`を維持し、prodでは`/livez`と`/readyz`もmain portで公開します。
+probeは正常時200 `{"status":"UP"}`だけを返し、details/componentsは公開しません。
+prodの総合`/actuator/health`はBoot標準の`groups:["liveness","readiness"]`も返します。
+endpoint・匿名認証・status semanticsは維持し、default/localのbodyは従来のstatusだけです。
 他Actuatorとprod OpenAPIは404、frame保護はSpring Security標準DENYです。
 既存DBはenvironment追加だけでは専用userが作成されません。
 起動・profile・secretは[設定手順](docs/configuration.md)、権限と既存DB切替は
 [DB手順](docs/db/README.md#専用app-db-userへの切替issue-37)を参照してください。
 本番のGitHub Actions secrets/variables設定・DB専用user移行・Deploy再有効化・EC2配備は未実施です。
+
+## Production health / restart（Issue #55）
+
+prodの`/livez`は`livenessState`だけを確認し、DB障害をapplication再起動の理由にしません。
+`/readyz`は`readinessState,db`を確認し、DB利用不能または`REFUSING_TRAFFIC`なら503を返します。
+Spring標準Actuatorのprobeを使用し、default/localにはprobe設定を追加しません。
+その他Actuator endpointの公開範囲は変更しません。
+
+Composeは公式MariaDB `healthcheck.sh --connect --innodb_initialized`でDBのTCP接続とInnoDB初期化を確認し、
+DBがhealthyになってからappを起動します。10秒間隔・5秒timeout・10回retry・初期猶予30秒とし、
+通常の初期化/復旧を待つ時間を確保します。healthcheck commandへpasswordを埋め込みません。
+db/app双方の`restart: unless-stopped`はprocess crashやDocker再起動に対応する方針です。
+**health statusがunhealthyになっただけではComposeはcontainerを自動restartしません。**
+依存関係のhealthy待ちは起動順の制御であり、稼働中のDB障害はreadinessで判定します。
+
+新imageはhealth-path labelに`/readyz`を宣言し、deployはHTTP200・statusのみのUP・buildしたimage IDとの一致後に成功を確定します。
+rollbackは旧labelの`/readyz`または`/actuator/health`を尊重し、labelのないlegacy imageだけ`/v3/api-docs`へ戻ります。
+DB/volumeはrollbackせず、Deploy workflowも無効のままです。[配備手順](docs/deployment.md)を参照してください。
 
 ## Production logging（Issue #3）
 
@@ -1617,7 +1638,7 @@ Deploy workflowは実装済みですが、本番設定・DB専用user移行・EC
 - 負荷試験の実施
 - HTTPS/TLS対応
 - 構造化ログ・監視などobservabilityの改善
-- readiness・再起動・backup/restoreの運用整備（healthは実装済み）
+- backup/restoreの運用整備（readiness/liveness・restart方針はIssue #55で実装）
 - Terraformによる環境再現性の改善
 
 未完了項目は[改善ロードマップ（Issue #8）](https://github.com/utl-flaxy/inventory-management-system/issues/8)を参照してください。

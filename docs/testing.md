@@ -106,8 +106,16 @@ ConfigurationContractTestはsafe defaults/local差分・Boot管理Actuator・H2 
 ProductionProfilesITはComposeと同じdb-init scriptで専用user権限を絞った実MariaDB12.2.2で
 V1〜V6 migrationとHibernate validate、3profileの実HTTP、health details非公開を検証する。
 既存OpenAPIテストだけlocalを明示し、production要件をtest profileで無効化しない。
-Deployment testsはActuator target、labelに基づくlegacy/modern rollback、DB設定不足、prod必須、
+Deployment testsはreadiness target、labelに基づくreadiness/Actuator/legacy rollback、未知label拒否、DB設定不足、prod必須、
 root/不正identifier拒否、secret非出力と既存SHA/image/lock/app-only安全性を検証する。
+
+Issue #55のProbeHealthITは実prod・MariaDB12.2・main portの匿名`/livez`/`/readyz`と最小bodyを確認する。
+専用DBをpauseし、15秒のbounded retryでreadiness503とliveness200を確認してfinallyでunpauseする。
+REFUSING_TRAFFIC・BROKENの独立性、復旧、非公開Actuator、実imageの公式healthcheck commandも検証する。
+ConfigurationContractTestはprodだけのprobe/group設定、DeploymentWorkflowTestはCompose health/restart/起動順を固定する。
+prod総合healthはstatusと標準groups metadata、probeはstatus-only、default/localは従来bodyを検証する。
+先行実行: `./mvnw -Dtest=ConfigurationContractTest,DeploymentWorkflowTest,DeploymentScriptTest,StructuredLoggingTest,JwtAuthenticationTest -Dit.test=ProbeHealthIT,ProductionProfilesIT,ProductionLoggingIT verify`。
+PR前には絞り込みなしのJava17 `./mvnw verify`も実行する。Windowsは`mvnw.cmd`を使う。
 
 Issue #27はmain基準519件を削除せず、売上の期待値を正式なCOMPLETED計上ルールへ更新する。H2補助テストはSurefireに残す。
 Issue #27のJava 17検証はSurefire 288件 + Failsafe 277件 = 565件（46件追加）、failures/errors/skipped=0。

@@ -50,6 +50,9 @@ public class SecurityConfig {
                                         ApiProblemFactory.ACCESS_DENIED_DETAIL)))
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/auth/**", "/actuator/health").permitAll();
+                    if (environment.matchesProfiles("prod")) {
+                        auth.requestMatchers("/livez", "/readyz").permitAll();
+                    }
                     if (environment.matchesProfiles("local & !prod")) {
                         auth.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll();
                     }

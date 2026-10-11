@@ -78,12 +78,16 @@ app_logs() {
 }
 
 health() {
-  local attempt body path="${1:-/actuator/health}"
-  local endpoint="http://127.0.0.1:8080/actuator/health"
-  # 旧imageのsnapshotで選択した場合だけ旧OpenAPI healthを使う。
-  [[ "$path" != /v3/api-docs ]] || endpoint="http://127.0.0.1:8080/v3/api-docs"
+  local attempt body status path="${1:-/readyz}"
+  # capabilityは既知の経路だけを許可し、label由来の任意URLを使用しない。
+  case "$path" in
+    /readyz|/actuator/health|/v3/api-docs) ;;
+    *) return 1 ;;
+  esac
+  local endpoint="http://127.0.0.1:8080$path"
   for ((attempt=1; attempt<=30; attempt++)); do
-    if curl --fail --silent --output "$work/health-response" --connect-timeout 2 --max-time 5 "$endpoint"; then
+    if status=$(curl --fail --silent --output "$work/health-response" --write-out '%{http_code}' \
+        --connect-timeout 2 --max-time 5 "$endpoint") && [[ "$status" == 200 ]]; then
       [[ "$path" != /v3/api-docs ]] || return 0
       body=$(cat "$work/health-response")
       # health detailsを公開しない新appはstatusのみ。200/DOWNも成功扱いしない。
@@ -140,7 +144,7 @@ if previous_image=$(docker inspect inventory-app --format '{{.Image}}' 2>/dev/nu
   # 新imageはDockerfile labelでcapabilityを固定。欠落した旧imageだけlegacy扱い。
   previous_health=$(docker image inspect "$previous_image" --format '{{index .Config.Labels "inventory-management-system.health-path"}}')
   case "$previous_health" in
-    /actuator/health) ;;
+    /readyz|/actuator/health) ;;
     ''|'<no value>') previous_health='/v3/api-docs' ;;
     *) fail "Unsupported previous health endpoint" ;;
   esac
@@ -180,8 +184,8 @@ docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" -t "$image"
     || fail "Built image revision does not match DEPLOY_SHA"
 target_image=$(docker image inspect "$image" --format '{{.Id}}')
 [[ "$target_image" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "Invalid target image ID"
-[[ $(docker image inspect "$target_image" --format '{{index .Config.Labels "inventory-management-system.health-path"}}') == /actuator/health ]] \
-  || fail "Target image must declare Actuator health"
+[[ $(docker image inspect "$target_image" --format '{{index .Config.Labels "inventory-management-system.health-path"}}') == /readyz ]] \
+  || fail "Target image must declare readiness"
 # Pin the actual built image too; changing a tag cannot change the cutover.
 printf 'services:\n  app:\n    image: %s\n' "$target_image" >"$work/target-image.yml"
 [[ $(git rev-parse HEAD) == "$DEPLOY_SHA" ]] || fail "HEAD changed before cutover"
@@ -190,7 +194,7 @@ echo "Switching app to $image; DB remains running"
 cutover=true
 "${compose[@]}" -f "$work/target-compose.yml" -f "$work/target-image.yml" \
     up -d --no-deps --no-build --pull never --force-recreate app
-health || fail "Target HTTP health check failed"
+health /readyz || fail "Target HTTP readiness check failed"
 [[ $(docker inspect inventory-app --format '{{.Image}}') == "$target_image" ]] || fail "Running image does not match the built image"
 
 # Commit metadata only after HTTP success. The current marker is written last.

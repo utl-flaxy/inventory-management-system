@@ -80,14 +80,15 @@ Composeのimageは `inventory-management-system-app:${APP_IMAGE_TAG:-local}`。l
 
 ## HTTP確認と失敗処理
 
-新targetは`http://127.0.0.1:8080/actuator/health`のHTTP 200かつ
+新targetは`http://127.0.0.1:8080/readyz`のHTTP 200かつ
 `{"status":"UP"}`だけを受け付ける（JSON内の空白は許可）。DOWNや追加detailsがあれば成功扱いにしない。
 response bodyは私有ファイルへ保存し、ログへ出さない。healthは匿名可でdetails/componentsは認証済みでも非公開。
-Spring BootはFlyway/DB初期化後にHTTPを提供し、healthはDB状態も確認する。全業務機能の検証は別途必要。
+readinessはSpringのreadinessStateとDB状態を確認し、REFUSING_TRAFFIC/DB利用不能を拒否する。
+`/livez`はlivenessStateのみで、DB障害を再起動理由にしない。全業務機能の検証は別途必要。
 prodのSwagger/OpenAPIはendpointを生成せず404となる。
 
 切替前の実image IDからinventory-management-system.health-path labelをsnapshotする。
-Issue #37以降のimageには/actuator/health labelがあり、rollbackもActuatorだけを使う。
+Issue #55以降のimageは/readyz、それ以前の/actuator/health label付きimageもrollback時は宣言した経路を使う。
 labelのない旧imageへのrollbackに限り、旧/v3/api-docsの200確認を使用する。
 新targetのlabelはbuild後に検証し、新imageから旧OpenAPIへfallbackしない。未知のlabelは切替前に拒否する。
 
@@ -119,7 +120,8 @@ rollback成功でも配備jobは失敗終了する。target成功と扱わず、
 ## 調査と手動復旧
 
 1. ActionsのSHA/失敗段階/伏せ字ログと、EC2上のcurrent/current-image/previous/previous-imageを確認する。Compose設定ファイル全体は共有しない。
-2. `docker ps -a` と伏せ字appログ、`curl --fail http://127.0.0.1:8080/actuator/health` で200/UPを確認する。
+2. `docker ps -a` と伏せ字appログ、新imageは`curl --fail http://127.0.0.1:8080/readyz`で200/UPを確認する。
+   旧/actuator/health label付きimageは宣言した経路を使う。
    Issue #37以前のlabelのないimageへの復元確認だけ旧/v3/api-docsを使う。DB container/volumeは保持する。
 3. rollback不能なら [DB手順](db/README.md) を参照し、先にschema互換性を調べる。旧imageを試すだけでDBが戻ったと判断しない。
 4. 手動復元を行う際も `.deploy/lock` をflockで保持し、保存Composeにprevious-imageのimage IDをoverrideしてappだけを更新する。current/previousは復元後HTTP成功を確認して整合させる。

@@ -1,6 +1,6 @@
 FROM eclipse-temurin:17-jdk
 
-LABEL inventory-management-system.health-path="/actuator/health"
+LABEL inventory-management-system.health-path="/readyz"
 
 WORKDIR /app
 

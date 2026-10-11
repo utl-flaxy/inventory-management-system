@@ -2,6 +2,7 @@ services:
 
   db:
     image: mariadb:12.2
+    restart: unless-stopped
 
     container_name: inventory-db
 
@@ -18,14 +19,23 @@ services:
       - mariadb_data:/var/lib/mysql
       - ./scripts/db-init/01-app-privileges.sh:/docker-entrypoint-initdb.d/01-app-privileges.sh:ro
 
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   app:
     image: inventory-management-system-app:${APP_IMAGE_TAG:-local}
     build: .
+    restart: unless-stopped
 
     container_name: inventory-app
 
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
     ports:
       - "8080:8080"

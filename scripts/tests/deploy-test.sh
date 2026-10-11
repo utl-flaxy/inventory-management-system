@@ -54,16 +54,26 @@ case "$tool" in
     [[ -f "$MOCK_ROOT/active" ]] || exit 96
     active=$(cat "$MOCK_ROOT/active")
     url="${!#}"
+    if [[ "$active" == target ]]; then
+      expected_path=/readyz
+    else
+      case "$SCENARIO" in
+        readiness-rollback|readiness-rollback-failure) expected_path=/readyz ;;
+        modern-rollback|modern-rollback-failure) expected_path=/actuator/health ;;
+        *) expected_path=/v3/api-docs ;;
+      esac
+    fi
+    [[ "$url" == "http://127.0.0.1:8080$expected_path" ]] || exit 87
     output=''
     while (( $# )); do
       if [[ "$1" == --output ]]; then output="$2"; shift; fi
       shift
     done
     case "$SCENARIO" in
-      health-failure|rollback-start-failure|first-health-failure|multiline-secret|modern-rollback)
+      health-failure|rollback-start-failure|first-health-failure|multiline-secret|modern-rollback|readiness-rollback)
         [[ "$active" == previous ]] || exit 22 ;;
       rollback-health-failure) exit 22 ;;
-      modern-rollback-failure) exit 22 ;;
+      modern-rollback-failure|readiness-rollback-failure) exit 22 ;;
       health-retry)
         count=0; [[ ! -f "$MOCK_ROOT/checks" ]] || count=$(cat "$MOCK_ROOT/checks")
         echo "$((count+1))" >"$MOCK_ROOT/checks"
@@ -77,7 +87,8 @@ case "$tool" in
       printf '{"status":"DOWN"}' >"$output"
     elif [[ "$active" == target && "$SCENARIO" == health-details ]]; then
       printf '{"status":"UP","private":"%s"}' "$DB_PASSWORD" >"$output"
-    else printf '{"status":"UP"}' >"$output"; fi ;;
+    else printf '{"status":"UP"}' >"$output"; fi
+    if [[ "$active" == target && "$SCENARIO" == health-redirect ]]; then echo 302; else echo 200; fi ;;
   docker)
     case "$1" in
       info) : ;;
@@ -94,16 +105,20 @@ case "$tool" in
             printf 'JWT_SECRET=%s\0SPRING_DATASOURCE_PASSWORD=%s\0' "$OLD_SECRET" "$DB_PASSWORD"
           elif [[ "$*" == *compose.project* ]]; then echo inventory-management-system
           elif [[ "$*" == *'{{.Image}}'* ]]; then
-            if [[ -f "$MOCK_ROOT/active" && $(cat "$MOCK_ROOT/active") == target ]]; then echo "$NEW_IMAGE"; else echo "$OLD_IMAGE"; fi
+            if [[ -f "$MOCK_ROOT/active" && $(cat "$MOCK_ROOT/active") == target && "$SCENARIO" != running-image-mismatch ]]; then echo "$NEW_IMAGE"; else echo "$OLD_IMAGE"; fi
           else exit 95; fi
         else exit 94; fi ;;
       image)
         if [[ "$3" == "$OLD_IMAGE" ]]; then
           if [[ "$*" == *health-path* ]]; then
-            case "$SCENARIO" in modern-rollback|modern-rollback-failure) echo /actuator/health ;; esac
+            case "$SCENARIO" in
+              modern-rollback|modern-rollback-failure) echo /actuator/health ;;
+              readiness-rollback|readiness-rollback-failure) echo /readyz ;;
+              unsupported-previous-path) echo /actuator/env ;;
+            esac
           elif [[ "$*" == *revision* ]]; then echo "$OLD_SHA"; fi
         elif [[ "$*" == *health-path* ]]; then
-          echo /actuator/health
+          [[ "$SCENARIO" == unsupported-target-path ]] && echo /actuator/health || echo /readyz
         elif [[ "$*" == *revision* ]]; then
           [[ "$SCENARIO" == image-mismatch ]] && echo "$OLD_SHA" || echo "$DEPLOY_SHA"
         elif [[ "$*" == *'{{.Id}}'* ]]; then echo "$NEW_IMAGE"
@@ -190,7 +205,7 @@ case "$SCENARIO" in
     check test "$config_line" -lt "$build_line"
     check grep -Fq "$NEW_IMAGE" "$DEPLOY_DIR/.deploy/current-image"
     ;;
-  health-failure|startup-failure|rollback-start-failure|rollback-health-failure|multiline-secret|modern-rollback|modern-rollback-failure|health-status-down|health-details)
+  health-failure|startup-failure|rollback-start-failure|rollback-health-failure|multiline-secret|modern-rollback|modern-rollback-failure|health-status-down|health-details|readiness-rollback|readiness-rollback-failure|running-image-mismatch|health-redirect)
     check test "$result" -ne 0
     check test "$(cat "$DEPLOY_DIR/.deploy/current")" = "$OLD_SHA"
     check test "$(cat "$DEPLOY_DIR/.deploy/current-image")" = "$OLD_IMAGE"
@@ -200,7 +215,7 @@ case "$SCENARIO" in
     snapshot=$(find "$DEPLOY_DIR/.deploy" -type d -name 'pending.*')
     check test -f "$snapshot/previous-compose.yml"
     check test "$(cat "$snapshot/previous-image")" = "$OLD_IMAGE"
-    if [[ "$SCENARIO" == rollback-start-failure || "$SCENARIO" == rollback-health-failure || "$SCENARIO" == modern-rollback-failure ]]; then
+    if [[ "$SCENARIO" == rollback-start-failure || "$SCENARIO" == rollback-health-failure || "$SCENARIO" == modern-rollback-failure || "$SCENARIO" == readiness-rollback-failure ]]; then
       check grep -Fq 'App rollback failed' "$fixture/output"
     else
       check test "$(cat "$MOCK_ROOT/active")" = previous
@@ -221,14 +236,14 @@ case "$SCENARIO" in
     check test "$(cat "$DEPLOY_DIR/.deploy/current-image")" = "$OLD_IMAGE" ;;
 esac
 
-# 新targetは常にActuator。modern rollbackで旧Swaggerへfallbackしない。
-if [[ "$SCENARIO" == modern-rollback || "$SCENARIO" == modern-rollback-failure ]]; then
+# 新targetは常にreadiness。label付き旧imageは旧Swaggerへfallbackしない。
+if [[ "$SCENARIO" == modern-rollback || "$SCENARIO" == modern-rollback-failure || "$SCENARIO" == readiness-rollback || "$SCENARIO" == readiness-rollback-failure ]]; then
   check_not grep -Fq 'http://127.0.0.1:8080/v3/api-docs' "$TRACE"
 fi
 if [[ "$SCENARIO" == health-failure ]]; then
-  check test "$(grep -c 'http://127.0.0.1:8080/actuator/health' "$TRACE")" -eq 30
+  check test "$(grep -c 'http://127.0.0.1:8080/readyz' "$TRACE")" -eq 30
   check test "$(grep -c 'http://127.0.0.1:8080/v3/api-docs' "$TRACE")" -eq 1
 fi
 if [[ "$SCENARIO" != startup-failure ]] && grep -Fq ' up ' "$TRACE"; then
-  check grep -Fq 'http://127.0.0.1:8080/actuator/health' "$TRACE"
+  check grep -Fq 'http://127.0.0.1:8080/readyz' "$TRACE"
 fi
