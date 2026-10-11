@@ -152,6 +152,23 @@ class DeploymentWorkflowTest {
     }
 
     @Test
+    void composeKeepsDatabasePrivateAndAppOnHostLoopback() throws Exception {
+        var compose = yaml("docker-compose.yml");
+        var services = map(compose.get("services"));
+        var db = map(services.get("db"));
+        var app = map(services.get("app"));
+        // EXPOSE in the MariaDB image is metadata; neither ports nor host networking may publish it.
+        assertFalse(db.containsKey("ports"), "DB must use only the Compose network/socket");
+        assertFalse(db.containsKey("network_mode"), "DB must not bypass the Compose network");
+        assertFalse(app.containsKey("network_mode"));
+        assertFalse(compose.containsKey("include"));
+        assertFalse(db.containsKey("extends"));
+        assertEquals(List.of("127.0.0.1:8080:8080"), app.get("ports"));
+        assertEquals("jdbc:mariadb://db:3306/${DB_NAME:?DB_NAME is required}",
+                map(app.get("environment")).get("SPRING_DATASOURCE_URL"));
+    }
+
+    @Test
     void composeWaitsForSecretFreeDbHealthAndDeclaresCrashRestartPolicies() throws Exception {
         var services = map(yaml("docker-compose.yml").get("services"));
         var db = map(services.get("db"));
