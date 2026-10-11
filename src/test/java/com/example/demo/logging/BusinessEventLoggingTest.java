@@ -219,8 +219,8 @@ class BusinessEventLoggingTest {
     @ParameterizedTest
     @ValueSource(strings = {"/api/v1/me/orders", "/api/v1/admin/orders", "/api/v1/me/orders/19", "/api/v1/admin/orders/19"})
     void readOnlyRequestsProduceOnlyCompletion(String path) throws Exception {
-        when(orders.findMyOrders()).thenReturn(List.of());
-        when(orders.findAll()).thenReturn(List.of());
+        when(orders.findMyOrders(any())).thenAnswer(call -> org.springframework.data.domain.Page.empty(call.getArgument(0)));
+        when(orders.findAll(any())).thenAnswer(call -> org.springframework.data.domain.Page.empty(call.getArgument(0)));
         when(orders.findMyOrder(19L)).thenReturn(order(OrderStatus.PENDING));
         when(orders.findById(19L)).thenReturn(order(OrderStatus.PENDING));
         try (var logs = new TestApplicationLogs()) {

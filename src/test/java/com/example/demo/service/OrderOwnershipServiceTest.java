@@ -51,9 +51,17 @@ class OrderOwnershipServiceTest {
     @Test
     void ownListUsesOnlyTheCustomerScopedQuery() {
         Order order = order(101L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100L, 8), 2));
-        when(orders.findAllByCustomerId(1L)).thenReturn(List.of(order));
-        assertEquals(List.of(order), service.findMyOrders());
-        verify(orders).findAllByCustomerId(1L);
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20,
+                org.springframework.data.domain.Sort.Direction.DESC, "id");
+        var row = new com.example.demo.dto.OrderPageRow(order.getId(), order.getStatus(), order.getOrderedAt(),
+                order.getUpdatedAt(), order.getCompletedAt(), order.getTotalPrice(), order.getVersion(),
+                order.getCustomer().getId(), order.getCustomer().getUsername(), 1L, 1L, "apple", 100L, 2);
+        when(orders.findOrderIdsByCustomerId(1L, pageable)).thenReturn(
+                new org.springframework.data.domain.PageImpl<>(List.of(101L), pageable, 1));
+        when(orders.findPageRowsByCustomerId(List.of(101L), 1L)).thenReturn(List.of(row));
+        assertEquals(List.of(com.example.demo.dto.OrderResponse.from(order)), service.findMyOrders(pageable).getContent());
+        verify(orders).findOrderIdsByCustomerId(1L, pageable);
+        verify(orders).findPageRowsByCustomerId(List.of(101L), 1L);
         verifyNoMoreInteractions(orders);
         verifyNoInteractions(products, entityManager);
     }

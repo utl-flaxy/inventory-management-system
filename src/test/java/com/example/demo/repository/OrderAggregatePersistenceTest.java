@@ -103,7 +103,7 @@ class OrderAggregatePersistenceTest {
         assertEquals(100, response.items().get(0).unitPrice());
         assertEquals(300, response.items().get(1).unitPrice());
         assertEquals(500L, response.items().stream().mapToLong(item -> item.lineTotal()).sum());
-        assertEquals(2, OrderResponse.from(service.findAll().get(0)).items().size());
+        assertEquals(2, service.findAll(org.springframework.data.domain.PageRequest.of(0, 20)).getContent().get(0).items().size());
     }
 
     @Test
@@ -150,7 +150,7 @@ class OrderAggregatePersistenceTest {
         Order order = multiOrder();
         jdbc.update("UPDATE products SET name = 'renamed', price = 999 WHERE id = 1");
         OrderResponse detail = OrderResponse.from(service.findById(order.getId()));
-        OrderResponse listed = OrderResponse.from(service.findAll().get(0));
+        OrderResponse listed = service.findAll(org.springframework.data.domain.PageRequest.of(0, 20)).getContent().get(0);
         assertEquals("apple", detail.items().get(0).productName());
         assertEquals(100, detail.items().get(0).unitPrice());
         assertEquals(500, detail.totalPrice());

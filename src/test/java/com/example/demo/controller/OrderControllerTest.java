@@ -1,6 +1,8 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.OrderRequest;
+import com.example.demo.dto.OrderResponse;
+import org.springframework.data.domain.PageImpl;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderStatus;
@@ -147,12 +149,12 @@ class OrderControllerTest {
         product.setName("renamed");
         product.setPrice(900L);
         when(orderService.findById(1L)).thenReturn(order);
-        when(orderService.findAll()).thenReturn(java.util.List.of(order));
+        when(orderService.findAll(any())).thenReturn(new PageImpl<>(java.util.List.of(OrderResponse.from(order))));
         mvc.perform(get("/api/v1/admin/orders/1")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].productName").value("apple"))
                 .andExpect(jsonPath("$.items[0].unitPrice").value(100))
                 .andExpect(jsonPath("$.totalPrice").value(200));
         mvc.perform(get("/api/v1/admin/orders")).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].items[0].productName").value("apple"));
+                .andExpect(jsonPath("$.content[0].items[0].productName").value("apple"));
     }
 }

@@ -1,6 +1,9 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.OrderCsvRow;
+import com.example.demo.dto.OrderPageRow;
+import com.example.demo.dto.OrderResponse;
+import com.example.demo.dto.OrderItemResponse;
 import com.example.demo.dto.OrderItemRequest;
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.SalesResponse;
@@ -26,6 +29,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.transaction.annotation.Isolation;
@@ -44,6 +49,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -158,10 +164,13 @@ public class OrderService {
     }
 
     // 自分の注文をDB query段階で絞り、全件取得や取得後の所有者判定を行わない
-    @Transactional(readOnly = true)
-    public List<Order> findMyOrders() {
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public Page<OrderResponse> findMyOrders(Pageable pageable) {
+        Pageable normalized = OrderPageableNormalizer.normalize(pageable);
         Long customerId = currentUser.requireUser().getId();
-        return orderRepository.findAllByCustomerId(customerId).stream().map(this::responseReady).toList();
+        Page<Long> ids = orderRepository.findOrderIdsByCustomerId(customerId, normalized);
+        return orderPage(ids, ids.isEmpty() ? List.of()
+                : orderRepository.findPageRowsByCustomerId(ids.getContent(), customerId));
     }
 
     @Transactional(readOnly = true)
@@ -182,10 +191,25 @@ public class OrderService {
     }
 
     // 管理者向け注文一覧取得
-    @Transactional(readOnly = true)
-    public List<Order> findAll() {
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public Page<OrderResponse> findAll(Pageable pageable) {
+        Page<Long> ids = orderRepository.findOrderIds(OrderPageableNormalizer.normalize(pageable));
+        return orderPage(ids, ids.isEmpty() ? List.of() : orderRepository.findPageRows(ids.getContent()));
+    }
 
-        return orderRepository.findAll().stream().map(this::responseReady).toList();
+    private Page<OrderResponse> orderPage(Page<Long> ids, List<OrderPageRow> rows) {
+        var grouped = rows.stream().collect(Collectors.groupingBy(OrderPageRow::id));
+        // IDページのsort順を復元。DTO完成後にtransactionを終え、OSIV/遅延queryに依存しない。
+        return ids.map(id -> {
+            var details = grouped.get(id);
+            if (details == null || details.isEmpty()) throw new IllegalStateException("Order page snapshot incomplete");
+            OrderPageRow row = details.get(0);
+            var items = details.stream().filter(item -> item.itemId() != null)
+                    .map(item -> new OrderItemResponse(item.productId(), item.productName(), item.unitPrice(),
+                            item.quantity(), Math.multiplyExact(item.unitPrice(), (long) item.quantity()))).toList();
+            return new OrderResponse(row.id(), row.status(), row.orderedAt(), row.updatedAt(), row.completedAt(),
+                    row.totalPrice(), row.version(), new OrderResponse.CustomerResponse(row.customerId(), row.username()), items);
+        });
     }
 
     // 注文詳細取得

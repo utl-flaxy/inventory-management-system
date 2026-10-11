@@ -647,7 +647,21 @@ GET /api/v1/me/orders
 GET /api/v1/admin/orders
 ```
 
-自分用APIはDB queryで注文者を絞り、管理用APIはADMINに全注文を返します。
+**破壊的変更（Issue #65）:** この2つの一覧レスポンスはJSON配列から既存
+`PageResponse<OrderResponse>`（`content,page,size,totalElements,totalPages,first,last`）へ変更しました。
+個々の注文DTOとcustomer/itemsのfield・注文時snapshotは維持します。
+自分用APIは認証済みcustomer IDでDB queryとcountを絞り、管理用APIはADMINに注文のページを返します。
+
+- `page`: 0-based、default 0。`size`: default 20、max 100（100超は100）。
+- `sort`: default `id,desc`。`id,orderedAt,status,totalPrice`だけを許可し、`asc/desc`を指定します。
+  例: `?page=0&size=20&sort=status,asc&sort=orderedAt,desc`。
+  idがなければ`id DESC`を追加し、明示されたidの方向を尊重します。
+- 不正なpage/size、未知sort・不正direction・重複fieldは400 `INVALID_REQUEST`。空ページは200です。
+
+最大100注文のIDページ/countと、その注文の関連データを一括取得してDTO化します。
+同一request内はread-only REPEATABLE READ snapshotで整合を保ちます。
+別ページrequest間の追加・状態変更によるページ移動は固定しません。
+[SQL・一貫性・検証](docs/orders/pagination.md)を参照してください。CSV・詳細・注文コマンドの契約は変わりません。
 
 ---
 
