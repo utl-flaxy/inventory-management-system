@@ -7,6 +7,7 @@ import com.example.demo.exception.InvalidCredentialsException;
 import com.example.demo.exception.UsernameAlreadyExistsException;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtUtil;
+import com.example.demo.security.LoginDummyPassword;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +31,7 @@ class AuthServiceTest {
     @Mock private UserRepository users;
     @Mock private PasswordEncoder encoder;
     @Mock private JwtUtil jwt;
+    @Mock private LoginDummyPassword dummy;
     @InjectMocks private AuthService service;
 
     @Test
@@ -89,6 +91,7 @@ class AuthServiceTest {
 
     @Test
     void nonexistentUserAndWrongPasswordHaveTheSameExceptionAndNoJwt() {
+        when(dummy.encoded()).thenReturn("dummy-hash");
         when(users.findByUsername("alice")).thenReturn(Optional.empty(), Optional.of(user()));
         var absent = assertThrows(InvalidCredentialsException.class, () -> service.login(login()));
         var mismatch = assertThrows(InvalidCredentialsException.class, () -> service.login(login()));
@@ -96,6 +99,18 @@ class AuthServiceTest {
         verify(users, times(2)).findByUsername("alice");
         verifyNoMoreInteractions(users);
         verify(encoder).matches(PASSWORD, "stored-hash");
+        verify(encoder).matches(PASSWORD, "dummy-hash");
+        verifyNoMoreInteractions(encoder);
+        verify(encoder, never()).encode(any());
+        verifyNoInteractions(jwt);
+    }
+
+    @Test
+    void evenAMatchingDummyPasswordCannotAuthenticateAnUnknownUser() {
+        when(dummy.encoded()).thenReturn("dummy-hash");
+        when(encoder.matches(PASSWORD, "dummy-hash")).thenReturn(true);
+        assertThrows(InvalidCredentialsException.class, () -> service.login(login()));
+        verify(encoder).matches(PASSWORD, "dummy-hash");
         verifyNoInteractions(jwt);
     }
 

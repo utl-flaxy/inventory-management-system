@@ -8,6 +8,7 @@ import com.example.demo.exception.InvalidCredentialsException;
 import com.example.demo.exception.UsernameAlreadyExistsException;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtUtil;
+import com.example.demo.security.LoginDummyPassword;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
@@ -23,6 +24,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final LoginDummyPassword dummyPassword;
 
     // ユーザー登録
     public User register(RegisterRequest request) {
@@ -56,13 +58,11 @@ public class AuthService {
     // ログイン
     public LoginResponse login(LoginRequest request) {
 
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(InvalidCredentialsException::new);
-
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                user.getPassword())) {
-
+        User user = userRepository.findByUsername(request.getUsername()).orElse(null);
+        // Always do exactly one match for admitted credentials, including an unknown username.
+        boolean matches = passwordEncoder.matches(request.getPassword(),
+                user == null ? dummyPassword.encoded() : user.getPassword());
+        if (user == null || !matches) {
             throw new InvalidCredentialsException();
         }
 
