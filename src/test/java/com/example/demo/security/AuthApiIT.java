@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -76,8 +76,8 @@ class AuthApiIT {
 
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper json;
-    @SpyBean private UserRepository users;
-    @SpyBean private JwtUtil jwt;
+    @MockitoSpyBean private UserRepository users;
+    @MockitoSpyBean private JwtUtil jwt;
     @Autowired private PasswordEncoder encoder;
     @Autowired private JdbcTemplate jdbc;
 

@@ -15,7 +15,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -34,10 +34,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerTest {
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper json;
-    @MockBean private AuthService auth;
-    @MockBean private JwtAuthenticationFilter filter;
-    @MockBean private JwtUtil jwt;
-    @MockBean private UserDetailsService details;
+    @MockitoBean private AuthService auth;
+    @MockitoBean private JwtAuthenticationFilter filter;
+    @MockitoBean private JwtUtil jwt;
+    @MockitoBean private UserDetailsService details;
 
     @ParameterizedTest
     @MethodSource("com.example.demo.TestAuthRequests#invalidApiRequests")

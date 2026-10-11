@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
@@ -45,7 +45,7 @@ class OrderAggregatePersistenceTest {
     private JdbcTemplate jdbc;
     @Autowired
     private EntityManager entityManager;
-    @SpyBean
+    @MockitoSpyBean
     private OrderRepository orders;
 
     @BeforeEach
