@@ -12,6 +12,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigurationContractTest {
     @ParameterizedTest
+    @ValueSource(strings = {"application.properties", "application-local.properties", "application-prod.properties"})
+    void allProfilesInheritDisabledOsiv(String resource) throws Exception {
+        var effective = properties("application.properties");
+        effective.putAll(properties(resource));
+        assertEquals("false", effective.getProperty("spring.jpa.open-in-view"));
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"application.properties", "application-prod.properties"})
     void defaultAndProdDisableDevelopmentSurfacesAndSql(String resource) throws Exception {
         var properties = properties(resource);

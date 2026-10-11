@@ -399,6 +399,33 @@ failures/errors/skipped=0。既存1041件 + 新規Unit48件/IT72件 = 120件追�
 CIのJava 17 verifyにも同じテストを含める。
 Testcontainers未起動時にskipする設定・timeout緩和・MariaDB downgradeは行わない。
 
+## OSIV・DTO・Transaction境界（Issue #73）
+
+`ConfigurationContractTest`は共通設定とprofile上書き後のOSIV=falseを3件で確認する。
+`ProductionProfilesIT`のOSIV command-line overrideを外し、既存3 profileの実Web contextでも
+設定値とOpenEntityManagerInViewInterceptor / Filterの不在を検証する。
+`ServiceTransactionBoundaryTest`は14件でProduct参照のread-only、HTTP用Order DTO入口と既存
+業務入口の属性一致、注文ページのREPEATABLE_READ、CSVのIOException rollbackを固定する。
+Controller既存テストのstubbingをDTO入口へ同期し、self詳細/cancelのDTO契約を2件追加する。
+
+`OsivApiIT`はdefault/local/prodの実Tomcat + MariaDB12.2.2でAuth、Product CRUD/検索、
+admin/self注文の複数明細・snapshot・ページ・詳細・作成/replay・ship/complete/cancel/status、
+Sales、Inventory調整/replay/conflict/履歴、CSVを検証する（3 profile、OSIV設定overrideなし）。
+test-only StatementInspectorとResponseBodyAdvice/Servlet Filterが、実JSON書込み直前に
+Transaction/EntityManagerが無いこと、converter開始後のSQLが0、request終了時のresource解放を検証する。
+元のEntityに実LAZY customer/itemsがあることと、Serviceから返したDTOをcontext外でJSON化できることも確認する。
+HTTP応答のfield集合を固定し、password/role/内部Product/Entity情報の混入を検出する。
+
+測定対象のbusiness queryはProduct一覧/検索2本（content + count）、詳細1本、
+注文ページ3本（ID + count + DTO rows）、注文詳細1本のroot query、
+Sales1本、Inventory履歴2本、少量CSV1本。JWT/CurrentUserのuser queryや注文詳細の
+関連ロードは別途Transaction内で行い、このroot query数へ混ぜない。
+OrderPagingIT/ProductPagingIT/OrderCsvExportITの既存query-count・複数batch・bounded-memory回帰も全verifyで実行する。
+StatementInspectorはSQL時のTransaction active/read-only/isolationも確認し、注文・在庫・商品metadata更新を
+誤ってread-onlyにしたりREAD_COMMITTEDを上書きした場合は失敗する。
+更新後versionとupdatedAtは実DBと照合する（DATETIME(6)のprecisionを考慮）。
+Issue #74のLoginSecurityITとAuth/JWT/認可・prod loggingの既存回帰を削除/skipせず維持する。
+
 ## Terraform production host（Issue #59）
 
 既存1392件は変更・削除・skipせず、TerraformContractTestを21件追加する。

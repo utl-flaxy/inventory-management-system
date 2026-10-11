@@ -55,7 +55,7 @@ class InventoryConflictControllerTest {
     @MethodSource("conflicts")
     void productAndOrderConcurrencyFailuresReturn409(RuntimeException conflict) throws Exception {
         when(productService.update(eq(1L), any(ProductUpdateRequest.class))).thenThrow(conflict);
-        when(orderService.cancelOrder(1L)).thenThrow(conflict);
+        when(orderService.cancelOrderResponse(1L)).thenThrow(conflict);
 
         mvc.perform(put("/products/1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"apple\",\"price\":100,\"version\":0}"))
