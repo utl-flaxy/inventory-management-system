@@ -18,6 +18,43 @@ Windowsでは `mvnw.cmd test` / `mvnw.cmd verify`。Java 17をJAVA_HOMEで選択
 古いレポートを消して件数を比較する場合は `clean test` / `clean verify` を使う。
 `test` の成功だけではmerge可能とは判断しない。
 
+## request correlationとsafe logging（Issue #3）
+
+最初にlogging回帰を実行し、その後Auth/JWT・注文・在庫の関連回帰、最後に`./mvnw verify`を実行します。
+Windowsでは`mvnw.cmd`を使用し、Java 17とDockerを用意してください。
+
+```powershell
+mvnw.cmd '-Dtest=RequestCorrelationFilterTest,StructuredLoggingTest,BusinessEventLoggingTest,SafeExceptionLoggingTest,ConfigurationContractTest,JwtAuthenticationTest' test
+mvnw.cmd '-Dtest=AuthControllerTest,JwtAuthenticationTest,OrderControllerTest,OrderStateControllerTest' '-Dit.test=AuthApiIT,InventoryApiIT,InventoryAdjustmentIdempotencyIT' verify
+mvnw.cmd verify
+```
+
+Filterテストはserver UUID/header/MDC一致、client ID無視、request間のcleanup、downstream例外、
+completion一度だけ、method/path/status/durationMs、header/query/body非参照を確認します。
+Security sliceでもJWT rejectのWARNが同じrequestIdを持ち、401とparse一度を維持することを検証します。
+prodのconfigを読み込んだlogging専用contextではBootの実console encoderでJSONを生成し、
+`@timestamp/message/level/event/requestId`とtop-level MDCをparseして確認します。production DB/secretは不要です。
+
+| event | level | 許可するevent固有field（requestIdはMDC） |
+|---|---|---|
+| `http.request.completed` | INFO | method, path, status, durationMs |
+| `auth.register.succeeded`, `auth.login.succeeded` | INFO | userId, role |
+| `auth.login.failed` | WARN | なし（credential失敗の詳細を区別しない） |
+| `security.jwt.rejected` | WARN | exceptionType |
+| `order.create.completed` | INFO | orderId, status, itemCount |
+| `order.cancel.completed`, `order.ship.completed`, `order.complete.completed` | INFO | orderId, status |
+| `inventory.adjustment.completed` | INFO | movementId, productId, delta |
+| `system.unhandled_error` | ERROR | exceptionType, rootCauseType, topFrame |
+
+application loggerをDEBUGでcaptureして、token/password/hash/username/key/fingerprint/query/note/
+SQL/constraint messageとThrowable非出力を確認します。legacy statusもcommand eventは一度だけです。
+Service/commit失敗時のfalse success防止、既知4xx/409のERROR非出力、cycleを持つcause chainも検証します。
+logging追加前baselineはSurefire 654 / Failsafe 597 / total 1251で、既存テストを削除・skipしません。
+
+`ProductionLoggingIT`は実prod起動・MariaDBのduplicate-keyを用いて、driver/frameworkも含む
+実console出力からusername/key/constraint/SQL messageが漏れないことを確認します。
+prodの`ErrorPacket`/`SqlExceptionHelper`だけをOFFにし、既存409・rollback・safe5xx eventを維持します。
+
 ## 命名と実行phase
 
 | 分類 | 命名 | plugin / phase | 対象 |

@@ -9,6 +9,7 @@ import com.example.demo.exception.UsernameAlreadyExistsException;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -66,6 +68,9 @@ public class AuthService {
 
         // JWT生成
         String token = jwtUtil.generateToken(user.getUsername());
+        log.atInfo().addKeyValue("event", "auth.login.succeeded")
+                .addKeyValue("userId", user.getId()).addKeyValue("role", user.getRole())
+                .log("Login succeeded");
         return new LoginResponse(token);
     }
 }

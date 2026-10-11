@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import com.example.demo.TestApplicationLogs;
 import com.example.demo.controller.SelfOrderController;
 import com.example.demo.service.OrderService;
 import io.jsonwebtoken.Jwts;
@@ -23,6 +24,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -71,6 +73,33 @@ class JwtAuthenticationTest {
         mockMvc.perform(get("/api/v1/me/orders")).andExpect(status().isUnauthorized());
 
         verify(jwtUtil, never()).extractUsername(anyString());
+        verifyNoInteractions(userDetailsService, orderService);
+    }
+
+    @Test
+    void rejectedJwtLogsOnlyTypeWithCorrelationAndStillReturns401() throws Exception {
+        String token = "very-secret-jwt";
+        doThrow(new io.jsonwebtoken.JwtException("Bearer very-secret-jwt super-secret-password private_username"))
+                .when(jwtUtil).extractUsername(token);
+        try (var logs = new TestApplicationLogs()) {
+            var result = mockMvc.perform(get("/api/v1/me/orders")
+                            .header("Authorization", "Bearer " + token).header("X-Request-Id", "spoofed")
+                            .queryParam("token", "query-private"))
+                    .andExpect(status().isUnauthorized()).andReturn();
+            String id = result.getResponse().getHeader("X-Request-Id");
+            assertEquals(id, java.util.UUID.fromString(id).toString());
+            assertEquals(1, logs.events("security.jwt.rejected").size());
+            var event = logs.events("security.jwt.rejected").get(0);
+            assertEquals(ch.qos.logback.classic.Level.WARN, event.getLevel());
+            assertEquals(java.util.Map.of("event", "security.jwt.rejected",
+                    "exceptionType", io.jsonwebtoken.JwtException.class.getName()), TestApplicationLogs.fields(event));
+            assertEquals(id, event.getMDCPropertyMap().get("requestId"));
+            assertEquals(1, logs.events("http.request.completed").size());
+            assertEquals(401, TestApplicationLogs.fields(logs.events("http.request.completed").get(0)).get("status"));
+            assertNull(org.slf4j.MDC.get("requestId"));
+            logs.assertSafe(token, "private_username", "query-private", "spoofed");
+        }
+        verify(jwtUtil, times(1)).extractUsername(token);
         verifyNoInteractions(userDetailsService, orderService);
     }
 
