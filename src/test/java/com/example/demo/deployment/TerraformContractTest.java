@@ -69,13 +69,13 @@ class TerraformContractTest {
         assertFalse(main.contains("default_vpc"));
         assertFalse(main.contains("default = true"));
         assertTrue(main.contains("subnet_id                   = aws_subnet.public.id"));
-        assertTrue(main.contains("associate_public_ip_address = true"));
+        assertTrue(main.contains("associate_public_ip_address = false"));
         assertTrue(main.contains("depends_on = [aws_route_table_association.public]"));
         assertTrue(main.contains("sort(data.aws_availability_zones.available.names)[0]"));
     }
 
     @Test
-    void ingressIsOnlyOperatorSshAndBootstrapEgressIsPreserved() throws Exception {
+    void ingressIsOnlyPublicHttpHttpsAndOperatorSshAndBootstrapEgressIsPreserved() throws Exception {
         String sg = block(source("main.tf"), "resource \"aws_security_group\" \"app_sg\"");
         String ingress = block(sg, "ingress");
         assertTrue(ingress.contains("from_port   = 22"));
@@ -83,7 +83,10 @@ class TerraformContractTest {
         assertTrue(ingress.contains("cidr_blocks = [var.ssh_ingress_cidr]"));
         assertFalse(ingress.contains("0.0.0.0/0"));
         assertFalse(sg.contains("8080"));
-        assertEquals(1, Pattern.compile("\\bingress\\s*\\{").matcher(sg).results().count());
+        assertFalse(sg.contains("2019"));
+        assertEquals(3, Pattern.compile("\\bingress\\s*\\{").matcher(sg).results().count());
+        assertTrue(sg.contains("from_port   = 80"));
+        assertTrue(sg.contains("from_port   = 443"));
         assertTrue(block(sg, "egress").contains("0.0.0.0/0"));
         assertTrue(sg.contains("vpc_id      = aws_vpc.app.id"));
         assertTrue(sg.contains("name_prefix"));
@@ -102,7 +105,7 @@ class TerraformContractTest {
         String tests = source("tests/host.tftest.hcl");
         assertTrue(tests.contains("mock_provider \"aws\""));
         assertTrue(tests.contains("override_during = plan"));
-        assertEquals(14, Pattern.compile("\\bcommand\\s*=\\s*plan\\b").matcher(tests).results().count());
+        assertEquals(27, Pattern.compile("\\bcommand\\s*=\\s*plan\\b").matcher(tests).results().count());
         assertFalse(Pattern.compile("\\bcommand\\s*=\\s*apply\\b").matcher(tests).find());
     }
 
@@ -200,7 +203,9 @@ class TerraformContractTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"success", "wrong-arch", "package-failure", "wrong-java", "download-failure",
-            "checksum-mismatch", "wrong-compose", "service-failure", "clone-failure"})
+            "checksum-mismatch", "wrong-compose", "service-failure", "clone-failure",
+            "caddy-download-failure", "caddy-checksum-mismatch", "wrong-caddy", "caddy-config-failure",
+            "caddy-systemd-failure"})
     void bootstrapFailsClosedUsingOnlyMockedHostCommands(String scenario) throws Exception {
         Path output = Files.createTempFile("terraform-userdata-test-", ".log");
         try {

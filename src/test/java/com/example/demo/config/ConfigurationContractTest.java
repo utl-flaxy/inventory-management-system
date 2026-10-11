@@ -102,6 +102,13 @@ class ConfigurationContractTest {
     }
 
     @Test
+    void forwardedHeadersAreEnabledOnlyBehindTheProdLoopbackProxy() throws Exception {
+        assertEquals("framework", properties("application-prod.properties").getProperty("server.forward-headers-strategy"));
+        assertNull(properties("application.properties").getProperty("server.forward-headers-strategy"));
+        assertNull(properties("application-local.properties").getProperty("server.forward-headers-strategy"));
+    }
+
+    @Test
     void healthUsesTheApplicationPort() throws Exception {
         for (String resource : java.util.List.of("application.properties", "application-local.properties",
                 "application-prod.properties")) {

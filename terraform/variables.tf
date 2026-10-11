@@ -1,3 +1,16 @@
+variable "app_domain" {
+  description = "Public application FQDN; the operator points its A record to the EIP."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition = length(var.app_domain) <= 253 && can(regex(
+      "^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$",
+    var.app_domain)) && !endswith(lower(var.app_domain), ".localhost")
+    error_message = "app_domain must be a normal public FQDN, without IP, scheme, path, port, wildcard, whitespace or localhost."
+  }
+}
+
 variable "region" {
   description = "AWS region supporting Amazon Linux 2023 and the selected instance type."
   type        = string

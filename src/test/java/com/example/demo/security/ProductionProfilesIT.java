@@ -68,6 +68,14 @@ class ProductionProfilesIT {
             assertEquals(200, health.statusCode());
             var healthBody = json.readTree(health.body());
             if (profile.equals("prod")) {
+                var forwardedHealth = http.send(HttpRequest.newBuilder(URI.create(base + "/actuator/health"))
+                        .header("X-Forwarded-Proto", "https").header("X-Forwarded-Host", "api.example.com")
+                        .build(), HttpResponse.BodyHandlers.ofString());
+                assertEquals(200, forwardedHealth.statusCode());
+                assertEquals(healthBody, json.readTree(forwardedHealth.body()));
+                assertTrue(forwardedHealth.headers().firstValue("Strict-Transport-Security").orElseThrow()
+                        .startsWith("max-age=31536000"), "Prod must recognize the proxy's HTTPS scheme");
+                assertTrue(forwardedHealth.headers().firstValue("X-Request-Id").isPresent());
                 assertEquals("UP", healthBody.path("status").asText());
                 var groupNames = new java.util.HashSet<String>();
                 healthBody.path("groups").forEach(group -> groupNames.add(group.asText()));
