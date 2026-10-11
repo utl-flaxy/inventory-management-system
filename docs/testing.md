@@ -55,6 +55,31 @@ logging追加前baselineはSurefire 654 / Failsafe 597 / total 1251で、既存�
 実console出力からusername/key/constraint/SQL messageが漏れないことを確認します。
 prodの`ErrorPacket`/`SqlExceptionHelper`だけをOFFにし、既存409・rollback・safe5xx eventを維持します。
 
+## 注文一覧ページング（Issue #65）
+
+開始時baselineはSurefire 857 / Failsafe 652 / total 1509。既存ケースを削除・skipしません。
+JSON配列からPageResponseへの明示的な契約変更に伴う期待値・stubだけを同期します。
+OrderPageableNormalizerTest（45件）、OrderPagingServiceTest（9件）、
+OrderPagingControllerTest（36件）、OrderPagingIT（72件）を追加し、
+ProductionLoggingITに実prodページング/不正sortの全logger秘密値監査を1件追加します。
+期待件数はSurefire 947 / Failsafe 725 / total 1672（163件追加）。
+
+実MariaDBでOSIV=false、fail_on_pagination_over_collection_fetch=true、
+Hibernate statistics/StatementInspectorを使用します。
+size 1/20/100/101でorder SELECTは3、JWTを含む全体SELECTはadmin4/self5で一定です。
+rootのLIMITと関連のINを確認し、注文/明細Entity load・collection fetch・DMLは0。
+全sortの方向/複合sort/ID tie-break、明細を含む注文単位の境界、本人content/count、
+read-only REPEATABLE READ、別connectionのcommitを混ぜないsnapshot、実索引EXPLAINも検証します。
+
+```powershell
+mvnw.cmd test '-Dtest=OrderPageableNormalizerTest,OrderPagingServiceTest,OrderPagingControllerTest,OrderOwnershipServiceTest,OrderControllerTest,OrderAggregatePersistenceTest,JwtAuthenticationTest,BusinessEventLoggingTest'
+mvnw.cmd test-compile failsafe:integration-test failsafe:verify '-Dit.test=OrderPagingIT,AuthorizationMatrixIT,AuthApiIT,ProductionLoggingIT,OrderCsvExportIT,MoneyApiIT,SalesApiIT'
+mvnw.cmd verify
+```
+
+Java 17 / Spring Boot 3.5.12、既存Terraform mock 27件を維持します。
+SQL・メモリ保持単位・request間の保証範囲は[ページング仕様](orders/pagination.md)を参照してください。
+
 ## 安全な注文CSV（Issue #63）
 
 開始時baselineはSurefire 814 / Failsafe 624 / total 1438。既存テストの削除・skipはしません。

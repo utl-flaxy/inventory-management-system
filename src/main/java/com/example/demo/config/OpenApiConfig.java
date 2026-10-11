@@ -44,6 +44,9 @@ public class OpenApiConfig {
                     responses.putIfAbsent("415", new ApiResponse().description("UNSUPPORTED_MEDIA_TYPE"));
                 }
                 if (path.contains("/orders")) {
+                    if (java.util.Set.of("/api/v1/admin/orders", "/api/v1/me/orders").contains(path)
+                            && method == io.swagger.v3.oas.models.PathItem.HttpMethod.GET)
+                        responses.putIfAbsent("400", new ApiResponse().description("INVALID_REQUEST: page/size/sort不正"));
                     if (path.contains("{id}")) responses.putIfAbsent("404", new ApiResponse().description("ORDER_NOT_FOUND"));
                     if (method != io.swagger.v3.oas.models.PathItem.HttpMethod.GET)
                         responses.putIfAbsent("409", new ApiResponse().description("注文の競合"));

@@ -107,16 +107,16 @@ class JwtAuthenticationTest {
     void validJwtAuthenticatesAndIsParsedOnce() throws Exception {
         when(userDetailsService.loadUserByUsername("alice"))
                 .thenReturn(User.withUsername("alice").password("unused").roles("USER").build());
-        when(orderService.findMyOrders()).thenReturn(List.of());
+        when(orderService.findMyOrders(any())).thenAnswer(call -> org.springframework.data.domain.Page.empty(call.getArgument(0)));
         String token = token(SECRET, ISSUER, new Date(System.currentTimeMillis() + 3_600_000L));
 
         mockMvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[]"));
+                .andExpect(content().json("{\"content\":[],\"page\":0,\"size\":20,\"totalElements\":0,\"totalPages\":0,\"first\":true,\"last\":true}"));
 
         verify(jwtUtil, times(1)).extractUsername(token);
         verify(userDetailsService, times(1)).loadUserByUsername("alice");
-        verify(orderService, times(1)).findMyOrders();
+        verify(orderService, times(1)).findMyOrders(any());
     }
 
     @ParameterizedTest

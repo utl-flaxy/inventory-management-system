@@ -187,7 +187,7 @@ class AuthApiIT {
         assertNoCredentials(response, users.findByUsername("alice").orElseThrow().getPassword());
         assertNoCredentials(decodedPayload, users.findByUsername("alice").orElseThrow().getPassword());
         mvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk()).andExpect(content().json("[]"));
+                .andExpect(status().isOk()).andExpect(content().json("{\"content\":[],\"page\":0,\"size\":20,\"totalElements\":0,\"totalPages\":0,\"first\":true,\"last\":true}"));
     }
 
     static Stream<Arguments> invalidLogins() {

@@ -167,11 +167,11 @@ class AuthorizationMatrixIT {
         if (expected == 404) {
             result.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
         } else if (expected == 200 && endpoint.equals("list")) {
-            result.andExpect(jsonPath("$.length()").value(1))
-                    .andExpect(jsonPath("$[0].id").value(actor.ownOrderId))
-                    .andExpect(jsonPath("$[0].customer.id").value(actor.customerId))
-                    .andExpect(jsonPath("$[0].customer.password").doesNotExist())
-                    .andExpect(jsonPath("$[0].customer.role").doesNotExist());
+            result.andExpect(jsonPath("$.content.length()").value(1))
+                    .andExpect(jsonPath("$.content[0].id").value(actor.ownOrderId))
+                    .andExpect(jsonPath("$.content[0].customer.id").value(actor.customerId))
+                    .andExpect(jsonPath("$.content[0].customer.password").doesNotExist())
+                    .andExpect(jsonPath("$.content[0].customer.role").doesNotExist());
         } else if (expected == 200) {
             result.andExpect(jsonPath("$.customer.id").value(actor.customerId))
                     .andExpect(jsonPath("$.customer.username").value(actor.username))
@@ -225,7 +225,7 @@ class AuthorizationMatrixIT {
         }
         if (expected == 200) {
             switch (endpoint) {
-                case "list" -> result.andExpect(jsonPath("$.length()").value(3));
+                case "list" -> result.andExpect(jsonPath("$.content.length()").value(3));
                 case "sales" -> result.andExpect(jsonPath("$.totalSales").value(0));
                 case "export" -> result.andExpect(content().string(org.hamcrest.Matchers.containsString("101,apple,2,100,200,PENDING")));
                 default -> {
@@ -251,7 +251,7 @@ class AuthorizationMatrixIT {
     void realDatabaseOwnershipQueriesNeverReturnAnotherCustomersOrder(Actor actor) {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             long otherId = actor == Actor.USER_B ? 101 : 102;
-            assertEquals(List.of(actor.ownOrderId), orders.findAllByCustomerId(actor.customerId).stream().map(order -> order.getId()).toList());
+            assertEquals(List.of(actor.ownOrderId), orders.findOrderIdsByCustomerId(actor.customerId, org.springframework.data.domain.PageRequest.of(0, 20)).getContent());
             assertTrue(orders.findByIdAndCustomerId(actor.ownOrderId, actor.customerId).isPresent());
             assertTrue(orders.findByIdAndCustomerId(otherId, actor.customerId).isEmpty());
             assertTrue(orders.findByIdAndCustomerIdForUpdate(actor.ownOrderId, actor.customerId).isPresent());
@@ -350,8 +350,8 @@ class AuthorizationMatrixIT {
                         .content("{\"customerId\":2,\"username\":\"bob\",\"role\":\"ROLE_ADMIN\",\"items\":[{\"productId\":1,\"quantity\":1}]}")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.customer.id").value(1));
         mvc.perform(as(Actor.USER_A, get(ME).queryParam("customerId", "2")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].customer.id").value(1)).andExpect(jsonPath("$[1].customer.id").value(1));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].customer.id").value(1)).andExpect(jsonPath("$.content[1].customer.id").value(1));
         Snapshot before = snapshot();
         mvc.perform(as(Actor.USER_A, get(ADMIN).queryParam("role", "ROLE_ADMIN"))).andExpect(status().isForbidden());
         assertEquals(before, snapshot());
@@ -381,7 +381,7 @@ class AuthorizationMatrixIT {
         var principal = userDetailsService.loadUserByUsername(actor.username);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
         Snapshot before = snapshot();
-        assertThrows(AccessDeniedException.class, adminController::getAll);
+        assertThrows(AccessDeniedException.class, () -> adminController.getAll(new org.springframework.util.LinkedMultiValueMap<>()));
         assertEquals(before, snapshot());
     }
 

@@ -163,6 +163,31 @@ class ProductionLoggingIT {
         assertFalse(failure.has("stack_trace"));
     }
 
+    @Test
+    void pagedReadsAndInvalidSortKeepProductionLogsFreeOfResponseAndQueryValues(CapturedOutput output) throws Exception {
+        jdbc.update("UPDATE products SET name='paging-private-product' WHERE id=1");
+        assertEquals(200, post("/api/v1/me/orders", orderBody(1), userToken, KEY).statusCode());
+        for (String path : List.of("/api/v1/admin/orders", "/api/v1/me/orders")) {
+            String token = path.contains("/admin/") ? adminToken : userToken;
+            var success = http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path + "?size=101"))
+                    .header("Authorization", "Bearer " + token).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, success.statusCode());
+            var body = json.readTree(success.body());
+            assertEquals(100, body.path("size").asInt());
+            assertEquals("alice", body.path("content").get(0).path("customer").path("username").asText());
+            assertEquals("paging-private-product", body.path("content").get(0).path("items").get(0).path("productName").asText());
+            var invalid = http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path
+                            + "?sort=private-sort-canary%2Casc")).header("Authorization", "Bearer " + token).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertProblem(invalid, 400, "INVALID_REQUEST", ApiProblemFactory.INVALID_REQUEST_DETAIL, path);
+        }
+        assertProductionLogs(output, Set.of("http.request.completed", "order.create.completed"));
+        assertFalse(output.getAll().contains("paging-private-product"));
+        assertFalse(output.getAll().contains("private-sort-canary"));
+        assertEquals(9, stock());
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM orders", Integer.class));
+    }
+
     private List<JsonNode> assertProductionLogs(CapturedOutput output, Set<String> required) throws Exception {
         // 実stdout/stderrを全logger対象で検査する。response/body/source literalは検査対象に混ぜない。
         String console = output.getAll();
