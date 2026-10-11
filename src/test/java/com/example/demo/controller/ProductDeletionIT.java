@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.dao.*;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -60,9 +60,9 @@ class ProductDeletionIT {
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired JwtUtil jwt;
-    @SpyBean ProductRepository products;
-    @SpyBean OrderItemRepository orderItems;
-    @SpyBean InventoryMovementRepository movements;
+    @MockitoSpyBean ProductRepository products;
+    @MockitoSpyBean OrderItemRepository orderItems;
+    @MockitoSpyBean InventoryMovementRepository movements;
     private String userToken, adminToken;
 
     @BeforeEach void fixtures() {

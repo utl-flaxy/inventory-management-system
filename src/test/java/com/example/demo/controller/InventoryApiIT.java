@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.*;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.context.annotation.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
@@ -75,7 +75,7 @@ class InventoryApiIT {
     @Autowired OrderService orders;
     @Autowired EntityManager entityManager;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
-    @SpyBean InventoryMovementRepository movements;
+    @MockitoSpyBean InventoryMovementRepository movements;
 
     @BeforeEach void fixtures() {
         for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users"))

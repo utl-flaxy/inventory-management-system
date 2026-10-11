@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -71,9 +71,9 @@ class InventoryAdjustmentIdempotencyIT {
     @Autowired InventoryService inventory;
     @Autowired PlatformTransactionManager transactions;
     @Autowired EntityManager entities;
-    @SpyBean InventoryMovementRepository movements;
-    @SpyBean UserRepository users;
-    @SpyBean ProductRepository products;
+    @MockitoSpyBean InventoryMovementRepository movements;
+    @MockitoSpyBean UserRepository users;
+    @MockitoSpyBean ProductRepository products;
     private Map<String,String> tokens;
 
     @BeforeEach void fixtures() {
