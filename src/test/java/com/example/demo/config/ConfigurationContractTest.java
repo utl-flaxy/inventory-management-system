@@ -86,6 +86,29 @@ class ConfigurationContractTest {
         }
     }
 
+    @Test
+    void standardProbesAreConfiguredOnlyInProd() throws Exception {
+        var expected = java.util.Map.of(
+                "management.endpoint.health.probes.enabled", "true",
+                "management.endpoint.health.probes.add-additional-paths", "true",
+                "management.endpoint.health.group.liveness.include", "livenessState",
+                "management.endpoint.health.group.readiness.include", "readinessState,db");
+        var prod = properties("application-prod.properties");
+        for (var entry : expected.entrySet()) {
+            assertEquals(entry.getValue(), prod.getProperty(entry.getKey()));
+            assertNull(properties("application.properties").getProperty(entry.getKey()));
+            assertNull(properties("application-local.properties").getProperty(entry.getKey()));
+        }
+    }
+
+    @Test
+    void healthUsesTheApplicationPort() throws Exception {
+        for (String resource : java.util.List.of("application.properties", "application-local.properties",
+                "application-prod.properties")) {
+            assertNull(properties(resource).getProperty("management.server.port"));
+        }
+    }
+
     private Properties properties(String resource) throws Exception {
         var properties = new Properties();
         try (var reader = Files.newBufferedReader(Path.of("src/main/resources", resource))) {

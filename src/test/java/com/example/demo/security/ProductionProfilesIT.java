@@ -66,8 +66,26 @@ class ProductionProfilesIT {
 
             var health = get("/actuator/health", null);
             assertEquals(200, health.statusCode());
-            assertEquals(json.valueToTree(Map.of("status", "UP")), json.readTree(health.body()));
+            var healthBody = json.readTree(health.body());
+            if (profile.equals("prod")) {
+                assertEquals("UP", healthBody.path("status").asText());
+                var groupNames = new java.util.HashSet<String>();
+                healthBody.path("groups").forEach(group -> groupNames.add(group.asText()));
+                assertEquals(java.util.Set.of("liveness", "readiness"), groupNames);
+                assertFalse(healthBody.has("details"));
+                assertFalse(healthBody.has("components"));
+                assertEquals(2, healthBody.size());
+            } else {
+                assertEquals(json.valueToTree(Map.of("status", "UP")), healthBody);
+            }
             assertEquals("DENY", health.headers().firstValue("X-Frame-Options").orElseThrow());
+            for (String probe : List.of("/livez", "/readyz")) {
+                var response = get(probe, null);
+                assertEquals(profile.equals("prod") ? 200 : 401, response.statusCode(), probe);
+                if (profile.equals("prod")) {
+                    assertEquals(json.valueToTree(Map.of("status", "UP")), json.readTree(response.body()));
+                }
+            }
             assertEquals(List.of("health"), context.getBean(WebEndpointsSupplier.class).getEndpoints()
                     .stream().map(endpoint -> endpoint.getEndpointId().toString()).sorted().toList());
 

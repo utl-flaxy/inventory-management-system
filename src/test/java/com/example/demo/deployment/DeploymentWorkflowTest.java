@@ -123,7 +123,9 @@ class DeploymentWorkflowTest {
                 "git cat-file -e \"${DEPLOY_SHA}^{commit}\"", "git checkout --detach \"$DEPLOY_SHA\"",
                 "[[ \"$ACTUAL_SHA\" == \"$DEPLOY_SHA\" ]]", "./mvnw clean package -DskipTests",
                 "org.opencontainers.image.revision=$DEPLOY_SHA", "inventory-management-system-app:$DEPLOY_SHA",
-                "attempt<=30", "--connect-timeout 2 --max-time 5", "http://127.0.0.1:8080/actuator/health",
+                "attempt<=30", "--connect-timeout 2 --max-time 5", "http://127.0.0.1:8080$path", "health /readyz",
+                "/readyz|/actuator/health|/v3/api-docs", "/readyz|/actuator/health",
+                "--write-out '%{http_code}'", "[[ \"$status\" == 200 ]]",
                 "previous-image.yml", "&& health", "trap finish EXIT", "redact_logs", "export SPRING_PROFILES_ACTIVE=prod",
                 "DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD", "inventory-management-system.health-path")) {
             assertTrue(script.contains(required), "Missing safety contract: " + required);
@@ -147,6 +149,20 @@ class DeploymentWorkflowTest {
         assertEquals(List.of("# The runtime image only needs the already-built jar.", "*", "!Dockerfile",
                 "!target/", "target/*", "!target/demo-0.0.1-SNAPSHOT.jar"),
                 Files.readAllLines(Path.of(".dockerignore")));
+    }
+
+    @Test
+    void composeWaitsForSecretFreeDbHealthAndDeclaresCrashRestartPolicies() throws Exception {
+        var services = map(yaml("docker-compose.yml").get("services"));
+        var db = map(services.get("db"));
+        var app = map(services.get("app"));
+        assertEquals("unless-stopped", db.get("restart"));
+        assertEquals("unless-stopped", app.get("restart"));
+        assertEquals(Map.of("db", Map.of("condition", "service_healthy")), app.get("depends_on"));
+        assertEquals(Map.of("test", List.of("CMD", "healthcheck.sh", "--connect", "--innodb_initialized"),
+                "interval", "10s", "timeout", "5s", "retries", 10, "start_period", "30s"), db.get("healthcheck"));
+        assertTrue(Files.readString(Path.of("Dockerfile"))
+                .contains("LABEL inventory-management-system.health-path=\"/readyz\""));
     }
 
     @Test

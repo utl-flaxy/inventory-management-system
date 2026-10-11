@@ -75,7 +75,11 @@ private environmentで必須4項目を設定し、`SPRING_PROFILES_ACTIVE=prod`�
 Flyway enabled、ddl-auto=validate、baseline-on-migrate=false、clean-disabled=trueを維持する。
 V1〜V4不変、V5/schema変更なし。
 
-`GET /actuator/health`だけJWTなしで利用でき、正常時は200 `{"status":"UP"}`。
+`GET /actuator/health`は全profileでJWTなし、prodではmain portの`/livez`と`/readyz`も匿名可。
+probeとdefault/local総合healthは正常時200 `{"status":"UP"}`のみ。
+prod総合healthはBoot標準のstatusとgroups（liveness/readiness）を返し、details/componentsは引き続き非公開。
+livenessはlivenessStateのみ、readinessはreadinessStateとdbを含む。
+DB利用不能またはREFUSING_TRAFFICはreadiness503となり、DB障害だけではlivenessをDOWNにしない。
 DBがDOWNなら配備成功扱いにしない。db/diskSpace/componentsなどのdetailsは認証済みでも非公開。
 他のActuatorはaccess/exposureから除外し、管理URLへのアクセスも404とする。JMX exposureも無効。
 datasource URL/user/password、root password、JWT secretはhealth/ProblemDetailへ返さない。
