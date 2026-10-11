@@ -4,6 +4,10 @@ DB schemaのsource of truthは `src/main/resources/db/migration`。
 通常起動はSpring BootがFlyway migrateを実行した後、HibernateがEntityとの一致をvalidateする。
 Hibernateはテーブルを作成・変更しない。Entity annotationはmapping/validation補助として使う。
 
+事前backupと復元検証には[MariaDB backup/restore runbook](backup-restore.md)の実scriptを使用する。
+schema/data/Flyway historyをprivate bundleへ取得し、まずdisposable DBで復元・checksum/Flyway/Hibernateを検証する。
+backup中のconcurrent DDLを避け、restore中は全writerを停止する。productionへの自動restoreやvolume削除は行わない。
+
 ## 専用app DB userへの切替（Issue #37）
 
 appはrootを使わず、対象DBだけに権限を持つinventory_app等で接続する。
