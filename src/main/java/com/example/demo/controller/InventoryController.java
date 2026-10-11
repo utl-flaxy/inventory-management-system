@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.InventoryAdjustmentRequest;
 import com.example.demo.dto.InventoryMovementResponse;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -9,7 +10,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -33,7 +33,7 @@ public class InventoryController {
 
     @GetMapping("/inventory-movements")
     @Operation(summary = "商品の在庫履歴（ADMIN）", description = "page/sizeだけを使用。sortはcreatedAt DESC, id DESCへ固定する")
-    public Page<InventoryMovementResponse> history(@PathVariable Long id, @ParameterObject Pageable pageable) {
-        return service.history(id, pageable);
+    public PageResponse<InventoryMovementResponse> history(@PathVariable Long id, @ParameterObject Pageable pageable) {
+        return PageResponse.from(service.history(id, pageable));
     }
 }

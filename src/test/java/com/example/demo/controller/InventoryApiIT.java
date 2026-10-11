@@ -52,6 +52,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class InventoryApiIT {
     private static final String BASE = "/api/v1/admin/products/";
     private static final String WHEN = "2026-10-10T01:02:03.123456Z";
+    private static final Set<String> PAGE_FIELDS = Set.of(
+            "content", "page", "size", "totalElements", "totalPages", "first", "last");
+    private static final Set<String> MOVEMENT_FIELDS = Set.of("id", "productId", "delta", "stockBefore",
+            "stockAfter", "reason", "sourceType", "sourceId", "actor", "note", "createdAt");
     private static final String SECRET = Base64.getEncoder().encodeToString(Jwts.SIG.HS256.key().build().getEncoded());
     @Container static final MariaDBContainer database = new MariaDBContainer("mariadb:12.2.2")
             .withDatabaseName("inventory_api");
@@ -223,12 +227,49 @@ class InventoryApiIT {
         mvc.perform(get(BASE + "2/inventory-movements").header("Authorization", token("admin")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
         adjustment(2, adjustmentBody(2, "RECEIPT", null)).andExpect(status().isOk());
-        mvc.perform(get(BASE + "1/inventory-movements?page=0&size=2&sort=id,asc").header("Authorization", token("admin")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3))
-                .andExpect(jsonPath("$.content[0].id").value(ids.get(2))).andExpect(jsonPath("$.content[1].id").value(ids.get(1)));
-        mvc.perform(get(BASE + "1/inventory-movements?page=1&size=2&sort=delta,asc").header("Authorization", token("admin")))
+        var before = snapshot();
+        String firstPage = mvc.perform(get(BASE + "1/inventory-movements?page=0&size=2&sort=id,asc").header("Authorization", token("admin")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(7))
+                .andExpect(jsonPath("$.page").value(0)).andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.first").value(true)).andExpect(jsonPath("$.last").value(false))
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(ids.get(2))).andExpect(jsonPath("$.content[1].id").value(ids.get(1)))
+                .andExpect(jsonPath("$.content[0].createdAt").value(WHEN)).andExpect(jsonPath("$.content[1].createdAt").value(WHEN))
+                .andReturn().getResponse().getContentAsString();
+        assertHistoryContract(json.readTree(firstPage));
+        String lastPage = mvc.perform(get(BASE + "1/inventory-movements?page=1&size=2&sort=delta,asc").header("Authorization", token("admin")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].id").value(ids.get(0)));
+                .andExpect(jsonPath("$.page").value(1)).andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.first").value(false)).andExpect(jsonPath("$.last").value(true))
+                .andExpect(jsonPath("$.content[0].id").value(ids.get(0)))
+                .andExpect(jsonPath("$.content[0].createdAt").value(WHEN))
+                .andReturn().getResponse().getContentAsString();
+        assertHistoryContract(json.readTree(lastPage));
+        assertEquals(before, snapshot());
+    }
+
+    @Test void emptyProductHistoryUsesFixedPageResponseContract() throws Exception {
+        var before = snapshot();
+        JsonNode page = json.readTree(mvc.perform(get(BASE + "1/inventory-movements").header("Authorization", token("admin")))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertHistoryContract(page);
+        assertEquals(json.readTree("""
+                {"content":[],"page":0,"size":20,"totalElements":0,"totalPages":0,"first":true,"last":true}
+                """), page);
+        assertEquals(before, snapshot());
+    }
+
+    @ParameterizedTest @CsvSource({"500,500", "5000,2000"})
+    void historyKeepsStandardResolverPageSizeBehavior(int requested, int expected) throws Exception {
+        var before = snapshot();
+        JsonNode page = json.readTree(mvc.perform(get(BASE + "1/inventory-movements").header("Authorization", token("admin"))
+                .param("size", Integer.toString(requested))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(expected)).andReturn().getResponse().getContentAsString());
+        assertHistoryContract(page);
+        assertEquals(0, page.path("page").asInt());
+        assertEquals(before, snapshot());
     }
 
     @Test void multiProductOrderWritesOneMovementPerProductReplayAndMismatchDoNotAppendAndOtherCommandsDoNotAppend() throws Exception {
@@ -419,5 +460,39 @@ class InventoryApiIT {
                 assertTrue(api.toString().contains("INVENTORY_ADJUSTMENT_CONFLICT"));
             }
         }
+        var history = document.path("paths").path(BASE + "{id}/inventory-movements").path("get");
+        var content = history.path("responses").path("200").path("content");
+        assertEquals(1, content.size());
+        var response = content.elements().next().path("schema");
+        assertEquals("#/components/schemas/PageResponseInventoryMovementResponse", response.path("$ref").asText());
+        var pageProperties = document.at(response.path("$ref").asText().substring(1)).path("properties");
+        assertEquals(PAGE_FIELDS, fields(pageProperties));
+        assertEquals("#/components/schemas/InventoryMovementResponse",
+                pageProperties.path("content").path("items").path("$ref").asText());
+        assertEquals(MOVEMENT_FIELDS, fields(schemas.path("InventoryMovementResponse").path("properties")));
+        var parameters = new HashMap<String, JsonNode>();
+        history.path("parameters").forEach(parameter -> parameters.put(parameter.path("name").asText(), parameter));
+        assertTrue(parameters.keySet().containsAll(Set.of("page", "size", "sort")));
+        assertEquals(0, parameters.get("page").path("schema").path("default").asInt(-1));
+        assertEquals(20, parameters.get("size").path("schema").path("default").asInt(-1));
+        assertTrue(history.path("description").asText().contains("page/sizeだけを使用。sortはcreatedAt DESC, id DESCへ固定する"));
+    }
+
+    private void assertHistoryContract(JsonNode page) {
+        assertEquals(PAGE_FIELDS, fields(page));
+        for (String field : List.of("pageable", "sort", "number", "numberOfElements", "empty"))
+            assertFalse(page.has(field), field);
+        for (JsonNode movement : page.path("content")) {
+            assertEquals(MOVEMENT_FIELDS, fields(movement));
+            assertEquals(Set.of("id", "username"), fields(movement.path("actor")));
+            for (String field : List.of("idempotencyKey", "requestFingerprint", "password"))
+                assertFalse(movement.has(field), field);
+        }
+    }
+
+    private Set<String> fields(JsonNode node) {
+        var fields = new TreeSet<String>();
+        node.fieldNames().forEachRemaining(fields::add);
+        return fields;
     }
 }

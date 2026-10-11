@@ -89,7 +89,9 @@ Validation・認可・商品未存在・underflow/overflow・INSERT/flush失敗�
 
 GET /api/v1/admin/products/{id}/inventory-movements?page=0&size=20
 
-Spring Pageを返す。page / sizeを利用し、sortはサーバー固定のcreatedAt DESC, id DESC。
+HTTPはProductと同じ固定 `PageResponse<InventoryMovementResponse>` を返す（Issue #52）。
+top-levelはcontent / page / size / totalElements / totalPages / first / lastの7項目だけ。旧PageImpl内部fieldは非公開。
+ServiceのSpring Page返却は維持する。pageは0-based、size=500は500、size=5000は上限2000。sortはサーバー固定のcreatedAt DESC, id DESC。
 clientのsort指定は上書きする。同じmicrosecondの記録もidで安定する。
 存在する商品で履歴なしは200 empty page、未存在は404。USER403 / 未認証401は調整と同じ。
 product_idで絞り、actorをEntityGraphで取得してTransaction内でDTOへ変換する。
