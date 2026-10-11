@@ -1,0 +1,3768 @@
+{
+  "as_of": "2026-10-12 Asia/Tokyo",
+  "baseline_main": "8ba4e9a9e833565edef8daa379c9f843fe2161f7",
+  "scanner": "OSV Scanner 2.6.0",
+  "sbom_plugin": "org.cyclonedx:cyclonedx-maven-plugin:2.9.3",
+  "resolved_components": 137,
+  "affected_libraries": 17,
+  "advisory_count": 66,
+  "severity": {
+    "MODERATE": 28,
+    "HIGH": 22,
+    "LOW": 8,
+    "CRITICAL": 8
+  },
+  "security_status": "FINDINGS UNREMEDIATED; not a security PASS; no risk acceptance or suppression",
+  "raw_evidence_sha256": {
+    "issue80-osv-baseline.json": "15f32f48c23e4e7b3df7d2e2e4234217fb7873cff37fd7ecb7b62c5d7ad5e42d",
+    "bom.json": "39096cb65b61456db083e3d8e04d1b17e2a60b54a0e29d18c6609e9385b6b851",
+    "quality-gates-dependency-tree.json": "338e9fc3705b709471a0e145003816f0c6a26dc846c57b3afc8a98a11561d6a1"
+  },
+  "findings": [
+    {
+      "id": "GHSA-j288-q9x7-2f5v",
+      "cve": "CVE-2025-48924",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+        "score": 6.5
+      },
+      "coordinate": "org.apache.commons:commons-lang3",
+      "version": "3.17.0",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.testcontainers:testcontainers-junit-jupiter",
+        "org.testcontainers:testcontainers",
+        "org.apache.commons:commons-compress",
+        "org.apache.commons:commons-lang3"
+      ],
+      "summary": "Apache Commons Lang is vulnerable to Uncontrolled Recursion when processing long inputs",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.0"
+              },
+              {
+                "fixed": "3.18.0"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.18.0"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-j288-q9x7-2f5v",
+        "https://osv.dev/vulnerability/GHSA-j288-q9x7-2f5v"
+      ],
+      "upstream_updated_at": "2025-11-05T20:30:33Z",
+      "exploit_condition": "Long ClassUtils.getClass input triggers uncontrolled recursive processing.",
+      "reachability": "Library is in production JAR; no application call to ClassUtils.getClass found.",
+      "source_evidence": "src/main/java/",
+      "unverified": "Flyway/Hibernate/other transitive call paths unverified."
+    },
+    {
+      "id": "GHSA-72hv-8253-57qq",
+      "cve": "CVE-2026-18401",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": null,
+        "score": 0.0
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-core",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-csv",
+        "com.fasterxml.jackson.core:jackson-core"
+      ],
+      "summary": "jackson-core: Number Length Constraint Bypass in Async Parser Leads to Potential DoS Condition",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.1"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.1"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-72hv-8253-57qq",
+        "https://osv.dev/vulnerability/GHSA-72hv-8253-57qq",
+        "https://github.com/FasterXML/jackson-core/security/advisories/GHSA-72hv-8253-57qq"
+      ],
+      "upstream_updated_at": "2026-09-01T18:57:19Z",
+      "exploit_condition": "Chunked digits supplied to Jackson nonblocking async parser bypass numeric length constraints.",
+      "reachability": "Servlet MVC uses synchronous JSON input; no nonblocking parser creation found in application sources.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party async parsing not traced; do not remove findings."
+    },
+    {
+      "id": "GHSA-7hhh-6rmp-j9qf",
+      "cve": "CVE-2026-89425",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-core",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-csv",
+        "com.fasterxml.jackson.core:jackson-core"
+      ],
+      "summary": "jackson-core: UTF8DataInputJsonParser._reportInvalidToken() missing maxErrorTokenLength limit -> unbounded StringBuilder growth (DoS)",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.7"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.7"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-7hhh-6rmp-j9qf",
+        "https://osv.dev/vulnerability/GHSA-7hhh-6rmp-j9qf",
+        "https://github.com/FasterXML/jackson-core/security/advisories/GHSA-7hhh-6rmp-j9qf"
+      ],
+      "upstream_updated_at": "2026-10-01T15:20:28Z",
+      "exploit_condition": "Malformed long token parsed through JsonFactory.createParser(DataInput).",
+      "reachability": "Application accepts JSON through MVC InputStream; no application DataInput parser call found. Vulnerable parser entry not established.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party DataInput usage and deployed request-size limits not traced."
+    },
+    {
+      "id": "GHSA-p6pp-m3f8-5c89",
+      "cve": "CVE-2026-89407",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-core",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-csv",
+        "com.fasterxml.jackson.core:jackson-core"
+      ],
+      "summary": " jackson-core: ReDoS: quadratic backtracking in NumberInput.PATTERN_FLOAT via looksLikeValidNumber()",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.7"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.7"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-p6pp-m3f8-5c89",
+        "https://osv.dev/vulnerability/GHSA-p6pp-m3f8-5c89",
+        "https://github.com/FasterXML/jackson-core/security/advisories/GHSA-p6pp-m3f8-5c89"
+      ],
+      "upstream_updated_at": "2026-10-01T15:19:23Z",
+      "exploit_condition": "Attacker string reaches NumberInput.looksLikeValidNumber; quadratic regex backtracking.",
+      "reachability": "Numeric DTO inputs exist (ProductRequest.price/stock), but the precise coercion path into this regex is not proven for Long/Integer. No application DoS reproduced.",
+      "source_evidence": "src/main/java/com/example/demo/dto/ProductRequest.java",
+      "unverified": "Actual coercion call stack, body limits and bounded runtime reproduction required."
+    },
+    {
+      "id": "GHSA-r7wm-3cxj-wff9",
+      "cve": "CVE-2026-68494",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": null,
+        "score": 0.0
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-core",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-csv",
+        "com.fasterxml.jackson.core:jackson-core"
+      ],
+      "summary": "jackson-core: Async parser maxNumberLength bypass via chunked digit accumulation (incomplete fix for GHSA-72hv-8253-57qq)",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.4"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.4"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-r7wm-3cxj-wff9",
+        "https://osv.dev/vulnerability/GHSA-r7wm-3cxj-wff9",
+        "https://github.com/FasterXML/jackson-core/security/advisories/GHSA-r7wm-3cxj-wff9"
+      ],
+      "upstream_updated_at": "2026-10-02T23:08:42Z",
+      "exploit_condition": "Chunked digits supplied to Jackson nonblocking async parser bypass numeric length constraints.",
+      "reachability": "Servlet MVC uses synchronous JSON input; no nonblocking parser creation found in application sources.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party async parsing not traced; do not remove findings."
+    },
+    {
+      "id": "GHSA-3pjw-73gf-8qr5",
+      "cve": "CVE-2026-59888",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+        "score": 6.5
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind: @JsonIgnore on a Record property is bypassed with a PropertyNamingStrategy",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.4"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.4"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-3pjw-73gf-8qr5",
+        "https://osv.dev/vulnerability/GHSA-3pjw-73gf-8qr5",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-3pjw-73gf-8qr5"
+      ],
+      "upstream_updated_at": "2026-07-21T19:33:07Z",
+      "exploit_condition": "Record naming/ignore annotations, case-insensitive binding, or unsafe polymorphic base type matches advisory-specific prerequisite.",
+      "reachability": "No JsonIgnore/JsonIgnoreProperties, naming strategy or polymorphic typing configured on application request DTOs.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Third-party mapper/models and exact annotation combinations unverified."
+    },
+    {
+      "id": "GHSA-5jmj-h7xm-6q6v",
+      "cve": "CVE-2026-54515",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+        "score": 5.3
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind has case-insensitive deserialization bypasses per-property @JsonIgnoreProperties",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.5"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.5"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-5jmj-h7xm-6q6v",
+        "https://osv.dev/vulnerability/GHSA-5jmj-h7xm-6q6v",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-5jmj-h7xm-6q6v"
+      ],
+      "upstream_updated_at": "2026-07-16T21:25:47Z",
+      "exploit_condition": "Record naming/ignore annotations, case-insensitive binding, or unsafe polymorphic base type matches advisory-specific prerequisite.",
+      "reachability": "No JsonIgnore/JsonIgnoreProperties, naming strategy or polymorphic typing configured on application request DTOs.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Third-party mapper/models and exact annotation combinations unverified."
+    },
+    {
+      "id": "GHSA-cxp5-3px4-pw24",
+      "cve": "CVE-2026-91777",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind quadratic forward-reference completion ",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.7"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.7"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-cxp5-3px4-pw24",
+        "https://osv.dev/vulnerability/GHSA-cxp5-3px4-pw24",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-cxp5-3px4-pw24"
+      ],
+      "upstream_updated_at": "2026-09-30T15:37:26Z",
+      "exploit_condition": "JsonIdentityInfo unresolved references completed in reverse order cause quadratic work.",
+      "reachability": "No JsonIdentityInfo found on application request types; controllers deserialize DTOs.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Dependency-owned models and mapper customizations not exhaustively traced."
+    },
+    {
+      "id": "GHSA-gx83-3vf8-gh7j",
+      "cve": "CVE-2026-83557",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+        "score": 5.6
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind: Comparable missing from DefaultBaseTypeLimitingValidator's unsafe base types (incomplete PolymorphicTypeValidator denylist)",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.6"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.6"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-gx83-3vf8-gh7j",
+        "https://osv.dev/vulnerability/GHSA-gx83-3vf8-gh7j",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-gx83-3vf8-gh7j"
+      ],
+      "upstream_updated_at": "2026-09-28T20:44:27Z",
+      "exploit_condition": "Record naming/ignore annotations, case-insensitive binding, or unsafe polymorphic base type matches advisory-specific prerequisite.",
+      "reachability": "No JsonIgnore/JsonIgnoreProperties, naming strategy or polymorphic typing configured on application request DTOs.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Third-party mapper/models and exact annotation combinations unverified."
+    },
+    {
+      "id": "GHSA-hgj6-7826-r7m5",
+      "cve": "CVE-2026-54514",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "score": 5.3
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind: InetSocketAddress deserialization triggers eager DNS resolution (SSRF)",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.4"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.4"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-hgj6-7826-r7m5",
+        "https://osv.dev/vulnerability/GHSA-hgj6-7826-r7m5",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-hgj6-7826-r7m5"
+      ],
+      "upstream_updated_at": "2026-07-20T21:21:20Z",
+      "exploit_condition": "Attacker strings are bound to InetSocketAddress, InetAddress or Path and cause DNS/provider operations.",
+      "reachability": "No InetAddress/InetSocketAddress/Path application request DTO field found.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Indirect framework/third-party binding unverified."
+    },
+    {
+      "id": "GHSA-j3rv-43j4-c7qm",
+      "cve": "CVE-2026-54512",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "score": 8.1
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind has a PolymorphicTypeValidator bypass via generic type parameters that allows arbitrary class instantiation",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.4"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.4"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-j3rv-43j4-c7qm",
+        "https://osv.dev/vulnerability/GHSA-j3rv-43j4-c7qm",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-j3rv-43j4-c7qm"
+      ],
+      "upstream_updated_at": "2026-07-20T21:21:15Z",
+      "exploit_condition": "Polymorphic typing permits raw generic container while rejecting its generic component type incorrectly.",
+      "reachability": "No enableDefaultTyping, activateDefaultTyping or JsonTypeInfo found in application sources.",
+      "source_evidence": "src/main/java/",
+      "unverified": "All third-party mapper configurations and gadget prerequisites unverified."
+    },
+    {
+      "id": "GHSA-q4xh-88c3-wmh7",
+      "cve": "CVE-2026-68497",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind: Duration XMLGregorianCalendar Unbounded Number Parse DoS",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.6"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.6"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-q4xh-88c3-wmh7",
+        "https://osv.dev/vulnerability/GHSA-q4xh-88c3-wmh7",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-q4xh-88c3-wmh7"
+      ],
+      "upstream_updated_at": "2026-09-28T20:19:48Z",
+      "exploit_condition": "Unbounded XML-Schema duration/calendar string converted to BigInteger/BigDecimal.",
+      "reachability": "No XMLGregorianCalendar or javax.xml.datatype.Duration request field found.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Indirect third-party binding not exhaustively traced."
+    },
+    {
+      "id": "GHSA-rmj7-2vxq-3g9f",
+      "cve": "CVE-2026-54513",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "score": 8.1
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind has an array subtype allowlist bypass in BasicPolymorphicTypeValidator (allowIfSubTypeIsArray)",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.4"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.4"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-rmj7-2vxq-3g9f",
+        "https://osv.dev/vulnerability/GHSA-rmj7-2vxq-3g9f",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-rmj7-2vxq-3g9f"
+      ],
+      "upstream_updated_at": "2026-09-11T15:33:29Z",
+      "exploit_condition": "Polymorphic validator configured with allowIfSubTypeIsArray permits unapproved component classes.",
+      "reachability": "No array subtype allowlist or polymorphic typing configuration found in application sources.",
+      "source_evidence": "src/main/java/",
+      "unverified": "Dependency mapper configuration and gadget chain unverified."
+    },
+    {
+      "id": "GHSA-vvgp-rfg2-7rr6",
+      "cve": "CVE-2026-77310",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "score": 5.3
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind: Incomplete fix for CVE-2026-54514: eager DNS resolution (SSRF) still present in InetAddress deserialization",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.5"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.5"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-vvgp-rfg2-7rr6",
+        "https://osv.dev/vulnerability/GHSA-vvgp-rfg2-7rr6",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-vvgp-rfg2-7rr6"
+      ],
+      "upstream_updated_at": "2026-09-28T20:17:44Z",
+      "exploit_condition": "Attacker strings are bound to InetSocketAddress, InetAddress or Path and cause DNS/provider operations.",
+      "reachability": "No InetAddress/InetSocketAddress/Path application request DTO field found.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Indirect framework/third-party binding unverified."
+    },
+    {
+      "id": "GHSA-wjgm-6hv5-3cvf",
+      "cve": "CVE-2026-19032",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+        "score": 5.3
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind: Path Deserialization Missing Scheme Allowlist for FileSystemProvider Resolution",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.6"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.6"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-wjgm-6hv5-3cvf",
+        "https://osv.dev/vulnerability/GHSA-wjgm-6hv5-3cvf",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-wjgm-6hv5-3cvf"
+      ],
+      "upstream_updated_at": "2026-09-28T20:19:22Z",
+      "exploit_condition": "Attacker strings are bound to InetSocketAddress, InetAddress or Path and cause DNS/provider operations.",
+      "reachability": "No InetAddress/InetSocketAddress/Path application request DTO field found.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Indirect framework/third-party binding unverified."
+    },
+    {
+      "id": "GHSA-wv8q-qhhj-9h54",
+      "cve": "CVE-2026-91776",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "version": "2.19.4",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "io.jsonwebtoken:jjwt-jackson",
+        "com.fasterxml.jackson.core:jackson-databind"
+      ],
+      "summary": "jackson-databind retains every unknown raw type ID ",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.19.0"
+              },
+              {
+                "fixed": "2.21.7"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.21.7"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-wv8q-qhhj-9h54",
+        "https://osv.dev/vulnerability/GHSA-wv8q-qhhj-9h54",
+        "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-wv8q-qhhj-9h54"
+      ],
+      "upstream_updated_at": "2026-09-30T15:36:57Z",
+      "exploit_condition": "JsonTypeInfo Id.NAME plus defaultImpl retains arbitrary unknown type IDs indefinitely.",
+      "reachability": "No JsonTypeInfo/defaultImpl request model found in application sources.",
+      "source_evidence": "src/main/java/com/example/demo/dto/",
+      "unverified": "Third-party models and long-lived mapper caches unverified."
+    },
+    {
+      "id": "GHSA-qv9r-c865-cp47",
+      "cve": "CVE-2026-49844",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": null,
+        "score": 0.0
+      },
+      "coordinate": "org.apache.logging.log4j:log4j-api",
+      "version": "2.24.3",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter",
+        "org.springframework.boot:spring-boot-starter-logging",
+        "org.apache.logging.log4j:log4j-to-slf4j",
+        "org.apache.logging.log4j:log4j-api"
+      ],
+      "summary": "Apache Log4j API: Improper encoding of non-finite floating-point values during MapMessage JSON serialization",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "2.13.1"
+              },
+              {
+                "fixed": "2.25.5"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "2.25.5"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-qv9r-c865-cp47",
+        "https://osv.dev/vulnerability/GHSA-qv9r-c865-cp47"
+      ],
+      "upstream_updated_at": "2026-08-13T18:28:31Z",
+      "exploit_condition": "Log4j MapMessage JSON serialization receives non-finite floating-point values.",
+      "reachability": "Default logging routes through Logback; no application MapMessage use found.",
+      "source_evidence": "pom.xml; src/main/java/",
+      "unverified": "Third-party logging calls unverified."
+    },
+    {
+      "id": "GHSA-jhq6-gfmj-v8fx",
+      "cve": "CVE-2026-10532",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": null,
+        "score": 0.0
+      },
+      "coordinate": "ch.qos.logback:logback-core",
+      "version": "1.5.32",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter",
+        "org.springframework.boot:spring-boot-starter-logging",
+        "ch.qos.logback:logback-classic",
+        "ch.qos.logback:logback-core"
+      ],
+      "summary": "Logback vulnerable to Object Injection through HardenedObjectInputStream modules",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "1.5.34"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "1.5.34"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-jhq6-gfmj-v8fx",
+        "https://osv.dev/vulnerability/GHSA-jhq6-gfmj-v8fx"
+      ],
+      "upstream_updated_at": "2026-07-15T21:52:55Z",
+      "exploit_condition": "Untrusted serialized data reaches affected Logback object-input receiver/deserialization component.",
+      "reachability": "No socket/object receiver configured; application uses console structured logs.",
+      "source_evidence": "src/main/resources/application-prod.properties",
+      "unverified": "Runtime logging configuration and custom appenders unverified."
+    },
+    {
+      "id": "GHSA-p47f-322f-whfh",
+      "cve": "CVE-2026-9828",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": null,
+        "score": 0.0
+      },
+      "coordinate": "ch.qos.logback:logback-core",
+      "version": "1.5.32",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter",
+        "org.springframework.boot:spring-boot-starter-logging",
+        "ch.qos.logback:logback-classic",
+        "ch.qos.logback:logback-core"
+      ],
+      "summary": "QOS.CH Sarl logback logback-core has a deserialization of untrusted data vulnerability",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "1.5.33"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "1.5.33"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-p47f-322f-whfh",
+        "https://osv.dev/vulnerability/GHSA-p47f-322f-whfh"
+      ],
+      "upstream_updated_at": "2026-07-02T13:55:31Z",
+      "exploit_condition": "Untrusted serialized data reaches affected Logback object-input receiver/deserialization component.",
+      "reachability": "No socket/object receiver configured; application uses console structured logs.",
+      "source_evidence": "src/main/resources/application-prod.properties",
+      "unverified": "Runtime logging configuration and custom appenders unverified."
+    },
+    {
+      "id": "GHSA-g9jj-cgmh-9f38",
+      "cve": "CVE-2026-55856",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 5.9
+      },
+      "coordinate": "org.mariadb.jdbc:mariadb-java-client",
+      "version": "3.5.7",
+      "dependency_type": "direct",
+      "maven_scope": "runtime",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.mariadb.jdbc:mariadb-java-client"
+      ],
+      "summary": "MariaDB has cleartext password disclosure to a MITM on the initial-handshake",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.9"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.9"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-g9jj-cgmh-9f38",
+        "https://osv.dev/vulnerability/GHSA-g9jj-cgmh-9f38",
+        "https://github.com/mariadb-corporation/mariadb-connector-j/security/advisories/GHSA-g9jj-cgmh-9f38"
+      ],
+      "upstream_updated_at": "2026-08-28T22:41:57Z",
+      "exploit_condition": "Malicious database server/MITM manipulates handshake or authentication causing credential disclosure.",
+      "reachability": "Production JDBC connects to MariaDB and is a reachable network boundary; Compose uses an internal DB network. MITM and TLS authenticity have not been tested.",
+      "source_evidence": "src/main/resources/application-prod.properties; docker-compose.yml",
+      "unverified": "Actual TLS mode, DB network isolation and deployed JDBC overrides unverified; never probe production credentials."
+    },
+    {
+      "id": "GHSA-qxvw-fvwx-5cp7",
+      "cve": "CVE-2026-55857",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 5.9
+      },
+      "coordinate": "org.mariadb.jdbc:mariadb-java-client",
+      "version": "3.5.7",
+      "dependency_type": "direct",
+      "maven_scope": "runtime",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.mariadb.jdbc:mariadb-java-client"
+      ],
+      "summary": "org.mariadb.jdbc:mariadb-java-client has Cleartext Transmission of Sensitive Information and Insufficiently Protected Credentials",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.9"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.9"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-qxvw-fvwx-5cp7",
+        "https://osv.dev/vulnerability/GHSA-qxvw-fvwx-5cp7",
+        "https://github.com/mariadb-corporation/mariadb-connector-j/security/advisories/GHSA-qxvw-fvwx-5cp7"
+      ],
+      "upstream_updated_at": "2026-08-28T22:45:02Z",
+      "exploit_condition": "Malicious database server/MITM manipulates handshake or authentication causing credential disclosure.",
+      "reachability": "Production JDBC connects to MariaDB and is a reachable network boundary; Compose uses an internal DB network. MITM and TLS authenticity have not been tested.",
+      "source_evidence": "src/main/resources/application-prod.properties; docker-compose.yml",
+      "unverified": "Actual TLS mode, DB network isolation and deployed JDBC overrides unverified; never probe production credentials."
+    },
+    {
+      "id": "GHSA-wxmm-q36w-r9xj",
+      "cve": "CVE-2026-61700",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "score": 3.7
+      },
+      "coordinate": "org.mariadb.jdbc:mariadb-java-client",
+      "version": "3.5.7",
+      "dependency_type": "direct",
+      "maven_scope": "runtime",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.mariadb.jdbc:mariadb-java-client"
+      ],
+      "summary": "MariaDB Connector/J does not enforce allowLocalInfile=false  on server-initiated LOCAL INFILE requests",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.9"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.9"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-wxmm-q36w-r9xj",
+        "https://osv.dev/vulnerability/GHSA-wxmm-q36w-r9xj",
+        "https://github.com/mariadb-corporation/mariadb-connector-j/security/advisories/GHSA-wxmm-q36w-r9xj"
+      ],
+      "upstream_updated_at": "2026-09-17T16:29:55Z",
+      "exploit_condition": "Malicious server sends LOCAL INFILE request despite allowLocalInfile=false.",
+      "reachability": "JDBC server responses reach the driver; no application LOCAL INFILE use found.",
+      "source_evidence": "src/main/resources/application-prod.properties",
+      "unverified": "Malicious-server precondition and deployed driver flags unverified."
+    },
+    {
+      "id": "GHSA-xvr9-35cr-46v9",
+      "cve": "CVE-2026-55858",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N",
+        "score": 5.9
+      },
+      "coordinate": "org.mariadb.jdbc:mariadb-java-client",
+      "version": "3.5.7",
+      "dependency_type": "direct",
+      "maven_scope": "runtime",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.mariadb.jdbc:mariadb-java-client"
+      ],
+      "summary": "org.mariadb.jdbc:mariadb-java-client has Inappropriate Encoding for Output Context",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.9"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.9"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-xvr9-35cr-46v9",
+        "https://osv.dev/vulnerability/GHSA-xvr9-35cr-46v9",
+        "https://github.com/mariadb-corporation/mariadb-connector-j/security/advisories/GHSA-xvr9-35cr-46v9"
+      ],
+      "upstream_updated_at": "2026-08-28T22:47:20Z",
+      "exploit_condition": "Crafted server data reaches affected connector output-encoding context.",
+      "reachability": "JDBC runtime path exists; exploit preconditions require driver/server-specific investigation.",
+      "source_evidence": "src/main/resources/application-prod.properties",
+      "unverified": "Exact output context and malicious server control not reproduced."
+    },
+    {
+      "id": "GHSA-g3pr-3p32-fp23",
+      "cve": "CVE-2026-40984",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "io.micrometer:micrometer-core",
+      "version": "1.15.10",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-actuator",
+        "io.micrometer:micrometer-jakarta9",
+        "io.micrometer:micrometer-core"
+      ],
+      "summary": "Micrometer HTTP server instrumentations DoS",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "1.15.0"
+              },
+              {
+                "fixed": "1.15.12"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "1.15.12"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-g3pr-3p32-fp23",
+        "https://osv.dev/vulnerability/GHSA-g3pr-3p32-fp23",
+        "https://spring.io/security/cve-2026-40984"
+      ],
+      "upstream_updated_at": "2026-09-11T15:32:18Z",
+      "exploit_condition": "Arbitrary HTTP methods become unbounded metric tag values in affected Micrometer instrumentations.",
+      "reachability": "Actuator/Micrometer are packaged, but upstream patch targets Micrometer servlet/Jersey/Jetty tag helpers. This app uses Spring MVC observation and Spring Security firewall; an affected helper call from a live request is not established.",
+      "source_evidence": "pom.xml; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Verify Spring observation method normalization, firewall ordering and runtime meter growth; no OOM reproduced."
+    },
+    {
+      "id": "GHSA-w737-wx49-qj23",
+      "cve": "CVE-2026-40983",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "io.micrometer:micrometer-core",
+      "version": "1.15.10",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-actuator",
+        "io.micrometer:micrometer-jakarta9",
+        "io.micrometer:micrometer-core"
+      ],
+      "summary": "Micrometer gRPC server instrumentation DoS",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "1.15.0"
+              },
+              {
+                "fixed": "1.15.12"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "1.15.12"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-w737-wx49-qj23",
+        "https://osv.dev/vulnerability/GHSA-w737-wx49-qj23",
+        "https://spring.io/security/cve-2026-40983"
+      ],
+      "upstream_updated_at": "2026-09-11T15:32:18Z",
+      "exploit_condition": "Crafted gRPC method names reach Micrometer gRPC server instrumentation.",
+      "reachability": "No gRPC dependency/server/application call found.",
+      "source_evidence": "pom.xml; src/main/java/",
+      "unverified": "External runtime additions not inspected."
+    },
+    {
+      "id": "GHSA-wwpq-f5c3-7hvx",
+      "cve": "CVE-2026-40973",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+        "score": 7.0
+      },
+      "coordinate": "org.springframework.boot:spring-boot",
+      "version": "3.5.12",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter",
+        "org.springframework.boot:spring-boot"
+      ],
+      "summary": "Spring Boot accepts predictable temp directory without ownership verification",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.14"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.14"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-wwpq-f5c3-7hvx",
+        "https://osv.dev/vulnerability/GHSA-wwpq-f5c3-7hvx",
+        "https://spring.io/security/cve-2026-40973"
+      ],
+      "upstream_updated_at": "2026-05-06T19:00:11Z",
+      "exploit_condition": "Local attacker controls ApplicationTemp directory; persistent servlet sessions across restarts raise hijacking/RCE risk.",
+      "reachability": "JWT security explicitly sets STATELESS; no persistent servlet-session configuration found. Temp-directory ownership exposure remains conditional and relates to nonroot work #76.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java; Dockerfile",
+      "unverified": "Deployment user, temp ownership, external session persistence settings not inspected."
+    },
+    {
+      "id": "GHSA-ggg2-9786-hwc8",
+      "cve": "CVE-2026-41001",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+        "score": 5.3
+      },
+      "coordinate": "org.springframework.boot:spring-boot-autoconfigure",
+      "version": "3.5.12",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter",
+        "org.springframework.boot:spring-boot-autoconfigure"
+      ],
+      "summary": "Spring Boot: Predictable Temp Directory in Artemis Auto-configuration",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.15"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.15"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-ggg2-9786-hwc8",
+        "https://osv.dev/vulnerability/GHSA-ggg2-9786-hwc8",
+        "https://spring.io/security/cve-2026-41001"
+      ],
+      "upstream_updated_at": "2026-08-21T19:13:34Z",
+      "exploit_condition": "Embedded Artemis autoconfiguration creates predictable temp directory available to local attacker.",
+      "reachability": "No Artemis dependency or embedded broker configured.",
+      "source_evidence": "pom.xml; src/main/java/",
+      "unverified": "External runtime broker additions unverified."
+    },
+    {
+      "id": "GHSA-659m-px2c-25wj",
+      "cve": "CVE-2026-41848",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L",
+        "score": 3.7
+      },
+      "coordinate": "org.springframework:spring-core",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-test",
+        "org.springframework:spring-core"
+      ],
+      "summary": "Spring Framework Denial of Service via AntPathMatcher",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-659m-px2c-25wj",
+        "https://osv.dev/vulnerability/GHSA-659m-px2c-25wj",
+        "https://spring.io/security/cve-2026-41848"
+      ],
+      "upstream_updated_at": "2026-07-30T18:29:22Z",
+      "exploit_condition": "Crafted patterns/input reach recursive or expensive AntPathMatcher matching.",
+      "reachability": "Security route patterns are application constants; framework-managed attacker paths still require tracing.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Exact affected matcher invocation and bounded performance unverified."
+    },
+    {
+      "id": "GHSA-5m4m-73w9-8433",
+      "cve": "CVE-2026-41721",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 5.9
+      },
+      "coordinate": "org.springframework.data:spring-data-commons",
+      "version": "3.5.10",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-data-jpa",
+        "org.springframework.data:spring-data-jpa",
+        "org.springframework.data:spring-data-commons"
+      ],
+      "summary": "Spring Data Commons: Denial of Service via excessive memory allocation in projection binding",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.12"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.12"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-5m4m-73w9-8433",
+        "https://osv.dev/vulnerability/GHSA-5m4m-73w9-8433",
+        "https://spring.io/security/cve-2026-41721"
+      ],
+      "upstream_updated_at": "2026-08-12T18:00:37Z",
+      "exploit_condition": "Untrusted data triggers excessive projection-binding allocation.",
+      "reachability": "No exposed Spring Data REST projection binding endpoint found; repositories use typed API DTOs.",
+      "source_evidence": "pom.xml; src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party projection binders unverified."
+    },
+    {
+      "id": "GHSA-5vpf-xvv7-c8vh",
+      "cve": "CVE-2026-41711",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 5.9
+      },
+      "coordinate": "org.springframework.data:spring-data-commons",
+      "version": "3.5.10",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-data-jpa",
+        "org.springframework.data:spring-data-jpa",
+        "org.springframework.data:spring-data-commons"
+      ],
+      "summary": "Spring Data Commons: StackOverflowException when parsing Sort parameters (DoS)",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.12"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.12"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-5vpf-xvv7-c8vh",
+        "https://osv.dev/vulnerability/GHSA-5vpf-xvv7-c8vh",
+        "https://spring.io/security/cve-2026-41711"
+      ],
+      "upstream_updated_at": "2026-08-12T16:16:51Z",
+      "exploit_condition": "Crafted sort strings trigger recursive parsing/StackOverflowException before downstream normalization.",
+      "reachability": "Pageable is bound from request parameters on ProductController; sort parsing path is reachable before the service allowlist. Specific StackOverflow exploit is not reproduced.",
+      "source_evidence": "src/main/java/com/example/demo/controller/ProductController.java",
+      "unverified": "Bounded local regression and exact vulnerable parser stack required."
+    },
+    {
+      "id": "GHSA-88fw-v6x4-3f58",
+      "cve": "CVE-2026-41695",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "org.springframework.data:spring-data-commons",
+      "version": "3.5.10",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-data-jpa",
+        "org.springframework.data:spring-data-jpa",
+        "org.springframework.data:spring-data-commons"
+      ],
+      "summary": "Spring Data: Unbounded property-path cache keyed by externally-supplied path string",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.12"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.12"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-88fw-v6x4-3f58",
+        "https://osv.dev/vulnerability/GHSA-88fw-v6x4-3f58",
+        "https://github.com/spring-projects/security-advisories/security/advisories/GHSA-88fw-v6x4-3f58",
+        "https://spring.io/security/cve-2026-41695"
+      ],
+      "upstream_updated_at": "2026-07-31T16:44:16Z",
+      "exploit_condition": "Unbounded mapping/property cache retains attacker-supplied property paths.",
+      "reachability": "Product and order services normalize allowed sort properties before repository use. Parsing happens before normalization; exact mapping-cache reachability remains unverified.",
+      "source_evidence": "src/main/java/com/example/demo/service/ProductPageableNormalizer.java; src/main/java/com/example/demo/service/OrderPageableNormalizer.java",
+      "unverified": "Trace argument resolution and downstream mapping cache under unique inputs; no heap-exhaustion reproduction."
+    },
+    {
+      "id": "GHSA-9fw2-h3hf-293r",
+      "cve": "CVE-2026-41716",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "org.springframework.data:spring-data-commons",
+      "version": "3.5.10",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-data-jpa",
+        "org.springframework.data:spring-data-jpa",
+        "org.springframework.data:spring-data-commons"
+      ],
+      "summary": "Spring Data Commons: Heap exhaustion from unbounded property-lookup cache retaining crafted string keys",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "3.5.0"
+              },
+              {
+                "fixed": "3.5.12"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "3.5.12"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-9fw2-h3hf-293r",
+        "https://osv.dev/vulnerability/GHSA-9fw2-h3hf-293r",
+        "https://spring.io/security/cve-2026-41716"
+      ],
+      "upstream_updated_at": "2026-08-12T16:10:46Z",
+      "exploit_condition": "Unbounded mapping/property cache retains attacker-supplied property paths.",
+      "reachability": "Product and order services normalize allowed sort properties before repository use. Parsing happens before normalization; exact mapping-cache reachability remains unverified.",
+      "source_evidence": "src/main/java/com/example/demo/service/ProductPageableNormalizer.java; src/main/java/com/example/demo/service/OrderPageableNormalizer.java",
+      "unverified": "Trace argument resolution and downstream mapping cache under unique inputs; no heap-exhaustion reproduction."
+    },
+    {
+      "id": "GHSA-9f52-rjqv-25qv",
+      "cve": "CVE-2026-41852",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L",
+        "score": 3.7
+      },
+      "coordinate": "org.springframework:spring-expression",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc",
+        "org.springframework:spring-expression"
+      ],
+      "summary": "Spring Framework Arbitrary Method Invocation in SpEL Expressions",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-9f52-rjqv-25qv",
+        "https://osv.dev/vulnerability/GHSA-9f52-rjqv-25qv",
+        "https://spring.io/security/cve-2026-41852"
+      ],
+      "upstream_updated_at": "2026-07-30T18:13:44Z",
+      "exploit_condition": "User-controlled SpEL expression causes excessive evaluation/cache growth or unsafe invocation.",
+      "reachability": "Method security uses constant annotations; no request-controlled ExpressionParser invocation found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java; src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party expression evaluation and deployed customization unverified."
+    },
+    {
+      "id": "GHSA-r5w3-xv2f-j59q",
+      "cve": "CVE-2026-41850",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "org.springframework:spring-expression",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc",
+        "org.springframework:spring-expression"
+      ],
+      "summary": "Spring Framework Algorithmic Denial of Service via SpEL Expressions",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-r5w3-xv2f-j59q",
+        "https://osv.dev/vulnerability/GHSA-r5w3-xv2f-j59q",
+        "https://spring.io/security/cve-2026-41850"
+      ],
+      "upstream_updated_at": "2026-07-30T18:26:07Z",
+      "exploit_condition": "User-controlled SpEL expression causes excessive evaluation/cache growth or unsafe invocation.",
+      "reachability": "Method security uses constant annotations; no request-controlled ExpressionParser invocation found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java; src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party expression evaluation and deployed customization unverified."
+    },
+    {
+      "id": "GHSA-wxpp-56q6-5pcg",
+      "cve": "CVE-2026-41851",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+        "score": 5.3
+      },
+      "coordinate": "org.springframework:spring-expression",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc",
+        "org.springframework:spring-expression"
+      ],
+      "summary": "Spring Framework Denial of Service via Unbounded Cache in SpEL",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-wxpp-56q6-5pcg",
+        "https://osv.dev/vulnerability/GHSA-wxpp-56q6-5pcg",
+        "https://spring.io/security/cve-2026-41851"
+      ],
+      "upstream_updated_at": "2026-07-30T16:38:20Z",
+      "exploit_condition": "User-controlled SpEL expression causes excessive evaluation/cache growth or unsafe invocation.",
+      "reachability": "Method security uses constant annotations; no request-controlled ExpressionParser invocation found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java; src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party expression evaluation and deployed customization unverified."
+    },
+    {
+      "id": "GHSA-vxf7-qj7q-83fh",
+      "cve": "CVE-2026-22746",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "score": 3.7
+      },
+      "coordinate": "org.springframework.security:spring-security-core",
+      "version": "6.5.9",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-security",
+        "org.springframework.security:spring-security-config",
+        "org.springframework.security:spring-security-core"
+      ],
+      "summary": "Spring Security Vulnerable to User Attribute Enumeration when Using DaoAuthenticationProvider",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.5.0"
+              },
+              {
+                "fixed": "6.5.10"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.5.10"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-vxf7-qj7q-83fh",
+        "https://osv.dev/vulnerability/GHSA-vxf7-qj7q-83fh",
+        "https://spring.io/security/cve-2026-22746"
+      ],
+      "upstream_updated_at": "2026-04-29T20:48:04Z",
+      "exploit_condition": "DaoAuthenticationProvider behavior distinguishes user attributes.",
+      "reachability": "AuthController delegates to application AuthService; default AuthenticationManager bean exists but application login does not use it.",
+      "source_evidence": "src/main/java/com/example/demo/service/AuthService.java; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External authentication-provider routes unverified."
+    },
+    {
+      "id": "GHSA-x2wq-9x2f-fhj7",
+      "cve": "CVE-2026-22751",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+        "score": 4.8
+      },
+      "coordinate": "org.springframework.security:spring-security-core",
+      "version": "6.5.9",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-security",
+        "org.springframework.security:spring-security-config",
+        "org.springframework.security:spring-security-core"
+      ],
+      "summary": "Spring Security Core has a TOCTOU race condition when One-Time Token login with JdbcOneTimeTokenService is configured",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.5.0"
+              },
+              {
+                "fixed": "6.5.10"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.5.10"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-x2wq-9x2f-fhj7",
+        "https://osv.dev/vulnerability/GHSA-x2wq-9x2f-fhj7",
+        "https://spring.io/security/cve-2026-22751"
+      ],
+      "upstream_updated_at": "2026-07-17T20:48:58Z",
+      "exploit_condition": "JdbcOneTimeTokenService has a race under one-time-token login.",
+      "reachability": "No one-time-token/JdbcOneTimeTokenService login configured.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External login configuration unverified."
+    },
+    {
+      "id": "GHSA-293q-567p-wmwq",
+      "cve": "CVE-2026-47838",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N",
+        "score": 6.8
+      },
+      "coordinate": "org.springframework.security:spring-security-web",
+      "version": "6.5.9",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-security",
+        "org.springframework.security:spring-security-web"
+      ],
+      "summary": "Spring Security Vulnerable to Unauthorized User Impersonation when Using X.509 Client Certificates",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.5.0"
+              },
+              {
+                "fixed": "6.5.11"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.5.11"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-293q-567p-wmwq",
+        "https://osv.dev/vulnerability/GHSA-293q-567p-wmwq",
+        "https://spring.io/security/cve-2026-47838"
+      ],
+      "upstream_updated_at": "2026-06-30T21:35:12Z",
+      "exploit_condition": "X.509 client-certificate authentication satisfies advisory-specific impersonation prerequisites.",
+      "reachability": "Application JWT authentication; no x509() configuration found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External certificate authentication/proxy behavior unverified."
+    },
+    {
+      "id": "GHSA-x2r2-rvhq-2mqv",
+      "cve": "CVE-2026-41706",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+        "score": 6.1
+      },
+      "coordinate": "org.springframework.security:spring-security-web",
+      "version": "6.5.9",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-security",
+        "org.springframework.security:spring-security-web"
+      ],
+      "summary": "Spring Security: Open Redirect via Unvalidated Post-Login Redirect URL Stored in CookieRequestCache",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.5.0"
+              },
+              {
+                "fixed": "6.5.11"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.5.11"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-x2r2-rvhq-2mqv",
+        "https://osv.dev/vulnerability/GHSA-x2r2-rvhq-2mqv",
+        "https://spring.io/security/cve-2026-41706"
+      ],
+      "upstream_updated_at": "2026-08-12T16:17:15Z",
+      "exploit_condition": "CookieRequestCache stores unvalidated redirect URL used after login.",
+      "reachability": "Stateless JWT application, formLogin disabled; no CookieRequestCache configured.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External login/request-cache overrides unverified."
+    },
+    {
+      "id": "GHSA-7m2p-62gw-p8qq",
+      "cve": "CVE-2026-41854",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N",
+        "score": 4.2
+      },
+      "coordinate": "org.springframework:spring-web",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-web"
+      ],
+      "summary": "Spring Framework Server-Side Request Forgery via UriComponentsBuilder",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-7m2p-62gw-p8qq",
+        "https://osv.dev/vulnerability/GHSA-7m2p-62gw-p8qq",
+        "https://spring.io/security/cve-2026-41854"
+      ],
+      "upstream_updated_at": "2026-08-06T19:11:46Z",
+      "exploit_condition": "Untrusted URL parsed by UriComponentsBuilder bypasses host validation before outbound request.",
+      "reachability": "No application UriComponentsBuilder or outbound HTTP client call found.",
+      "source_evidence": "src/main/java/",
+      "unverified": "Third-party URL validation and outbound calls unverified."
+    },
+    {
+      "id": "GHSA-3chg-m5w7-qfv5",
+      "cve": "CVE-2026-41845",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:L/A:N",
+        "score": 7.1
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Cross-site Scripting via JavaScriptUtils",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-3chg-m5w7-qfv5",
+        "https://osv.dev/vulnerability/GHSA-3chg-m5w7-qfv5",
+        "https://spring.io/security/cve-2026-41845"
+      ],
+      "upstream_updated_at": "2026-07-30T16:55:42Z",
+      "exploit_condition": "JavaScriptUtils.javaScriptEscape output is inserted into browser JavaScript.",
+      "reachability": "No JavaScriptUtils or server-rendered script/view found; API controllers return JSON DTOs.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "External frontend use of this helper unverified."
+    },
+    {
+      "id": "GHSA-6p4f-wcwh-5vvm",
+      "cve": "CVE-2026-22745",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+        "score": 5.3
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring MVC and WebFlux applications are vulnerable to Denial of Service attacks when resolving static resources",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.18"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.18"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-6p4f-wcwh-5vvm",
+        "https://osv.dev/vulnerability/GHSA-6p4f-wcwh-5vvm",
+        "https://spring.io/security/cve-2026-22745"
+      ],
+      "upstream_updated_at": "2026-05-06T22:30:01Z",
+      "exploit_condition": "Crafted requests traverse affected versioned/static-resource resolution or cache behavior.",
+      "reachability": "Swagger/resource documentation routes are disabled in prod by UnavailableEndpointsFilter; no application VersionResourceResolver found. Framework default/static-resource path remains to be traced.",
+      "source_evidence": "src/main/java/com/example/demo/security/UnavailableEndpointsFilter.java; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Default Boot resource mappings, proxy normalization and runtime cache effects unverified."
+    },
+    {
+      "id": "GHSA-72pg-x5f8-j25j",
+      "cve": "CVE-2026-41843",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 5.9
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Path Traversal via Versioned Static Resources in Spring MVC and WebFlux",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-72pg-x5f8-j25j",
+        "https://osv.dev/vulnerability/GHSA-72pg-x5f8-j25j",
+        "https://spring.io/security/cve-2026-41843"
+      ],
+      "upstream_updated_at": "2026-07-30T15:49:18Z",
+      "exploit_condition": "Crafted requests traverse affected versioned/static-resource resolution or cache behavior.",
+      "reachability": "Swagger/resource documentation routes are disabled in prod by UnavailableEndpointsFilter; no application VersionResourceResolver found. Framework default/static-resource path remains to be traced.",
+      "source_evidence": "src/main/java/com/example/demo/security/UnavailableEndpointsFilter.java; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Default Boot resource mappings, proxy normalization and runtime cache effects unverified."
+    },
+    {
+      "id": "GHSA-957g-f97v-vppc",
+      "cve": "CVE-2026-41846",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:L/A:N",
+        "score": 5.9
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Cross-site Scripting via JSP Form Tags",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-957g-f97v-vppc",
+        "https://osv.dev/vulnerability/GHSA-957g-f97v-vppc",
+        "https://spring.io/security/cve-2026-41846"
+      ],
+      "upstream_updated_at": "2026-07-30T18:37:45Z",
+      "exploit_condition": "JSP form tags render malicious values in affected escaping context.",
+      "reachability": "No JSP templates/form-tag usage; REST API returns DTOs.",
+      "source_evidence": "src/main/java/com/example/demo/controller/; pom.xml",
+      "unverified": "External view rendering unverified."
+    },
+    {
+      "id": "GHSA-cjpg-rgq5-fr37",
+      "cve": "CVE-2026-41853",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+        "score": 5.3
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Multipart Request Smuggling in Spring MVC and WebFlux",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-cjpg-rgq5-fr37",
+        "https://osv.dev/vulnerability/GHSA-cjpg-rgq5-fr37",
+        "https://spring.io/security/cve-2026-41853"
+      ],
+      "upstream_updated_at": "2026-07-30T18:33:28Z",
+      "exploit_condition": "Crafted multipart boundaries are interpreted inconsistently across parser/proxy boundaries.",
+      "reachability": "No multipart upload handler exists, but Boot multipart parser may precede controller dispatch; live parse/proxy behavior not established.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "Parser enablement, proxy interpretation and bounded request reproduction required."
+    },
+    {
+      "id": "GHSA-h3qp-gqrc-q736",
+      "cve": "CVE-2026-41844",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N",
+        "score": 4.2
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Open Redirect in Spring MVC and WebFlux",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-h3qp-gqrc-q736",
+        "https://osv.dev/vulnerability/GHSA-h3qp-gqrc-q736",
+        "https://spring.io/security/cve-2026-41844"
+      ],
+      "upstream_updated_at": "2026-07-30T18:06:58Z",
+      "exploit_condition": "Attacker-controlled URL reaches affected redirect handling.",
+      "reachability": "No application redirect view/controller found.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "Framework resource redirects and external proxy rewrites unverified."
+    },
+    {
+      "id": "GHSA-j9f9-w8pj-32f8",
+      "cve": "CVE-2026-47890",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "score": 9.8
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Server Sent Event stream corruption while rendering fragments",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "last_affected": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [],
+      "fix_status": "No fixed version in the detected 6.2 range in this snapshot; evaluate supported framework/BOM migration separately.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-j9f9-w8pj-32f8",
+        "https://osv.dev/vulnerability/GHSA-j9f9-w8pj-32f8",
+        "https://spring.io/security/cve-2026-47890"
+      ],
+      "upstream_updated_at": "2026-10-07T13:20:36Z",
+      "exploit_condition": "SSE rendering of view fragments permits stream corruption.",
+      "reachability": "No SseEmitter, view fragments or SSE endpoint found in application sources.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "Third-party or future SSE routes unverified."
+    },
+    {
+      "id": "GHSA-mq64-j8f9-9gcj",
+      "cve": "CVE-2026-41841",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 5.9
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Information Disclosure via Static Resource Cache in Spring MVC and WebFlux",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-mq64-j8f9-9gcj",
+        "https://osv.dev/vulnerability/GHSA-mq64-j8f9-9gcj",
+        "https://spring.io/security/cve-2026-41841"
+      ],
+      "upstream_updated_at": "2026-07-30T15:24:42Z",
+      "exploit_condition": "Crafted requests traverse affected versioned/static-resource resolution or cache behavior.",
+      "reachability": "Swagger/resource documentation routes are disabled in prod by UnavailableEndpointsFilter; no application VersionResourceResolver found. Framework default/static-resource path remains to be traced.",
+      "source_evidence": "src/main/java/com/example/demo/security/UnavailableEndpointsFilter.java; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Default Boot resource mappings, proxy normalization and runtime cache effects unverified."
+    },
+    {
+      "id": "GHSA-pc63-qcmh-9cmg",
+      "cve": "CVE-2026-47884",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "score": 9.8
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Improper Path Limitation in XsltView",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "last_affected": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [],
+      "fix_status": "No fixed version in the detected 6.2 range in this snapshot; evaluate supported framework/BOM migration separately.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-pc63-qcmh-9cmg",
+        "https://osv.dev/vulnerability/GHSA-pc63-qcmh-9cmg",
+        "https://spring.io/security/cve-2026-47884"
+      ],
+      "upstream_updated_at": "2026-10-05T23:21:01Z",
+      "exploit_condition": "XsltView with implicit view name under a wildcard mapping allows SSRF/RCE.",
+      "reachability": "No XsltView, view resolver or wildcard view-rendering controller found; current routes are RestController JSON.",
+      "source_evidence": "src/main/java/com/example/demo/controller/",
+      "unverified": "External view configuration unverified; do not assume a compatible 6.2 patch exists."
+    },
+    {
+      "id": "GHSA-wg35-8jpf-2xv3",
+      "cve": "CVE-2026-22741",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:L",
+        "score": 3.1
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring MVC and WebFlux applications are vulnerable to cache poisoning when resolving static resources.",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.18"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.18"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-wg35-8jpf-2xv3",
+        "https://osv.dev/vulnerability/GHSA-wg35-8jpf-2xv3",
+        "https://spring.io/security/cve-2026-22741"
+      ],
+      "upstream_updated_at": "2026-07-02T21:24:01Z",
+      "exploit_condition": "Crafted requests traverse affected versioned/static-resource resolution or cache behavior.",
+      "reachability": "Swagger/resource documentation routes are disabled in prod by UnavailableEndpointsFilter; no application VersionResourceResolver found. Framework default/static-resource path remains to be traced.",
+      "source_evidence": "src/main/java/com/example/demo/security/UnavailableEndpointsFilter.java; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Default Boot resource mappings, proxy normalization and runtime cache effects unverified."
+    },
+    {
+      "id": "GHSA-x23c-287f-qqv5",
+      "cve": "CVE-2026-41842",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "org.springframework:spring-webmvc",
+      "version": "6.2.17",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework:spring-webmvc"
+      ],
+      "summary": "Spring Framework Denial of Service via Versioned Resources in Spring MVC and WebFlux",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "6.2.0"
+              },
+              {
+                "fixed": "6.2.19"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "6.2.19"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-x23c-287f-qqv5",
+        "https://osv.dev/vulnerability/GHSA-x23c-287f-qqv5",
+        "https://spring.io/security/cve-2026-41842"
+      ],
+      "upstream_updated_at": "2026-07-30T15:27:28Z",
+      "exploit_condition": "Crafted requests traverse affected versioned/static-resource resolution or cache behavior.",
+      "reachability": "Swagger/resource documentation routes are disabled in prod by UnavailableEndpointsFilter; no application VersionResourceResolver found. Framework default/static-resource path remains to be traced.",
+      "source_evidence": "src/main/java/com/example/demo/security/UnavailableEndpointsFilter.java; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Default Boot resource mappings, proxy normalization and runtime cache effects unverified."
+    },
+    {
+      "id": "GHSA-5m62-pw8w-7w9f",
+      "cve": "CVE-2026-43515",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
+        "score": 9.1
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat - Security constraints not correctly applied",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.55"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.55"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-5m62-pw8w-7w9f",
+        "https://osv.dev/vulnerability/GHSA-5m62-pw8w-7w9f",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-05-19T14:34:01Z",
+      "exploit_condition": "Multiple container security constraints share an extension pattern with different HTTP-method restrictions.",
+      "reachability": "Authentication/authorization use Spring Security JWT; no servlet declarative extension-pattern constraints found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "Externally supplied web.xml/container constraints not inspected."
+    },
+    {
+      "id": "GHSA-5mp6-jrq3-r938",
+      "cve": "CVE-2026-43513",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 7.5
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat: LockOutRealm treats user names as case-sensitive",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.55"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.55"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-5mp6-jrq3-r938",
+        "https://osv.dev/vulnerability/GHSA-5mp6-jrq3-r938",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-05-18T20:31:57Z",
+      "exploit_condition": "Case variants bypass username lockout when Tomcat LockOutRealm is configured.",
+      "reachability": "Application uses its own AuthService throttling/JWT, no Tomcat LockOutRealm configuration found.",
+      "source_evidence": "src/main/java/com/example/demo/service/AuthService.java; src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External container realms not inspected."
+    },
+    {
+      "id": "GHSA-69cc-cv78-qc8g",
+      "cve": "CVE-2026-29129",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 7.5
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat: Configured cipher preference order not preserved",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.51"
+              },
+              {
+                "fixed": "10.1.53"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.53"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-69cc-cv78-qc8g",
+        "https://osv.dev/vulnerability/GHSA-69cc-cv78-qc8g",
+        "https://tomcat.apache.org/security-10.html#Fixed_in_Apache_Tomcat_10.1.53",
+        "https://tomcat.apache.org/security-11.html#Fixed_in_Apache_Tomcat_11.0.20",
+        "https://tomcat.apache.org/security-9.html#Fixed_in_Apache_Tomcat_9.0.116"
+      ],
+      "upstream_updated_at": "2026-05-20T22:14:29Z",
+      "exploit_condition": "Tomcat TLS connector uses configured cipher preference ordering.",
+      "reachability": "Deployment contract uses Caddy TLS termination; no application Tomcat TLS connector configuration found.",
+      "source_evidence": "terraform/caddy/Caddyfile.tmpl; src/main/resources/application-prod.properties",
+      "unverified": "Actual TLS/proxy topology and external connector overrides not inspected."
+    },
+    {
+      "id": "GHSA-8mc5-53m5-3qj2",
+      "cve": "CVE-2026-32990",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "score": 5.3
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat has an Improper Input Validation vulnerability",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.50"
+              },
+              {
+                "fixed": "10.1.53"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.53"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-8mc5-53m5-3qj2",
+        "https://osv.dev/vulnerability/GHSA-8mc5-53m5-3qj2",
+        "https://tomcat.apache.org/security-10.html#Fixed_in_Apache_Tomcat_10.1.53",
+        "https://tomcat.apache.org/security-11.html#Fixed_in_Apache_Tomcat_11.0.20",
+        "https://tomcat.apache.org/security-9.html#Fixed_in_Apache_Tomcat_9.0.116"
+      ],
+      "upstream_updated_at": "2026-04-15T22:53:17Z",
+      "exploit_condition": "Affected Tomcat request validation under connector/proxy prerequisites; incomplete earlier validation fix.",
+      "reachability": "Tomcat HTTP connector is on the production request path; exact invalid input and validation preconditions not reproduced.",
+      "source_evidence": "pom.xml; terraform/caddy/Caddyfile.tmpl",
+      "unverified": "Connector/proxy options and bounded validation regression required."
+    },
+    {
+      "id": "GHSA-9m3c-qcxr-9x87",
+      "cve": "CVE-2026-25854",
+      "severity": "MODERATE",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+        "score": 6.1
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat has an Open Redirect vulnerability",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.53"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.53"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P2",
+      "triage_due": "2026-11-11",
+      "proposed_remediation_due": "2026-11-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-9m3c-qcxr-9x87",
+        "https://osv.dev/vulnerability/GHSA-9m3c-qcxr-9x87"
+      ],
+      "upstream_updated_at": "2026-04-10T21:36:33Z",
+      "exploit_condition": "LoadBalancerDrainingValve generates attacker-influenced redirects.",
+      "reachability": "No LoadBalancerDrainingValve configured in source.",
+      "source_evidence": "src/main/java/; docker-compose.yml",
+      "unverified": "External Tomcat valve configuration unverified."
+    },
+    {
+      "id": "GHSA-9m89-8frq-c98c",
+      "cve": "CVE-2026-43514",
+      "severity": "LOW",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "score": 3.7
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat - AJP secret compared in non-constant time",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.55"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.55"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P3",
+      "triage_due": "2026-12-11",
+      "proposed_remediation_due": "2026-12-11",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/87",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-9m89-8frq-c98c",
+        "https://osv.dev/vulnerability/GHSA-9m89-8frq-c98c",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-05-19T14:28:52Z",
+      "exploit_condition": "AJP secret timing observable to attacker on the same network.",
+      "reachability": "No AJP connector configured in repository.",
+      "source_evidence": "src/main/java/; docker-compose.yml",
+      "unverified": "External connector/network reachability unverified."
+    },
+    {
+      "id": "GHSA-9xv2-5v5q-p794",
+      "cve": "CVE-2026-65905",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "score": 9.8
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat's DIGEST authenticator has an Authentication Bypass by Capture-replay vulnerability",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.58"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.58"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-9xv2-5v5q-p794",
+        "https://osv.dev/vulnerability/GHSA-9xv2-5v5q-p794"
+      ],
+      "upstream_updated_at": "2026-09-02T22:38:15Z",
+      "exploit_condition": "Tomcat DIGEST authentication permits replay or unknown-user authentication.",
+      "reachability": "JWT/stateless authentication configured; HTTP Basic/form login disabled and no Tomcat DIGEST realm found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External container authentication overrides not inspected."
+    },
+    {
+      "id": "GHSA-fv25-8xcx-gqjc",
+      "cve": "CVE-2026-42498",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L",
+        "score": 7.3
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat - WebSocket authentication header exposure",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.55"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.55"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-fv25-8xcx-gqjc",
+        "https://osv.dev/vulnerability/GHSA-fv25-8xcx-gqjc",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-05-18T20:29:57Z",
+      "exploit_condition": "Authenticated Tomcat WebSocket client follows cross-host redirect and sends credentials.",
+      "reachability": "No WebSocket client or connection code found in application sources.",
+      "source_evidence": "src/main/java/; pom.xml",
+      "unverified": "Third-party WebSocket client calls unverified."
+    },
+    {
+      "id": "GHSA-gcx9-497g-6cp6",
+      "cve": "CVE-2026-65182",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
+        "score": 9.1
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat has an Improper Access Control, Incorrect Authorization vulnerability",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.58"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.58"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-gcx9-497g-6cp6",
+        "https://osv.dev/vulnerability/GHSA-gcx9-497g-6cp6",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-09-02T22:37:45Z",
+      "exploit_condition": "Ordered servlet container security constraints permit a narrower path bypass.",
+      "reachability": "Spring Security request matcher authorization configured; no matching Tomcat declarative constraints found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External web.xml/Realm setup unverified."
+    },
+    {
+      "id": "GHSA-gx5v-xp9w-j4cg",
+      "cve": "CVE-2026-41284",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "score": 7.5
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat: Unbounded read in WebDAV LOCK and  PROPFIND handling",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.55"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.55"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-gx5v-xp9w-j4cg",
+        "https://osv.dev/vulnerability/GHSA-gx5v-xp9w-j4cg",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-05-18T20:27:01Z",
+      "exploit_condition": "Unauthenticated WebDAV LOCK/PROPFIND body is read without a bound.",
+      "reachability": "No WebdavServlet registration or WebDAV endpoints found.",
+      "source_evidence": "src/main/java/",
+      "unverified": "External servlet registration and body limits unverified."
+    },
+    {
+      "id": "GHSA-h3x4-894j-xpx5",
+      "cve": "CVE-2026-68525",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
+        "score": 9.1
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat's FORM authentication process has an Incorrect Authorization vulnerability",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.58"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.58"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-h3x4-894j-xpx5",
+        "https://osv.dev/vulnerability/GHSA-h3x4-894j-xpx5",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-09-02T22:39:16Z",
+      "exploit_condition": "Tomcat FORM authentication redirects bypass method-specific constraints.",
+      "reachability": "Spring formLogin disabled; no Tomcat FORM login configuration found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External Tomcat auth constraints unverified."
+    },
+    {
+      "id": "GHSA-h6fc-48rj-7qqh",
+      "cve": "CVE-2026-43512",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "score": 9.8
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat - Digest authenticator will authenticate any unknown user",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.55"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.55"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-h6fc-48rj-7qqh",
+        "https://osv.dev/vulnerability/GHSA-h6fc-48rj-7qqh",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-05-18T20:38:28Z",
+      "exploit_condition": "Tomcat DIGEST authentication permits replay or unknown-user authentication.",
+      "reachability": "JWT/stateless authentication configured; HTTP Basic/form login disabled and no Tomcat DIGEST realm found.",
+      "source_evidence": "src/main/java/com/example/demo/security/SecurityConfig.java",
+      "unverified": "External container authentication overrides not inspected."
+    },
+    {
+      "id": "GHSA-r29c-68gh-xp6x",
+      "cve": "CVE-2026-41293",
+      "severity": "CRITICAL",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "score": 9.8
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat - HTTP/2 request headers not validated",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.55"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.55"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-r29c-68gh-xp6x",
+        "https://osv.dev/vulnerability/GHSA-r29c-68gh-xp6x",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-08-31T21:04:41Z",
+      "exploit_condition": "Invalid HTTP/2 headers reach application through Tomcat without expected validation.",
+      "reachability": "No server.http2 enablement or custom HTTP/2 connector found. Caddy's client-side HTTP/2 does not prove Tomcat upstream HTTP/2.",
+      "source_evidence": "src/main/resources/application-prod.properties; terraform/caddy/Caddyfile.tmpl",
+      "unverified": "Live upstream connector protocol/header normalization unverified."
+    },
+    {
+      "id": "GHSA-rv64-5gf8-9qq8",
+      "cve": "CVE-2026-34483",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 7.5
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat has an Improper Encoding or Escaping of Output vulnerability in the JsonAccessLogValve",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.54"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.54"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-rv64-5gf8-9qq8",
+        "https://osv.dev/vulnerability/GHSA-rv64-5gf8-9qq8"
+      ],
+      "upstream_updated_at": "2026-04-10T21:38:24Z",
+      "exploit_condition": "JsonAccessLogValve emits improperly escaped attacker-controlled values.",
+      "reachability": "Application uses Spring structured console logging; no JsonAccessLogValve configured in sources.",
+      "source_evidence": "src/main/resources/application-prod.properties; src/main/java/",
+      "unverified": "External container access-log valve configuration unverified."
+    },
+    {
+      "id": "GHSA-x4m4-345f-5h5g",
+      "cve": "CVE-2026-34487",
+      "severity": "HIGH",
+      "cvss": {
+        "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "score": 7.5
+      },
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "version": "10.1.52",
+      "dependency_type": "transitive",
+      "maven_scope": "compile",
+      "usage": "production (also available to tests)",
+      "production_jar_confirmed": true,
+      "dependency_path": [
+        "com.example:demo",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.springframework.boot:spring-boot-starter-tomcat",
+        "org.apache.tomcat.embed:tomcat-embed-core"
+      ],
+      "summary": "Apache Tomcat vulnerable to Insertion of Sensitive Information into Log File",
+      "affected_ranges": [
+        [
+          {
+            "events": [
+              {
+                "introduced": "10.1.0-M1"
+              },
+              {
+                "fixed": "10.1.54"
+              }
+            ],
+            "type": "ECOSYSTEM"
+          }
+        ]
+      ],
+      "fixed_versions_for_detected_range": [
+        "10.1.54"
+      ],
+      "fix_status": "Candidate only; compatibility and release availability must be validated in follow-up PR.",
+      "priority": "P1",
+      "triage_due": "2026-10-14",
+      "proposed_remediation_due": "2026-10-26",
+      "owner": "utl-flaxy repository maintainer (assignment/commitment pending)",
+      "follow_up_issue": "https://github.com/utl-flaxy/inventory-management-system/issues/86",
+      "recommended_action": "Verify prerequisite and bounded regression; update through a compatible Boot BOM or separately reviewed override; rerun full Java/Terraform and unsuppressed OSV audit.",
+      "references": [
+        "https://github.com/advisories/GHSA-x4m4-345f-5h5g",
+        "https://osv.dev/vulnerability/GHSA-x4m4-345f-5h5g",
+        "https://tomcat.apache.org/security-10.html",
+        "https://tomcat.apache.org/security-11.html",
+        "https://tomcat.apache.org/security-9.html"
+      ],
+      "upstream_updated_at": "2026-08-12T18:49:25Z",
+      "exploit_condition": "Tomcat cluster cloud membership logs Kubernetes bearer token.",
+      "reachability": "No Tomcat clustering/cloud membership/Kubernetes deployment configured in repository.",
+      "source_evidence": "terraform/; docker-compose.yml; src/main/java/",
+      "unverified": "External cluster configuration unverified."
+    }
+  ]
+}

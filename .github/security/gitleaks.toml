@@ -1,0 +1,3 @@
+title = "Reviewed upstream rules; no blanket exclusions"
+[extend]
+useDefault = true
