@@ -4,7 +4,12 @@ umask 077
 
 # This bootstrap supports the AL2023 x86_64/T3 contract only.
 [[ $(uname -m) == x86_64 ]] || { echo 'Unsupported host architecture' >&2; exit 1; }
-dnf install -y git java-17-amazon-corretto-devel docker curl-minimal util-linux coreutils
+# EIP association follows instance creation; wait boundedly before package downloads.
+# The official AL2023 base image already includes curl-minimal.
+curl --fail --head --silent --show-error --proto '=https' --tlsv1.2 \
+  --retry 20 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
+  --connect-timeout 3 --max-time 5 https://github.com >/dev/null
+dnf install -y git java-17-amazon-corretto-devel docker curl-minimal util-linux coreutils tar gzip shadow-utils
 
 # Corretto's architecture-specific JDK must match deploy.sh's default JAVA_HOME.
 export JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto
@@ -29,6 +34,12 @@ printf '%s  %s\n' "$compose_sha256" "$work/docker-compose" | sha256sum --check -
 install -d -m 0755 /usr/local/lib/docker/cli-plugins
 install -m 0755 "$work/docker-compose" /usr/local/lib/docker/cli-plugins/docker-compose
 [[ $(docker compose version --short) == "${compose_version#v}" ]]
+
+# Caddy sources are embedded by Terraform from the reviewed repository, not downloaded main.
+printf '%s' '__CADDYFILE_BASE64__' | base64 --decode >"$work/Caddyfile.tmpl"
+printf '%s' '__CADDY_SERVICE_BASE64__' | base64 --decode >"$work/caddy.service"
+printf '%s' '__CADDY_INSTALL_BASE64__' | base64 --decode >"$work/install-caddy.sh"
+bash "$work/install-caddy.sh" '__APP_DOMAIN__' "$work/Caddyfile.tmpl" "$work/caddy.service"
 
 systemctl enable --now docker
 usermod -aG docker ec2-user

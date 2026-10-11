@@ -350,3 +350,16 @@ host.tftest.hclはAWS mock providerとplan-onlyで14件を実行する。
 VPC外subnet・host bits・過大subnet・ARM type・不正region・公開鍵path不備を検証する。
 AWS credentials・実data source・real plan・applyは使用しない。
 Terraform手順と検証境界は [Terraform README](../terraform/README.md) を参照する。
+
+## HTTPS / Caddy（Issue #61）
+
+既存1413件を削除・skipせず、ConfigurationContractTestにprod-only forwarded propertyを1件、
+CaddyContractTestに15件（source/service/Compose/deploy境界4件、DNS/enable gate 11件）、
+TerraformContractTestにCaddy失敗scenario 5件、CaddyProxyITに実binary/HTTP/TLS/log audit 4件を追加する。
+ProductionProfilesITの既存prod case内でもforwarded HTTPS・health body・request IDを検証する。
+Surefire 814 / Failsafe 624 / total 1438を期待する。Failsafeはpublic CAへ到達できないnetwork=none containerと
+local CA、certificate/hostname検証を使う。fixture responseをproxyし401/409/HSTS/request ID/headersと
+secret canaryが実Caddy logへ出ないことを確認する。業務処理の契約は既存MariaDB ITでも回帰確認する。
+Terraform mock planは14件を維持してdomain拒否13件を追加し27件。
+EIP/association/output、TCP80/443・SSH、8080/2019非公開、render済みuserdataの16KiB上限も検証する。
+詳しくは [HTTPS手順](tls.md) を参照する。

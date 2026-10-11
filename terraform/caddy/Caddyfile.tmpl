@@ -1,0 +1,20 @@
+{
+	admin 127.0.0.1:2019
+	storage file_system /var/lib/caddy
+	# Proxy error diagnostics can contain request URLs/headers. App events are the source of truth.
+	log default {
+		exclude http.log.error
+	}
+}
+
+__APP_DOMAIN__ {
+	reverse_proxy 127.0.0.1:8080 {
+		# Caddy overwrites X-Forwarded-For/Proto/Host; strip other client proxy claims.
+		header_up -Forwarded
+		header_up -X-Forwarded-Port
+		header_up -X-Forwarded-Prefix
+		header_up -X-Forwarded-Ssl
+	}
+	# Replace upstream Spring Security's HSTS after the response is written.
+	header >Strict-Transport-Security "max-age=31536000"
+}

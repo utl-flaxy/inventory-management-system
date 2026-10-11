@@ -52,7 +52,11 @@ Issue #59の [Terraform host定義](../terraform/README.md) はAL2023 x86_64の�
 Composeはv2.40.3/checksum固定、checkoutはec2-user所有の `/home/ec2-user/inventory-management-system`。
 userdataはsecretを持たずapp/DB/volumeを起動・作成しない。bootstrap後のDB/secret準備は引き続き運用者が行う。
 SSH CIDRを必須入力とし、SGの8080 ingressは削除した。localhostのreadinessには影響せず、
-公開HTTPS/TLSは別Issue。Terraform apply・AWS操作・Deploy再有効化は今回未実施。
+Issue #61はhost Caddy/EIP/public80・443とapp loopback bindを定義する。
+初回DNS反映後のCaddy起動は [HTTPS手順](tls.md) の独立した運用者作業で、
+通常app deploy/rollbackからCaddyは起動・reload・再作成しない。
+localhost HTTP readiness・image ID/SHA・lock・redaction・DB非操作の契約を維持する。
+Terraform apply・AWS操作・Deploy再有効化は今回未実施。
 
 既定checkoutは `~/inventory-management-system`。事前に正しいoriginを持つcheckoutを用意し、配備前のソース・Composeが現在の稼働appと一致していることを確認する。スクリプトは未追跡の本番ファイルを削除せず、checkoutが変更に阻まれた場合は切替前に失敗する。`DEPLOY_DIR` は手動実行/テスト用に変更できるが、本番workflowは既定値を使用する。
 

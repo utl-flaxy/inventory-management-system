@@ -1,4 +1,4 @@
-# Production host definition (Issue #59)
+# Production host definition (Issues #59 / #61)
 
 Terraform **1.15.6** と AWS provider **6.68.0** (`~> 6.0`) を使用する。
 `.terraform.lock.hcl` は Linux/Windows amd64 のchecksumを含めてcommitする。
@@ -22,6 +22,7 @@ instance_type     = "t3.micro"
 ssh_ingress_cidr  = "203.0.113.10/32" # 文書用アドレス。実際の運用者IPへ置換する。
 key_name          = "inventory-production-operator" # 対象regionで未使用の名前
 public_key_path   = "~/.ssh/id_ed25519.pub"
+app_domain        = "api.example.com" # 所有する通常FQDN。必須、defaultなし。
 vpc_cidr          = "10.20.0.0/16"
 public_subnet_cidr = "10.20.1.0/24"
 ```
@@ -57,8 +58,9 @@ stateはローカルのままであり、remote backend/state lockingは別Issue
   subnetはVPC内のcanonical IPv4 CIDRであることを検証する。他ネットワークとの重複は運用者が確認する。
 - Internet Gateway、default route、route table associationを明示し、default VPCへ依存しない。
 - regionは入力（既定Tokyo）。利用可能な標準AZ名をsortし先頭を選ぶ。account固有AZ IDは使用しない。
-- EC2だけpublic IPv4を明示付与する。SSHは必須 `ssh_ingress_cidr` のみで、`/0` とIPv6を拒否する。
-  最小の運用者 `/32` を推奨する。8080 ingressはなく、80/443も開けない。
+- EC2へEIPを明示associationし、ephemeral public IPは付与しない。`public_ip`はEIPを出力する。
+  TCP80/443だけpublic公開する。SSHは必須 `ssh_ingress_cidr` のみで、`/0` とIPv6を拒否する。
+  最小の運用者 `/32` を推奨する。8080/2019 ingressはない。
 - egressはpackage/GitHub/Maven/Docker取得のためIPv4の全通信を許可する。
 - AWS公式 `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64` からAL2023を解決する。
   instance typeはx86_64のT3 micro〜2xlargeだけを許可する。
@@ -86,7 +88,11 @@ bootstrap後、運用者がDBとsecretを [配備手順](../docs/deployment.md)�
 に従って別途準備する。配備はCI検証済みSHAを使用する既存 `scripts/deploy.sh` で行い、
 readiness/rollback/lock/redactionの契約を維持する。Deploy workflowはまだ無効で、再有効化は今回行わない。
 SGの8080が閉じていてもhost localhostの `/readyz` 確認に支障はない。
-HTTPS/TLS/domain/proxy/80・443公開は次Issue。現在、このhost定義だけでは公開applicationへ接続できない。
+Issue #61はCaddy v2.11.7の公式archive/checksum/versionを固定し、dedicated user/serviceを準備する。
+Caddyはbootstrapで起動せず、`app_domain`のDNS A recordをEIPへ向けてから運用者がenableする。
+domainはIP/URL/path/port/wildcard/localhost/空白/不正labelを拒否する。
+certificate dataはprivate `/var/lib/caddy`、adminはloopback2019、appもloopback8080に限定する。
+DNS・証明書発行・proxy headers/log境界は [HTTPS手順](../docs/tls.md) を参照する。
 
 公式資料: [AL2023 AMI public parameter](https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html)、
 [Corretto 17 package](https://docs.aws.amazon.com/corretto/latest/corretto-17-ug/amazon-linux-install.html)、

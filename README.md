@@ -1451,7 +1451,9 @@ IMDSv2必須、root EBSは暗号化gp3/30 GiB・termination時削除です。
 
 SSH 22は必須入力の運用者IPv4 CIDRのみ許可します。world-open SSHを拒否し、
 8080のpublic ingressはありません。localhostの配備readiness確認は維持します。
-HTTPS/TLSと80/443公開は次Issueで扱います。
+Issue #61はEIPとpublic TCP80/443、host Caddy v2.11.7を定義します。
+appは`127.0.0.1:8080:8080`だけにbindし、DNS A record→EIP確認後に運用者がCaddyを起動します。
+automatic HTTPS・HSTS・private certificate state・proxy/log境界は [HTTPS手順](docs/tls.md) を参照してください。
 
 ### Key Pair
 
@@ -1463,6 +1465,7 @@ HTTPS/TLSと80/443公開は次Issueで扱います。
 
 * Git・Java 17 JDK・Docker Engine・curl・flock
 * Docker Compose v2.40.3（固定SHA-256検証後にinstall）
+* Caddy v2.11.7（公式archiveのchecksum→extract→version確認後にinstall、DNS確認までは起動しない）
 * ec2-user所有のmain checkout
 
 host準備だけを実行し、secret・app/DB起動・volume操作・restoreは含めません。
@@ -1661,7 +1664,7 @@ Deploy workflowは実装済みですが、本番設定・DB専用user移行・EC
 - RDSへの移行
 - ECSによるコンテナ運用
 - 負荷試験の実施
-- HTTPS/TLS対応
+- 実domainでのHTTPS/TLS運用開始（定義・offline検証はIssue #61）
 - 構造化ログ・監視などobservabilityの改善
 - backup暗号化・offsite保管・retentionの運用整備（logical backup/restore drillはIssue #57で実装）
 - Terraformによる環境再現性の改善
