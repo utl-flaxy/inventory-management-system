@@ -517,6 +517,15 @@ keyはASCII `[A-Za-z0-9._:-]{1,128}`、大小文字を区別し空白は400。
 scopeはADMIN + key。別商品・別内容での再利用は409、別ADMINは同じkeyを使えます。
 失敗時はkeyを消費せず、成功keyのTTLは設けません。
 ADMIN履歴: GET /api/v1/admin/products/{id}/inventory-movements?page=0&size=20。
+Product一覧/検索と同じ固定ページレスポンス `PageResponse<InventoryMovementResponse>` を返します（Issue #52）。
+top-levelは `content,page,size,totalElements,totalPages,first,last` の7項目だけで、contentの履歴DTOは変更しません。
+
+```json
+{"content":[],"page":0,"size":20,"totalElements":0,"totalPages":0,"first":true,"last":true}
+```
+
+pageは0-based、sort指定は無視し `createdAt DESC, id DESC` 固定です。size=500は500、size=5000は従来の上限2000です。
+旧PageImplの `number,pageable,sort,numberOfElements,empty` は非公開になります。依存するクライアントは `number` から `page` へ移行してください。
 詳細・fingerprint/note正規化・Transaction・V5/V6の履歴境界・削除制限は[在庫仕様](docs/inventory.md)を参照してください。
 
 ---
@@ -708,7 +717,7 @@ POST /auth/login
 |POST|/products|商品登録|
 |PUT|/products/{id}|商品名・価格更新（stockは400で拒否）|
 |POST|/api/v1/admin/products/{id}/inventory-adjustments|ADMIN: 手動在庫調整（Idempotency-Key必須）|
-|GET|/api/v1/admin/products/{id}/inventory-movements|ADMIN: 在庫変更履歴Page|
+|GET|/api/v1/admin/products/{id}/inventory-movements|ADMIN: 在庫変更履歴PageResponse|
 |DELETE|/products/{id}|商品削除|
 |POST|/api/v1/me/orders|USER/ADMIN: 自分の注文作成|
 |GET|/api/v1/me/orders|USER/ADMIN: 自分の注文一覧|

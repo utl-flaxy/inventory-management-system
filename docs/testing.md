@@ -210,6 +210,9 @@ MariaDB12.2.2の専用user/init権限とV1〜V4も成功。配備回帰は28 Wor
   履歴INSERT後flush→故障を注入し、manual/order/cancelの全行rollbackを検証する。
   20 concurrent manual、manual/order、manual/cancelの実lockと連続before/after chainを検証する。
   Hibernate dirty checkingで履歴が書き換わらないこと、削除FKと安全な409（Issue #41）、local OpenAPIも確認する。
+  Issue #52では固定PageResponseの7項目、PageImpl内部field非公開、履歴DTO/actorのfieldと機密field非公開を確認する。
+  同時刻のid DESCとclient sort無視の既存テストを強化し、page 0/1のmetadata、空ページ200、
+  size=500→500 / 5000→2000、型付きOpenAPIを確認する。Service/Repository/認可/lock/Transactionは変更しない。
 - InventoryMovementMigrationIT: V4 legacyからV5、checksum/history/stock保持、raw SQL制約、
   binary enums、INT境界、FK RESTRICT、複合index/EXPLAIN、再起動/Hibernate validate。
 - IdempotentOrderIT: 既存20 concurrent same-keyの3反復で1 movement/Productを追加検証し、
