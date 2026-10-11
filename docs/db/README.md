@@ -47,6 +47,79 @@ SHOW GRANTS FOR 'inventory_app'@'%';
 ホスト制限は既存Compose通信経路と運用構成に合わせて決める。
 接続情報・secretの取扱いは[設定手順](../configuration.md)を参照。
 
+## DB接続とhost公開（Issue #67）
+
+通常Composeのdbには`ports`を設定しない。appとFlywayは同じCompose networkの`db:3306`へ接続する。
+MariaDB imageの`EXPOSE 3306`や`docker ps`の`3306/tcp`表示はhost bindingではない。
+db-init/healthcheckはcontainer内、backup/restoreは`docker exec`によるsocket接続なのでhost portを必要としない。
+Testcontainersは各disposable containerの動的mapped portを使い、Composeのhost3306へ依存しない。
+
+hostでのSQL保守は原則container内のclientを使う。資格情報はcontainer内で展開し、argvやログへ出さない。
+以下は対象DBの専用app userで対話入力する例（SQL結果もprivateに扱う）。
+
+```bash
+docker compose exec -T db sh -c '
+  export MYSQL_PWD="$MARIADB_PASSWORD"
+  exec mariadb --protocol=socket --user="$MARIADB_USER" --default-character-set=utf8mb4 "$MARIADB_DATABASE"
+'
+```
+
+管理権限が必要な作業は既存runbookに従い、rootへの変更をapp datasourceへ反映しない。
+外部SQL client/監視が従来のhost3306を使っていないか、運用者が実hostで確認する。
+
+### HostでJava/SQL clientを動かすローカル開発
+
+通常の`docker compose up -d --build`はhost DB接続なしで利用できる。
+hostのJavaから`db`というCompose DNS名は利用できない。host direct clientが必要な場合だけ、
+**本番と共有しないローカルDocker環境**で一時overrideを使う。既存の`inventory-db`/volumeを流用しない。
+DB_NAME/DB_USERNAME/DB_PASSWORD/DB_ROOT_PASSWORD/JWT_SECRETは[private環境設定](../configuration.md)に従ってshellへ設定する。
+13306が他のserviceで使われていないことを確認する。IPv4 loopbackのみとし、`0.0.0.0`やIPv6のpublishを追加しない。
+
+```bash
+umask 077
+local_override=$(mktemp)
+cat > "$local_override" <<'YAML'
+services:
+  db:
+    ports:
+      - "127.0.0.1:13306:3306"
+YAML
+docker compose -f docker-compose.yml -f "$local_override" config --quiet
+docker compose -f docker-compose.yml -f "$local_override" up -d db
+# DB healthがhealthyになってから（Compose appは起動せずhostでJavaを起動する）:
+export SPRING_DATASOURCE_URL="jdbc:mariadb://127.0.0.1:13306/${DB_NAME}"
+export SPRING_DATASOURCE_USERNAME="$DB_USERNAME"
+export SPRING_DATASOURCE_PASSWORD="$DB_PASSWORD"
+export SPRING_PROFILES_ACTIVE=local
+./mvnw spring-boot:run
+```
+
+GUI SQL clientもhost `127.0.0.1` / port `13306` /専用userを指定し、passwordを接続URLに埋め込まない。
+Windowsは同じYAMLのprivateな一時ファイルとPowerShellのenvironment、`mvnw.cmd`を使用する。
+作業後はhostのJava/clientを停止し、通常Composeだけで`docker compose -f docker-compose.yml up -d --no-deps --force-recreate db`
+を実行して一時bindingを除去し、その後一時ファイルを削除する。ファイルの削除だけでは公開中のportは閉じない。
+volume削除やroot credential変更は不要。共有/本番環境へこのoverrideを適用しない。
+
+### 既存hostへの反映と検証（運用者の手動作業）
+
+このPRのmergeだけで稼働中DBのportは変わらない。deploy/rollbackはapp-onlyのためDB bindingを変更しない。
+既存のhost DB clientをcontainer内接続へ移し、backupとdisposable restore drill、DB短時間停止枠を準備する。
+運用者がprivateな既存環境・正しいCompose projectと同じvolumeを確認し、更新した通常Composeだけで
+`docker compose -p <既存project> -f docker-compose.yml up -d --no-deps --force-recreate db`を実行する。
+DB volume削除、`down -v`、資格情報のrotationは行わない。restart policy/既存appの再接続も確認する。
+
+```bash
+docker compose config --quiet  # 解決済みsecretをstdoutへ表示しない
+docker inspect inventory-db --format '{{json .HostConfig.PortBindings}}'
+docker inspect inventory-db --format '{{json .NetworkSettings.Ports}}'
+docker inspect inventory-db --format '{{.State.Health.Status}}'
+curl --fail --silent http://127.0.0.1:8080/readyz
+```
+
+HostConfig.PortBindingsは空、NetworkSettings.Portsの`3306/tcp`はnull（bindingなし）、DBはhealthy、readinessは200/UPを確認する。
+hostの実port一覧でも3306のIPv4/IPv6公開がないことを確認する。SGの設定は変更しない。
+このIssueの実container検証は専用project/新規volumeの使い捨て環境だけで行い、本番DB/既存volumeへ接続・操作しない。
+
 ## 構成
 
 Spring Boot 3.5.12のdependency managementを利用し、`org.flywaydb:flyway-core` と

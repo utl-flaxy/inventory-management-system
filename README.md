@@ -1362,6 +1362,9 @@ Spring Security + JWTを利用し、
 
 ローカル開発と本番想定構成でコンテナを利用し、profile・secretの設定差分を管理しています。
 production Composeの前提は[設定手順](docs/configuration.md)を参照してください。
+MariaDBはCompose内部の`db:3306`のみで、hostへ3306をpublishしません。
+appのhost公開は`127.0.0.1:8080:8080`です。SQL保守はcontainer内で行い、
+hostでJava/SQL clientを動かす開発時の一時loopback接続は[DB接続手順](docs/db/README.md#db接続とhost公開issue-67)を参照してください。
 
 ---
 
@@ -1377,7 +1380,7 @@ Docker Compose
 │
 └── inventory-db
        MariaDB 12.2
-       Port 3306
+       db:3306（Compose内部のみ、host publishなし）
 ````
 
 ---

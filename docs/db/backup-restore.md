@@ -15,6 +15,8 @@ DB_CONTAINER=inventory-db BACKUP_ROOT="$HOME/inventory-management-system-backups
 source DB名はcontainer内のMARIADB_DATABASEから取得する。identifierは先頭英字＋英数字/underscore、
 MariaDBの上限64文字まで。system DBは拒否する。root credentialはcontainer内でMARIADB_ROOT_PASSWORDから
 MYSQL_PWDへ渡し、socketで接続する。host argvへ実passwordを展開せず、全container environmentも取得しない。
+DBのhost port publishは不要。`db_client`、dump、restoreの全接続は`docker exec`とcontainer内socketを使う。
+通常Composeでは3306をhostへ公開せず、[SQL保守/ローカル開発](README.md#db接続とhost公開issue-67)も同じ境界を維持する。
 
 mariadb-dumpのsingle-transaction/quick/skip-lock-tablesはInnoDBのconsistent snapshotを取得する。
 通常のDMLを止める必要はないが、**backup中にFlyway migrate、ALTER、CREATE、DROP、RENAME、TRUNCATE等のDDLを行わない**。

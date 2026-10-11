@@ -62,6 +62,14 @@ Terraform apply・AWS操作・Deploy再有効化は今回未実施。
 
 初回はDBを運用者が別途準備・起動する。既存DBのFlyway導入は [DB手順](db/README.md) に従う。CDは起動済みinventory-dbとCompose project labelを要求し、そのprojectを引き継ぐ。appを初めて作る際にもDBを自動で作成しない。DBが停止中/存在しない場合は切替前に失敗する。
 
+Issue #67ではDBのhost port publishを削除した。app/Flywayは内部`db:3306`、backup/restoreは
+container内socketを使い、app-only deploy/rollbackはDBを再作成しない。
+**mergeやapp配備だけでは既存DB containerの3306 bindingは消えない。**
+運用者が既存のhost DB client依存を確認し、backup/復元検証と停止枠を準備して、
+同じCompose project・volume・資格情報でDBだけを再作成する必要がある。
+反映・実binding・DB health・readinessの確認は[DB接続手順](db/README.md#db接続とhost公開issue-67)に従う。
+通常のdeploy scriptへのDB操作追加、Deployの有効化、SG/Caddy/TLS変更は行わない。
+
 Issue #17からDeploy workflowはGitHub上で無効化されている。Issue #37でも再有効化しない。
 workflow_runはdefault branch上の定義を使用する。運用者が修正版のmerge/main CI、全必須secret/variables、
 既存DB専用user・権限・資格情報、EC2前提、旧app rollback互換性を確認した後に再有効化を判断する。
