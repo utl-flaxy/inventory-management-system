@@ -37,6 +37,7 @@ public class ProductService {
     private final InventoryMovementRepository inventoryMovementRepository;
 
     // 商品一覧取得（ページング対応）
+    @Transactional(readOnly = true)
     public Page<ProductResponse> findAll(Pageable pageable) {
 
         return productRepository.findAll(ProductPageableNormalizer.normalize(pageable))
@@ -44,6 +45,7 @@ public class ProductService {
     }
 
     // 商品検索（ページング対応）
+    @Transactional(readOnly = true)
     public Page<ProductResponse> search(
             String keyword,
             Pageable pageable) {
@@ -54,6 +56,7 @@ public class ProductService {
     }
 
     // 商品詳細取得
+    @Transactional(readOnly = true)
     public ProductResponse findById(Long id) {
 
         Product product = findProductOrThrow(id);

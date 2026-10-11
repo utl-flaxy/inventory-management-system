@@ -53,9 +53,12 @@ class ProductionProfilesIT {
                 "--spring.datasource.url=" + database.getJdbcUrl(),
                 "--spring.datasource.username=inventory_app", "--spring.datasource.password=" + PASSWORD,
                 "--spring.datasource.driver-class-name=" + database.getDriverClassName(),
-                "--spring.jpa.open-in-view=false", "--JWT_SECRET=" + SECRET)) {
+                "--JWT_SECRET=" + SECRET)) {
             base = "http://127.0.0.1:" + ((WebServerApplicationContext) context).getWebServer().getPort();
             var environment = context.getEnvironment();
+            assertEquals("false", environment.getProperty("spring.jpa.open-in-view"));
+            assertTrue(context.getBeansOfType(org.springframework.orm.jpa.support.OpenEntityManagerInViewInterceptor.class).isEmpty());
+            assertTrue(context.getBeansOfType(org.springframework.orm.jpa.support.OpenEntityManagerInViewFilter.class).isEmpty());
             assertEquals("false", environment.getProperty("spring.jpa.show-sql"));
             assertEquals(profile.equals("local") ? "true" : "false",
                     environment.getProperty("spring.jpa.properties.hibernate.format_sql"));

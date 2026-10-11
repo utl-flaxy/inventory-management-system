@@ -66,6 +66,56 @@ public class OrderService {
     private final UserRepository userRepository;
     private final InventoryService inventoryService;
 
+    // HTTP entry points materialize DTOs before the transaction closes. Self-invocation uses
+    // this outer transaction, so each entry point keeps the delegated operation's attributes.
+    // Entity-returning methods remain available to existing non-HTTP callers.
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse createOrderResponse(OrderRequest request, String idempotencyKey) {
+        return writeResponse(createOrder(request, idempotencyKey));
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse findMyOrderResponse(Long id) {
+        return OrderResponse.from(findMyOrder(id));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse cancelMyOrderResponse(Long id) {
+        return writeResponse(cancelMyOrder(id));
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse findByIdResponse(Long id) {
+        return OrderResponse.from(findById(id));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse updateStatusResponse(Long id, OrderStatus status) {
+        return writeResponse(updateStatus(id, status));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse shipOrderResponse(Long id) {
+        return writeResponse(shipOrder(id));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse completeOrderResponse(Long id) {
+        return writeResponse(completeOrder(id));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public OrderResponse cancelOrderResponse(Long id) {
+        return writeResponse(cancelOrder(id));
+    }
+
+    private OrderResponse writeResponse(Order order) {
+        // Previously the controller saw @Version/@PreUpdate changes after commit. Flush them
+        // before copying immutable fields, without committing or starting another transaction.
+        entityManager.flush();
+        return OrderResponse.from(order);
+    }
+
     // 注文作成
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Order createOrder(OrderRequest request, String idempotencyKey) {

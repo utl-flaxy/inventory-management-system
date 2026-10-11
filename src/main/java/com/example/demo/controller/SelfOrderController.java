@@ -31,7 +31,7 @@ public class SelfOrderController {
                     example = "01J9VQW2M7MX7KQ7S2H4F7ABCD")
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody OrderRequest request) {
-        OrderResponse response = OrderResponse.from(orderService.createOrder(request, idempotencyKey));
+        OrderResponse response = orderService.createOrderResponse(request, idempotencyKey);
         log.atInfo().addKeyValue("event", "order.create.completed")
                 .addKeyValue("orderId", response.id()).addKeyValue("status", response.status())
                 .addKeyValue("itemCount", response.items().size()).log("Order creation completed");
@@ -56,12 +56,12 @@ public class SelfOrderController {
 
     @GetMapping("/{id}")
     public OrderResponse getById(@PathVariable Long id) {
-        return OrderResponse.from(orderService.findMyOrder(id));
+        return orderService.findMyOrderResponse(id);
     }
 
     @PostMapping("/{id}/cancel")
     public OrderResponse cancel(@PathVariable Long id) {
-        OrderResponse response = OrderResponse.from(orderService.cancelMyOrder(id));
+        OrderResponse response = orderService.cancelMyOrderResponse(id);
         log.atInfo().addKeyValue("event", "order.cancel.completed")
                 .addKeyValue("orderId", response.id()).addKeyValue("status", response.status())
                 .log("Order cancellation completed");

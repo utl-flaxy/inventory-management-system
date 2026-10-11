@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.OrderResponse;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderStatus;
@@ -61,10 +62,10 @@ class OrderStateControllerTest {
 
     private void fail(String operation, RuntimeException exception) {
         switch (operation) {
-            case "ship" -> when(orderService.shipOrder(1L)).thenThrow(exception);
-            case "complete" -> when(orderService.completeOrder(1L)).thenThrow(exception);
-            case "status" -> when(orderService.updateStatus(1L, OrderStatus.CANCELLED)).thenThrow(exception);
-            default -> when(orderService.cancelOrder(1L)).thenThrow(exception);
+            case "ship" -> when(orderService.shipOrderResponse(1L)).thenThrow(exception);
+            case "complete" -> when(orderService.completeOrderResponse(1L)).thenThrow(exception);
+            case "status" -> when(orderService.updateStatusResponse(1L, OrderStatus.CANCELLED)).thenThrow(exception);
+            default -> when(orderService.cancelOrderResponse(1L)).thenThrow(exception);
         }
     }
 
@@ -73,9 +74,9 @@ class OrderStateControllerTest {
     void commandEndpointsCallTheAppropriateService(String operation) throws Exception {
         Order order = responseOrder(target(operation));
         switch (operation) {
-            case "ship" -> when(orderService.shipOrder(1L)).thenReturn(order);
-            case "complete" -> when(orderService.completeOrder(1L)).thenReturn(order);
-            default -> when(orderService.cancelOrder(1L)).thenReturn(order);
+            case "ship" -> when(orderService.shipOrderResponse(1L)).thenReturn(OrderResponse.from(order));
+            case "complete" -> when(orderService.completeOrderResponse(1L)).thenReturn(OrderResponse.from(order));
+            default -> when(orderService.cancelOrderResponse(1L)).thenReturn(OrderResponse.from(order));
         }
 
         mockMvc.perform(request(operation))
@@ -83,9 +84,9 @@ class OrderStateControllerTest {
                 .andExpect(jsonPath("$.status").value(target(operation).name()));
 
         switch (operation) {
-            case "ship" -> verify(orderService).shipOrder(1L);
-            case "complete" -> verify(orderService).completeOrder(1L);
-            default -> verify(orderService).cancelOrder(1L);
+            case "ship" -> verify(orderService).shipOrderResponse(1L);
+            case "complete" -> verify(orderService).completeOrderResponse(1L);
+            default -> verify(orderService).cancelOrderResponse(1L);
         }
         verifyNoMoreInteractions(orderService);
     }
@@ -93,13 +94,13 @@ class OrderStateControllerTest {
     @ParameterizedTest
     @EnumSource(value = OrderStatus.class, names = {"SHIPPED", "COMPLETED", "CANCELLED"})
     void legacyStatusApiValidatesAndPassesTheTargetToService(OrderStatus target) throws Exception {
-        when(orderService.updateStatus(1L, target)).thenReturn(responseOrder(target));
+        when(orderService.updateStatusResponse(1L, target)).thenReturn(OrderResponse.from(responseOrder(target)));
 
         mockMvc.perform(patch("/api/v1/admin/orders/1/status").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"" + target.name() + "\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value(target.name()));
 
-        verify(orderService).updateStatus(1L, target);
+        verify(orderService).updateStatusResponse(1L, target);
     }
 
     @ParameterizedTest
@@ -141,7 +142,7 @@ class OrderStateControllerTest {
 
     @Test
     void restorationOverflowReturns409() throws Exception {
-        when(orderService.cancelOrder(1L)).thenThrow(new OrderInventoryRestorationException("在庫数の上限超過"));
+        when(orderService.cancelOrderResponse(1L)).thenThrow(new OrderInventoryRestorationException("在庫数の上限超過"));
 
         mockMvc.perform(post("/api/v1/admin/orders/1/cancel")).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ORDER_INVENTORY_RESTORATION_FAILED"));
@@ -149,7 +150,7 @@ class OrderStateControllerTest {
 
     @Test
     void existingOrderDetailAlsoReturns404ForMissingOrder() throws Exception {
-        when(orderService.findById(1L)).thenThrow(new OrderNotFoundException());
+        when(orderService.findByIdResponse(1L)).thenThrow(new OrderNotFoundException());
 
         mockMvc.perform(get("/api/v1/admin/orders/1")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));

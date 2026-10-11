@@ -14,6 +14,31 @@ JWTの有無によって401へ変わらない。localでのみSwaggerをpermit�
 H2はtest scopeでproduction jarに含まない。全環境のframeOptions.disableを撤廃し、
 Spring Security標準のX-Frame-Options: DENYを使う。業務APIのJWT/role/所有者認可は維持する。
 
+## Persistence context / OSIV（Issue #73）
+
+共通の `application.properties` で `spring.jpa.open-in-view=false` を指定し、
+default/local/prodすべてが継承する。HTTP request全体を覆うEntityManagerは登録しない。
+JSONを送信する前に、ServiceのTransaction内で必要な関連を読み、独立したDTOへ変換する。
+Controllerは注文Entityを受け取らず、customer/itemsを含む完成済みのOrderResponseだけを扱う。
+
+Productの一覧・検索・詳細はmethod単位で `@Transactional(readOnly=true)`。
+Product更新・削除、注文作成・状態操作、Inventory調整のREAD_COMMITTEDは維持する。
+注文一覧のREPEATABLE_READ、Inventory履歴とSalesのread-onlyも維持する。
+注文のHTTP用DTO入口は既存のEntity用業務メソッドと同じTransaction属性を持つ。
+同一Service内の呼出しは外側のTransactionを使い、追加のTransactionを開始しない。
+書込み応答はDTOへのコピー前にflushし、`@Version` と `@PreUpdate` の値を確定する。
+commit/rollbackは引き続きServiceのTransaction終了時に行う。
+
+Auth登録とProduct登録は関連を持たないscalar fieldだけの応答であり、既存Repositoryの書込み
+Transactionを維持する。AuthのBCrypt・JWT・試行制限や同名登録の409処理は変更しない。
+CSVはJSON変換と異なり、同期HTTP出力を既存のread-only REPEATABLE_READ内で行う。
+500行単位のprojection取得と逐次送信は意図した処理で、OSIVやEntityの遅延SELECTへ依存しない。
+長時間exportのsnapshot/connection保持の制限は[CSV仕様](order-csv.md)を参照する。
+
+実効設定・Web interceptor/filterの不在・JSON converter時のセッション解放は
+[OsivApiIT](../src/test/java/com/example/demo/controller/OsivApiIT.java)で3 profileの実HTTP/MariaDBを検証する。
+設定値だけではsession境界の検証済みとは扱わない。
+
 ## Required environment
 
 Spring Boot標準bindingを使い、application.propertiesにDB接続情報を置かない。

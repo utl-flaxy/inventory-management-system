@@ -53,7 +53,7 @@ public class AdminOrderController {
     @GetMapping("/{id}")
     public OrderResponse getById(@PathVariable Long id) {
 
-        return OrderResponse.from(orderService.findById(id));
+        return orderService.findByIdResponse(id);
     }
 
     // 売上集計
@@ -69,10 +69,10 @@ public class AdminOrderController {
             @PathVariable Long id,
             @Valid @RequestBody StatusUpdateRequest request) {
 
-        OrderResponse response = OrderResponse.from(orderService.updateStatus(
+        OrderResponse response = orderService.updateStatusResponse(
                 id,
                 request.getStatus()
-        ));
+        );
         String event = switch (response.status()) {
             case CANCELLED -> "order.cancel.completed";
             case SHIPPED -> "order.ship.completed";
@@ -89,21 +89,21 @@ public class AdminOrderController {
     @RequestMapping(value = "/{id}/cancel", method = {RequestMethod.POST, RequestMethod.PATCH})
     public OrderResponse cancel(@PathVariable Long id) {
 
-        OrderResponse response = OrderResponse.from(orderService.cancelOrder(id));
+        OrderResponse response = orderService.cancelOrderResponse(id);
         logCommand("order.cancel.completed", response);
         return response;
     }
 
     @PostMapping("/{id}/ship")
     public OrderResponse ship(@PathVariable Long id) {
-        OrderResponse response = OrderResponse.from(orderService.shipOrder(id));
+        OrderResponse response = orderService.shipOrderResponse(id);
         logCommand("order.ship.completed", response);
         return response;
     }
 
     @PostMapping("/{id}/complete")
     public OrderResponse complete(@PathVariable Long id) {
-        OrderResponse response = OrderResponse.from(orderService.completeOrder(id));
+        OrderResponse response = orderService.completeOrderResponse(id);
         logCommand("order.complete.completed", response);
         return response;
     }

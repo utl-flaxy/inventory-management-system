@@ -48,7 +48,7 @@ class OrderControllerTest {
     @ValueSource(ints = {1, 3})
     void 注文登録成功(int quantity) throws Exception {
         Order order = order(1L, OrderStatus.PENDING, OrderItem.create(new Product(1L, "apple", 100L, 10), quantity));
-        when(orderService.createOrder(any(), anyString())).thenReturn(order);
+        when(orderService.createOrderResponse(any(), anyString())).thenReturn(OrderResponse.from(order));
 
         mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request(1L, quantity))))
@@ -64,7 +64,7 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.items[0].unitPrice").value(100))
                 .andExpect(jsonPath("$.items[0].lineTotal").value(100 * quantity))
                 .andExpect(jsonPath("$.items[0].product").doesNotExist());
-        verify(orderService).createOrder(any(OrderRequest.class), anyString());
+        verify(orderService).createOrderResponse(any(OrderRequest.class), anyString());
     }
 
     private void invalid(OrderRequest request, String field, String message) throws Exception {
@@ -107,7 +107,7 @@ class OrderControllerTest {
 
     @Test
     void 金額上限超過の業務エラーは400() throws Exception {
-        when(orderService.createOrder(any(), anyString())).thenThrow(new InvalidOrderRequestException("注文金額が上限を超えています"));
+        when(orderService.createOrderResponse(any(), anyString())).thenThrow(new InvalidOrderRequestException("注文金額が上限を超えています"));
         mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":2147483647}]}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_ORDER_REQUEST"));
@@ -148,7 +148,7 @@ class OrderControllerTest {
         Order order = order(1L, OrderStatus.PENDING, OrderItem.create(product, 2));
         product.setName("renamed");
         product.setPrice(900L);
-        when(orderService.findById(1L)).thenReturn(order);
+        when(orderService.findByIdResponse(1L)).thenReturn(OrderResponse.from(order));
         when(orderService.findAll(any())).thenReturn(new PageImpl<>(java.util.List.of(OrderResponse.from(order))));
         mvc.perform(get("/api/v1/admin/orders/1")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].productName").value("apple"))
@@ -156,5 +156,27 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.totalPrice").value(200));
         mvc.perform(get("/api/v1/admin/orders")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].items[0].productName").value("apple"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"detail", "cancel"})
+    void selfEndpointsSerializeTheServiceDtoWithoutEntityAccess(String operation) throws Exception {
+        var response = OrderResponse.from(order(1L, OrderStatus.PENDING,
+                OrderItem.create(new Product(1L, "saved name", 100L, 10), 2)));
+        if (operation.equals("detail")) {
+            when(orderService.findMyOrderResponse(1L)).thenReturn(response);
+        } else {
+            when(orderService.cancelMyOrderResponse(1L)).thenReturn(response);
+        }
+        mvc.perform(operation.equals("detail") ? get("/api/v1/me/orders/1") : post("/api/v1/me/orders/1/cancel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customer.username").value("alice"))
+                .andExpect(jsonPath("$.items[0].productName").value("saved name"))
+                .andExpect(jsonPath("$.items[0].unitPrice").value(100))
+                .andExpect(jsonPath("$.items[0].product").doesNotExist())
+                .andExpect(jsonPath("$.orderItems").doesNotExist());
+        if (operation.equals("detail")) verify(orderService).findMyOrderResponse(1L);
+        else verify(orderService).cancelMyOrderResponse(1L);
+        verifyNoMoreInteractions(orderService);
     }
 }

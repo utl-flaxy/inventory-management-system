@@ -117,7 +117,7 @@ class BusinessEventLoggingTest {
 
     @Test
     void selfCreateLogsSafeResponseFieldsAfterServiceReturns() throws Exception {
-        when(orders.createOrder(any(), eq("idempotency-secret-key"))).thenReturn(order(OrderStatus.PENDING));
+        when(orders.createOrderResponse(any(), eq("idempotency-secret-key"))).thenReturn(OrderResponse.from(order(OrderStatus.PENDING)));
         assertEvent(post("/api/v1/me/orders").header("Idempotency-Key", "idempotency-secret-key")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"productId\":3,\"quantity\":2}]}"),
                 "order.create.completed", Map.of("orderId", 19L, "status", OrderStatus.PENDING, "itemCount", 1));
@@ -125,7 +125,7 @@ class BusinessEventLoggingTest {
 
     @Test
     void selfCancelLogsOneSafeEvent() throws Exception {
-        when(orders.cancelMyOrder(19L)).thenReturn(order(OrderStatus.CANCELLED));
+        when(orders.cancelMyOrderResponse(19L)).thenReturn(OrderResponse.from(order(OrderStatus.CANCELLED)));
         assertEvent(post("/api/v1/me/orders/19/cancel"), "order.cancel.completed",
                 Map.of("orderId", 19L, "status", OrderStatus.CANCELLED));
     }
@@ -141,14 +141,14 @@ class BusinessEventLoggingTest {
         };
         MockHttpServletRequestBuilder request;
         if (command.startsWith("status-")) {
-            when(orders.updateStatus(19L, target)).thenReturn(order(target));
+            when(orders.updateStatusResponse(19L, target)).thenReturn(OrderResponse.from(order(target)));
             request = patch("/api/v1/admin/orders/19/status").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"status\":\"" + target + "\"}");
         } else {
             switch (operation) {
-                case "ship" -> when(orders.shipOrder(19L)).thenReturn(order(target));
-                case "complete" -> when(orders.completeOrder(19L)).thenReturn(order(target));
-                default -> when(orders.cancelOrder(19L)).thenReturn(order(target));
+                case "ship" -> when(orders.shipOrderResponse(19L)).thenReturn(OrderResponse.from(order(target)));
+                case "complete" -> when(orders.completeOrderResponse(19L)).thenReturn(OrderResponse.from(order(target)));
+                default -> when(orders.cancelOrderResponse(19L)).thenReturn(OrderResponse.from(order(target)));
             }
             request = command.equals("patch-cancel") ? patch("/api/v1/admin/orders/19/cancel")
                     : post("/api/v1/admin/orders/19/" + operation);
@@ -180,7 +180,7 @@ class BusinessEventLoggingTest {
                         .content("{\"username\":\"private_username\",\"password\":\"super-secret-password\"}");
             }
             case "create" -> {
-                when(orders.createOrder(any(), anyString())).thenThrow(failure);
+                when(orders.createOrderResponse(any(), anyString())).thenThrow(failure);
                 yield post("/api/v1/me/orders").header("Idempotency-Key", "idempotency-secret-key")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"productId\":3,\"quantity\":2}]}");
             }
@@ -192,9 +192,9 @@ class BusinessEventLoggingTest {
             }
             default -> {
                 switch (command) {
-                    case "ship" -> when(orders.shipOrder(19L)).thenThrow(failure);
-                    case "complete" -> when(orders.completeOrder(19L)).thenThrow(failure);
-                    default -> when(orders.cancelOrder(19L)).thenThrow(failure);
+                    case "ship" -> when(orders.shipOrderResponse(19L)).thenThrow(failure);
+                    case "complete" -> when(orders.completeOrderResponse(19L)).thenThrow(failure);
+                    default -> when(orders.cancelOrderResponse(19L)).thenThrow(failure);
                 }
                 yield post("/api/v1/admin/orders/19/" + command);
             }
@@ -210,7 +210,7 @@ class BusinessEventLoggingTest {
 
     @Test
     void rejectedCommandProduces409AndOnlyCompletion() throws Exception {
-        when(orders.cancelOrder(19L)).thenThrow(new IllegalOrderStateTransitionException(OrderStatus.CANCELLED, OrderStatus.CANCELLED));
+        when(orders.cancelOrderResponse(19L)).thenThrow(new IllegalOrderStateTransitionException(OrderStatus.CANCELLED, OrderStatus.CANCELLED));
         try (var logs = new TestApplicationLogs()) {
             mvc.perform(post("/api/v1/admin/orders/19/cancel")).andExpect(status().isConflict());
             assertEquals(1, logs.events().size());
@@ -224,8 +224,8 @@ class BusinessEventLoggingTest {
     void readOnlyRequestsProduceOnlyCompletion(String path) throws Exception {
         when(orders.findMyOrders(any())).thenAnswer(call -> org.springframework.data.domain.Page.empty(call.getArgument(0)));
         when(orders.findAll(any())).thenAnswer(call -> org.springframework.data.domain.Page.empty(call.getArgument(0)));
-        when(orders.findMyOrder(19L)).thenReturn(order(OrderStatus.PENDING));
-        when(orders.findById(19L)).thenReturn(order(OrderStatus.PENDING));
+        when(orders.findMyOrderResponse(19L)).thenReturn(OrderResponse.from(order(OrderStatus.PENDING)));
+        when(orders.findByIdResponse(19L)).thenReturn(OrderResponse.from(order(OrderStatus.PENDING)));
         try (var logs = new TestApplicationLogs()) {
             mvc.perform(get(path)).andExpect(status().isOk());
             assertEquals(1, logs.events().size());
