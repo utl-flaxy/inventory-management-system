@@ -55,6 +55,27 @@ logging追加前baselineはSurefire 654 / Failsafe 597 / total 1251で、既存�
 実console出力からusername/key/constraint/SQL messageが漏れないことを確認します。
 prodの`ErrorPacket`/`SqlExceptionHelper`だけをOFFにし、既存409・rollback・safe5xx eventを維持します。
 
+## 安全な注文CSV（Issue #63）
+
+開始時baselineはSurefire 814 / Failsafe 624 / total 1438。既存テストの削除・skipはしません。
+`OrderCsvWriterTest`はJackson CSV parser（test scope、Boot管理version）で6列をroundtripし、
+日本語・空文字・カンマ・quote・LF/CRLFとformula/leading control対策を確認します。
+`OrderCsvServiceTest`は50,000行を500件単位で生成し、全量保持しないsinkへ送り、query前のflush・
+cursor・固定limit・切断時の後続query停止・Servlet streamをcloseしないことを検証します。
+`OrderCsvControllerTest`はUTF-8/filename、commit前のProblemDetail、commit後の中断を確認します。
+
+`OrderCsvExportIT`は実prod / JWT / MariaDB / Flyway V1〜V6で認可、parser roundtrip、保存値不変、
+注文時価格、安定順、1103行のバッチ境界、3 SELECT・Entity load/update 0件を検証します。
+read-only接続・REPEATABLE READ・同一threadのSecurity context、並行追加/状態変更のsnapshot分離、
+切断/途中DB失敗時のconnection解放、実HTTP転送の異常終了、実prod logの秘密値非出力も検証します。
+既存`MoneyApiIT`・`SalesApiIT`・注文/認可/冪等性の回帰は維持します。
+詳しい契約・SQL・メモリ上限・長時間transactionの制限は[CSV仕様](order-csv.md)を参照してください。
+
+```powershell
+mvnw.cmd '-Dtest=OrderCsvWriterTest,OrderCsvServiceTest,OrderCsvControllerTest,OrderAggregatePersistenceTest,OrderControllerTest,OrderStateControllerTest' '-Dit.test=OrderCsvExportIT,MoneyApiIT,SalesApiIT' verify
+mvnw.cmd verify
+```
+
 ## 命名と実行phase
 
 | 分類 | 命名 | plugin / phase | 対象 |

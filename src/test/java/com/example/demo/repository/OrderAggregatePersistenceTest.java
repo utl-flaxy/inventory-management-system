@@ -155,7 +155,9 @@ class OrderAggregatePersistenceTest {
         assertEquals(100, detail.items().get(0).unitPrice());
         assertEquals(500, detail.totalPrice());
         assertEquals(detail, listed);
-        String csv = new String(service.exportCsv().readAllBytes(), StandardCharsets.UTF_8);
+        var output = new java.io.ByteArrayOutputStream();
+        service.exportCsv(output);
+        String csv = output.toString(StandardCharsets.UTF_8);
         assertTrue(csv.contains(order.getId() + ",apple,2,100,200,PENDING"), csv);
         assertTrue(csv.contains(order.getId() + ",orange,1,300,300,PENDING"), csv);
         assertFalse(csv.contains("renamed"));

@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.OrderCsvRow;
 import com.example.demo.dto.OrderItemRequest;
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.SalesResponse;
@@ -16,6 +17,7 @@ import com.example.demo.exception.IdempotencyConflictException;
 import com.example.demo.exception.OrderInventoryRestorationException;
 import com.example.demo.exception.OrderNotFoundException;
 import com.example.demo.exception.OutOfStockException;
+import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.repository.ProductRepository;
 import com.example.demo.repository.UserRepository;
@@ -29,9 +31,11 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintWriter;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -44,6 +48,9 @@ import java.util.TreeMap;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
+    public static final int CSV_BATCH_SIZE = 500;
+    private final OrderItemRepository orderItemRepository;
 
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
@@ -297,39 +304,24 @@ public class OrderService {
         return order;
     }
 
-    // CSV出力
-    @Transactional(readOnly = true)
-    public ByteArrayInputStream exportCsv() {
-
-        List<Order> orders = orderRepository.findAll();
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PrintWriter writer = new PrintWriter(out);
-
-        // ヘッダ
-        writer.println("注文ID,商品名,数量,単価,合計金額,ステータス");
-
-        // データ
-        for (Order order : orders) {
-
-            for (OrderItem item : order.getOrderItems()) {
-
-                writer.printf(
-                        "%d,%s,%d,%d,%d,%s%n",
-                        order.getId(),
-                        item.getProductNameSnapshot(),
-                        item.getQuantity(),
-                        item.getUnitPrice(),
-                        item.getLineTotal(),
-                        order.getStatus()
-                );
-            }
+    // 同期HTTP出力中だけread-only snapshot transactionを保持する。CSV全量は保持しない。
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ, rollbackFor = IOException.class)
+    public void exportCsv(OutputStream output) throws IOException {
+        // 最初のDB失敗ではまだresponseをcommitせず、既存ProblemDetailを返せる。
+        List<OrderCsvRow> batch = orderItemRepository.findCsvBatch(0, 0, CSV_BATCH_SIZE);
+        var writer = new BufferedWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8), 8192);
+        OrderCsvWriter.header(writer);
+        while (!batch.isEmpty()) {
+            for (OrderCsvRow row : batch) OrderCsvWriter.row(writer, row);
+            writer.flush(); // 次のDB取得より前に送信する。切断時はここで中断する。
+            if (batch.size() < CSV_BATCH_SIZE) break;
+            long nextOrderId = batch.get(batch.size() - 1).orderId();
+            long nextItemId = batch.get(batch.size() - 1).itemId();
+            // 前バッチを参照から外してから次を取得する（同時に2バッチを保持しない）。
+            batch = null;
+            batch = orderItemRepository.findCsvBatch(nextOrderId, nextItemId, CSV_BATCH_SIZE);
         }
-
         writer.flush();
-
-        return new ByteArrayInputStream(
-                out.toByteArray()
-        );
+        // HTTP streamはServlet所有。closeせず、失敗時もTx interceptorがconnectionを解放する。
     }
 }
