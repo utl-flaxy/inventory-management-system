@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin/products/{id}")
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
+@Slf4j
 public class InventoryController {
     private final InventoryService service;
 
@@ -28,7 +30,11 @@ public class InventoryController {
                     schema = @Schema(type = "string", pattern = "[A-Za-z0-9._:-]{1,128}", minLength = 1, maxLength = 128))
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody InventoryAdjustmentRequest request) {
-        return service.adjust(id, request, idempotencyKey);
+        InventoryMovementResponse response = service.adjust(id, request, idempotencyKey);
+        log.atInfo().addKeyValue("event", "inventory.adjustment.completed")
+                .addKeyValue("movementId", response.id()).addKeyValue("productId", response.productId())
+                .addKeyValue("delta", response.delta()).log("Inventory adjustment completed");
+        return response;
     }
 
     @GetMapping("/inventory-movements")

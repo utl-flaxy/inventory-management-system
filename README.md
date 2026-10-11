@@ -128,6 +128,24 @@ Compose用の`.env.example`はsecretが空のサンプルです。実値の`.env
 [DB手順](docs/db/README.md#専用app-db-userへの切替issue-37)を参照してください。
 本番のGitHub Actions secrets/variables設定・DB専用user移行・Deploy再有効化・EC2配備は未実施です。
 
+## Production logging（Issue #3）
+
+prodのconsole出力はSpring Boot標準のLogstash JSONです。default/localは通常のtext出力を維持し、
+application自身はlog fileを作りません。container/hostのstdout/stderr収集を前提とします。
+各HTTP requestにはserver生成UUIDを付け、responseの`X-Request-Id`とMDCの`requestId`を一致させます。
+clientの同名headerは採用せず、Securityより前のFilterでMDCを設定し、finallyで削除します。
+
+`event` fieldでrequest完了、auth/JWT、注文command、在庫調整、想定外5xxを識別できます。
+completionはmethod・queryを除いたrequest URI・status・monotonicなdurationMsを記録します。
+処理外へ例外が出た場合はlog上のstatusを500とし、response自体は変更しません。
+read APIとCSVはcompletionだけを記録します。成功command eventは原則Serviceのreturn後に出し、
+冪等なretryが成功した場合も同じorderId/movementIdでHTTP command完了を記録します。
+
+Authorization/JWT、password/hash、Cookie、username、Idempotency-Key、fingerprint、query、
+request/response body・DTO全体はapplication eventへ渡しません。想定外5xxは例外型・root cause型・
+安全なtopFrameだけをERRORで記録し、exception message・SQL/constraint message・full stack traceは出しません。
+想定内4xx/409はERRORにしません。イベントと回帰テストは[テスト手順](docs/testing.md)を参照してください。
+
 ## テスト品質ゲート
 
 - ローカル高速テスト: `./mvnw test`（Windows: `mvnw.cmd test`）。SurefireでUnit・domain・Mockito・Controller slice・H2補助テストを実行し、Dockerは不要です。

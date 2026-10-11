@@ -55,6 +55,26 @@ class ConfigurationContractTest {
         assertEquals("", xpath.evaluate("//dependency[artifactId='spring-boot-starter-actuator']/version", document));
     }
 
+    @Test
+    void structuredConsoleLoggingIsProdOnly() throws Exception {
+        assertEquals("logstash", properties("application-prod.properties")
+                .getProperty("logging.structured.format.console"));
+        for (String resource : java.util.List.of("application.properties", "application-local.properties")) {
+            var properties = properties(resource);
+            assertNull(properties.getProperty("logging.structured.format.console"));
+            for (String key : java.util.List.of("spring.config.import", "spring.profiles.include",
+                    "spring.profiles.active", "spring.profiles.group.local")) {
+                assertFalse(properties.getProperty(key, "").contains("prod"), key);
+            }
+        }
+        for (String resource : java.util.List.of("application.properties", "application-local.properties",
+                "application-prod.properties")) {
+            var properties = properties(resource);
+            assertNull(properties.getProperty("logging.file.name"));
+            assertNull(properties.getProperty("logging.file.path"));
+        }
+    }
+
     private Properties properties(String resource) throws Exception {
         var properties = new Properties();
         try (var reader = Files.newBufferedReader(Path.of("src/main/resources", resource))) {

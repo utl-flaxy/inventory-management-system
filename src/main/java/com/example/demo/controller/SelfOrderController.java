@@ -6,6 +6,7 @@ import com.example.demo.service.OrderService;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +16,7 @@ import java.util.List;
 @RequestMapping("/api/v1/me/orders")
 @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @RequiredArgsConstructor
+@Slf4j
 public class SelfOrderController {
     private final OrderService orderService;
 
@@ -24,7 +26,11 @@ public class SelfOrderController {
                     example = "01J9VQW2M7MX7KQ7S2H4F7ABCD")
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody OrderRequest request) {
-        return OrderResponse.from(orderService.createOrder(request, idempotencyKey));
+        OrderResponse response = OrderResponse.from(orderService.createOrder(request, idempotencyKey));
+        log.atInfo().addKeyValue("event", "order.create.completed")
+                .addKeyValue("orderId", response.id()).addKeyValue("status", response.status())
+                .addKeyValue("itemCount", response.items().size()).log("Order creation completed");
+        return response;
     }
 
     @GetMapping
@@ -39,6 +45,10 @@ public class SelfOrderController {
 
     @PostMapping("/{id}/cancel")
     public OrderResponse cancel(@PathVariable Long id) {
-        return OrderResponse.from(orderService.cancelMyOrder(id));
+        OrderResponse response = OrderResponse.from(orderService.cancelMyOrder(id));
+        log.atInfo().addKeyValue("event", "order.cancel.completed")
+                .addKeyValue("orderId", response.id()).addKeyValue("status", response.status())
+                .log("Order cancellation completed");
+        return response;
     }
 }

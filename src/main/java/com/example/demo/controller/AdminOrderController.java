@@ -6,6 +6,7 @@ import com.example.demo.dto.StatusUpdateRequest;
 import com.example.demo.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -21,6 +22,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/orders")
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
+@Slf4j
 public class AdminOrderController {
 
     private final OrderService orderService;
@@ -52,27 +54,48 @@ public class AdminOrderController {
             @PathVariable Long id,
             @Valid @RequestBody StatusUpdateRequest request) {
 
-        return OrderResponse.from(orderService.updateStatus(
+        OrderResponse response = OrderResponse.from(orderService.updateStatus(
                 id,
                 request.getStatus()
         ));
+        String event = switch (response.status()) {
+            case CANCELLED -> "order.cancel.completed";
+            case SHIPPED -> "order.ship.completed";
+            case COMPLETED -> "order.complete.completed";
+            case PENDING -> null; // Serviceが拒否するため成功コマンドは存在しない。
+        };
+        if (event != null) {
+            logCommand(event, response);
+        }
+        return response;
     }
 
     // 注文キャンセル
     @RequestMapping(value = "/{id}/cancel", method = {RequestMethod.POST, RequestMethod.PATCH})
     public OrderResponse cancel(@PathVariable Long id) {
 
-        return OrderResponse.from(orderService.cancelOrder(id));
+        OrderResponse response = OrderResponse.from(orderService.cancelOrder(id));
+        logCommand("order.cancel.completed", response);
+        return response;
     }
 
     @PostMapping("/{id}/ship")
     public OrderResponse ship(@PathVariable Long id) {
-        return OrderResponse.from(orderService.shipOrder(id));
+        OrderResponse response = OrderResponse.from(orderService.shipOrder(id));
+        logCommand("order.ship.completed", response);
+        return response;
     }
 
     @PostMapping("/{id}/complete")
     public OrderResponse complete(@PathVariable Long id) {
-        return OrderResponse.from(orderService.completeOrder(id));
+        OrderResponse response = OrderResponse.from(orderService.completeOrder(id));
+        logCommand("order.complete.completed", response);
+        return response;
+    }
+
+    private void logCommand(String event, OrderResponse response) {
+        log.atInfo().addKeyValue("event", event).addKeyValue("orderId", response.id())
+                .addKeyValue("status", response.status()).log("Order command completed");
     }
 
     // CSV出力
