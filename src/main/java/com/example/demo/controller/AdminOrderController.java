@@ -3,18 +3,17 @@ package com.example.demo.controller;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.dto.StatusUpdateRequest;
+import com.example.demo.exception.OrderCsvExportException;
 import com.example.demo.service.OrderService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
@@ -100,19 +99,15 @@ public class AdminOrderController {
 
     // CSV出力
     @GetMapping("/export")
-    public ResponseEntity<InputStreamResource> exportCsv() {
-
-        ByteArrayInputStream csv =
-                orderService.exportCsv();
-
-        return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=orders.csv"
-                )
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(
-                        new InputStreamResource(csv)
-                );
+    public void exportCsv(HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=orders.csv");
+        response.setContentType("text/csv; charset=UTF-8");
+        try {
+            // 同じrequest threadで認可・MDC・Transactionを維持する。
+            orderService.exportCsv(response.getOutputStream());
+        } catch (IOException | RuntimeException failure) {
+            // container/frameworkへSQLやCSV値を含むcause/messageを渡さない。
+            throw new OrderCsvExportException(failure);
+        }
     }
 }

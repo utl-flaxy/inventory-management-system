@@ -706,6 +706,9 @@ ADMINが注文データをCSV形式で出力できます。
 GET /api/v1/admin/orders/export
 ```
 
+UTF-8（BOMなし）のCSVを500明細ずつ逐次出力します。6列の順序・注文時snapshotを維持し、
+CSV引用処理とspreadsheet式対策を行います。[CSV仕様・取得と一貫性・失敗時の扱い](docs/order-csv.md)を参照してください。
+
 ---
 
 # 🔐 JWT認証

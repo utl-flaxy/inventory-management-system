@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PessimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,22 @@ import java.util.TreeMap;
 @Slf4j
 @Hidden // OpenAPIのerror契約は共通customizerで定義する。
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(OrderCsvExportException.class)
+    public ResponseEntity<ProblemDetail> handleCsvExport(OrderCsvExportException ex,
+                                                        HttpServletRequest request,
+                                                        HttpServletResponse response) {
+        log.atError().addKeyValue("event", "system.unhandled_error")
+                .addKeyValue("exceptionType", ex.failureType()).addKeyValue("rootCauseType", ex.rootCauseType())
+                .addKeyValue("topFrame", ex.topFrame()).log("Unexpected system error");
+        // 途中のCSVにJSONを混ぜずcontainerへ中断を伝える。例外自体はsafe messageのみ。
+        if (response.isCommitted()) throw ex;
+        response.resetBuffer();
+        response.setCharacterEncoding(null);
+        response.setHeader(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, null);
+        return ApiProblemFactory.response(HttpStatus.INTERNAL_SERVER_ERROR, "SYSTEM_ERROR",
+                ApiProblemFactory.SYSTEM_ERROR_DETAIL, request);
+    }
 
     @ExceptionHandler(UsernameAlreadyExistsException.class)
     public ResponseEntity<ProblemDetail> handleDuplicateUsername(UsernameAlreadyExistsException ex, HttpServletRequest request) {

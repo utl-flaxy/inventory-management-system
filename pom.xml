@@ -135,6 +135,13 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- CSV roundtrip検証専用。versionは既存Boot/Jackson BOM管理、productionには含めない -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.dataformat</groupId>
+			<artifactId>jackson-dataformat-csv</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- Mockito -->
 		<dependency>
 			<groupId>org.mockito</groupId>
