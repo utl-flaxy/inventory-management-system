@@ -415,6 +415,8 @@ Spring Boot + MariaDB を Docker Compose で管理。
 ## Terraform
 
 AWS環境をコード管理。
+以下は初期PoCのスクリーンショットです。現在の専用network・SSH制限・8080非公開の定義は
+[Terraform手順](terraform/README.md)を参照してください。
 
 ![Terraform](docs/images/terraform-main.png)
 
@@ -1439,30 +1441,34 @@ AWS環境をコードで管理しています。
 
 ## 定義しているリソース
 
-### EC2
+### Network / EC2
 
-Spring Bootアプリケーションの配置先。
+専用VPC・public subnet・Internet Gateway・route tableを明示定義し、default VPCへ依存しません。
+AWS公式SSM parameterからAL2023 x86_64を解決します。region/instance typeは入力、
+IMDSv2必須、root EBSは暗号化gp3/30 GiB・termination時削除です。
 
 ### Security Group
 
-許可ポート
-
-* 22 (SSH)
-* 8080 (Application)
+SSH 22は必須入力の運用者IPv4 CIDRのみ許可します。world-open SSHを拒否し、
+8080のpublic ingressはありません。localhostの配備readiness確認は維持します。
+HTTPS/TLSと80/443公開は次Issueで扱います。
 
 ### Key Pair
 
-SSH接続用秘密鍵。
+運用者が指定した既存SSH公開鍵だけを登録します。秘密鍵はTerraform/repositoryへ入れません。
 
 ### User Data
 
 初期セットアップ
 
-* Git
-* Docker
-* Docker Compose
+* Git・Java 17 JDK・Docker Engine・curl・flock
+* Docker Compose v2.40.3（固定SHA-256検証後にinstall）
+* ec2-user所有のmain checkout
 
-の初期セットアップを定義しています。
+host準備だけを実行し、secret・app/DB起動・volume操作・restoreは含めません。
+Terraform 1.15.6 / AWS provider 6.68.0をlockし、Linux/Windows amd64 checksumをcommitします。
+今回apply・AWS/EC2操作は未実施、Deploy workflowはdisabledのままです。
+入力準備・init/fmt/validate・運用者の手動plan/applyは [Terraform手順](terraform/README.md) を参照してください。
 
 ---
 
@@ -1470,6 +1476,8 @@ SSH接続用秘密鍵。
 
 ```text
 terraform
+├── .terraform.lock.hcl
+├── README.md
 ├── provider.tf
 ├── variables.tf
 ├── main.tf
@@ -1496,6 +1504,7 @@ CIはGitHub Actionsで自動実行します。CD workflowは実装済みです�
 * Checkout
 * Java 17セットアップ
 * `./mvnw verify`（SurefireとMariaDB/TestcontainersのFailsafe）
+* Terraform 1.15.6でfmt/init（backendなし・lock読取のみ）/validate・AWS mock test（credentials不要）
 
 ## CD
 

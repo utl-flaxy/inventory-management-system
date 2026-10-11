@@ -1,7 +1,9 @@
 output "public_ip" {
-  value = aws_instance.app.public_ip
+  description = "Host public IPv4 address (SSH only; no public application ingress)."
+  value       = aws_instance.app.public_ip
 }
 
 output "instance_id" {
-  value = aws_instance.app.id
+  description = "Production host instance ID."
+  value       = aws_instance.app.id
 }

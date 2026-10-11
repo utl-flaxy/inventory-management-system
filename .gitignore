@@ -87,7 +87,6 @@ terraform/*.tfstate.*
 
 terraform/terraform.tfvars
 
-terraform/.terraform.lock.hcl
 
 
 # ==========================================

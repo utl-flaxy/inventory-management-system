@@ -31,3 +31,35 @@ jobs:
 
       - name: Verify (Surefire + Failsafe, including MariaDB)
         run: ./mvnw verify
+
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.6
+          terraform_wrapper: false
+
+      - name: Terraform formatting
+        run: terraform fmt -check -recursive terraform
+
+      - name: Terraform initialize (no backend or AWS credentials)
+        working-directory: terraform
+        run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: Terraform validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform mocked host contracts (no AWS operations)
+        working-directory: terraform
+        run: terraform test -no-color
