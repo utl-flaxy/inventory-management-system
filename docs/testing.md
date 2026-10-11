@@ -335,3 +335,18 @@ Java 17 (Temurin 17.0.18)でDOCKER_HOSTを接続不能なローカルportへ向�
 failures/errors/skipped=0。既存1041件 + 新規Unit48件/IT72件 = 120件追加で、既存テストの削除なし。
 CIのJava 17 verifyにも同じテストを含める。
 Testcontainers未起動時にskipする設定・timeout緩和・MariaDB downgradeは行わない。
+
+## Terraform production host（Issue #59）
+
+既存1392件は変更・削除・skipせず、TerraformContractTestを21件追加する。
+12件のsource/CI/lockfile契約と9件のmock bootstrapで、world-open ingressなし、
+明示ネットワーク、official AMI、IMDSv2、暗号化EBS、入力validation、secretなし・app/DB自動起動なしを確認する。
+package/download/checksum/version/service/clone失敗は非0終了し、未検証binaryをinstallしない。
+WindowsはGit Bashで同じscenarioを実行する。実hostのpackage installやAWS操作は行わない。
+
+Terraform 1.15.6のfmt/init（backendなし・lockfile readonly）/validateに加え、
+host.tftest.hclはAWS mock providerとplan-onlyで14件を実行する。
+安全なhost・変更可能なnetwork/size、SSH /0（同値CIDRも含む）・不正CIDR・IPv6、
+VPC外subnet・host bits・過大subnet・ARM type・不正region・公開鍵path不備を検証する。
+AWS credentials・実data source・real plan・applyは使用しない。
+Terraform手順と検証境界は [Terraform README](../terraform/README.md) を参照する。

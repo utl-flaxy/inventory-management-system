@@ -48,6 +48,12 @@ SSH actionのdebugやshellのset -xを有効にしない。EC2のログインshe
 
 EC2にはBash、Git、Java 17（既定JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto）、Docker Engine/Compose v2、curl、flock、Mavenの依存取得に必要な通信を用意する。配備ユーザーにはDocker実行権限とcheckoutの書き込み権限が必要。
 
+Issue #59の [Terraform host定義](../terraform/README.md) はAL2023 x86_64の新規hostへこれらを準備する。
+Composeはv2.40.3/checksum固定、checkoutはec2-user所有の `/home/ec2-user/inventory-management-system`。
+userdataはsecretを持たずapp/DB/volumeを起動・作成しない。bootstrap後のDB/secret準備は引き続き運用者が行う。
+SSH CIDRを必須入力とし、SGの8080 ingressは削除した。localhostのreadinessには影響せず、
+公開HTTPS/TLSは別Issue。Terraform apply・AWS操作・Deploy再有効化は今回未実施。
+
 既定checkoutは `~/inventory-management-system`。事前に正しいoriginを持つcheckoutを用意し、配備前のソース・Composeが現在の稼働appと一致していることを確認する。スクリプトは未追跡の本番ファイルを削除せず、checkoutが変更に阻まれた場合は切替前に失敗する。`DEPLOY_DIR` は手動実行/テスト用に変更できるが、本番workflowは既定値を使用する。
 
 初回はDBを運用者が別途準備・起動する。既存DBのFlyway導入は [DB手順](db/README.md) に従う。CDは起動済みinventory-dbとCompose project labelを要求し、そのprojectを引き継ぐ。appを初めて作る際にもDBを自動で作成しない。DBが停止中/存在しない場合は切替前に失敗する。

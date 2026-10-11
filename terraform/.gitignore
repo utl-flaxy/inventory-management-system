@@ -2,10 +2,13 @@
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
 
 # Variables
 terraform.tfvars
+*.tfvars
+*.tfvars.json
+override.tf
+*_override.tf
 
 # SSH Keys
 *.pem
