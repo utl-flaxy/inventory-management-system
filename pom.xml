@@ -23,6 +23,8 @@
 		<java.version>17</java.version>
 		<jjwt.version>0.12.7</jjwt.version>
 		<testcontainers.version>2.0.5</testcontainers.version>
+		<!-- Issue #86: released Tomcat 10.1 security fixes; keep all embedded modules aligned. -->
+		<tomcat.version>10.1.60</tomcat.version>
 	</properties>
 
 	<dependencies>
