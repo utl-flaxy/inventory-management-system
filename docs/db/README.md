@@ -142,6 +142,9 @@ spring.flyway.clean-disabled=true
 Boot管理のFlyway 11.7.2はMariaDB 12.2に上流での未検証警告を出す（同版の上流検証上限は11.2）。
 本リポジトリではMariaDB 12.2.2実DBでmigration・validate・制約・再起動・業務回帰を必須検証する。
 警告を隠したりMariaDBを下げたりせず、Boot管理とJava 17を維持する。上流による12.2認証を意味しない。
+Issue #69で公式表・release tag・候補の実起動を再確認し、単独更新の失敗を踏まえて現行維持を選択した。
+実version、warning原文/95件、候補/代替案、残余リスクと更新条件は
+[Flyway / MariaDB互換性判断](flyway-mariadb-compatibility.md)を参照する。
 
 ## Migration / Entity対応
 
