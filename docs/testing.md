@@ -51,6 +51,10 @@ SQL/constraint messageとThrowable非出力を確認します。legacy statusも
 Service/commit失敗時のfalse success防止、既知4xx/409のERROR非出力、cycleを持つcause chainも検証します。
 logging追加前baselineはSurefire 654 / Failsafe 597 / total 1251で、既存テストを削除・skipしません。
 
+`ProductionLoggingIT`は実prod起動・MariaDBのduplicate-keyを用いて、driver/frameworkも含む
+実console出力からusername/key/constraint/SQL messageが漏れないことを確認します。
+prodの`ErrorPacket`/`SqlExceptionHelper`だけをOFFにし、既存409・rollback・safe5xx eventを維持します。
+
 ## 命名と実行phase
 
 | 分類 | 命名 | plugin / phase | 対象 |

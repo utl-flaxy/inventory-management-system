@@ -132,6 +132,8 @@ Compose用の`.env.example`はsecretが空のサンプルです。実値の`.env
 
 prodのconsole出力はSpring Boot標準のLogstash JSONです。default/localは通常のtext出力を維持し、
 application自身はlog fileを作りません。container/hostのstdout/stderr収集を前提とします。
+DB値やconstraint messageを含むMariaDB `ErrorPacket`とHibernate `SqlExceptionHelper`はprodだけOFFにし、
+想定外5xxは安全な`system.unhandled_error`で診断します。default/localのlogger設定は変更しません。
 各HTTP requestにはserver生成UUIDを付け、responseの`X-Request-Id`とMDCの`requestId`を一致させます。
 clientの同名headerは採用せず、Securityより前のFilterでMDCを設定し、finallyで削除します。
 

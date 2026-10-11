@@ -75,6 +75,17 @@ class ConfigurationContractTest {
         }
     }
 
+    @Test
+    void databaseDiagnosticSuppressionIsProdOnly() throws Exception {
+        for (String logger : java.util.List.of("org.mariadb.jdbc.message.server.ErrorPacket",
+                "org.hibernate.engine.jdbc.spi.SqlExceptionHelper")) {
+            String key = "logging.level." + logger;
+            assertEquals("OFF", properties("application-prod.properties").getProperty(key));
+            assertNull(properties("application.properties").getProperty(key));
+            assertNull(properties("application-local.properties").getProperty(key));
+        }
+    }
+
     private Properties properties(String resource) throws Exception {
         var properties = new Properties();
         try (var reader = Files.newBufferedReader(Path.of("src/main/resources", resource))) {
