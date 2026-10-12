@@ -110,7 +110,7 @@ customer/日時/商品名snapshotを現在の値から推測で埋めないで�
 - MariaDB DDLの失敗は完全なTransaction rollbackを保証しない。review済みの前進修復またはbackup復元を行う。
 
 Java 17とDockerで `./mvnw verify` を実行すると、MariaDB 12.2.2でmigration・制約・再起動・
-認可・並行制御を検証します。Boot管理のFlyway 11.7.2による12.2未検証警告と実DB検証の扱いも
+認可・並行制御を検証します。Boot 4管理のFlyway 12.4.0と、旧11.7.2 rollback fixtureの互換性警告・実DB検証の扱いも
 [DB運用手順](docs/db/README.md)に記載しています。
 
 ## 設定と管理endpoint（Issue #37）
@@ -236,6 +236,13 @@ Money Value Object、小数、税・割引、多通貨は未導入です。売�
 - ユーザー登録
 - ログイン
 - JWT認証
+
+公開`POST /auth/register`は常に`ROLE_USER`です。usernameを`admin`にしても、roleを送っても管理者にはなりません。
+通常起動やmigrationでADMINは自動生成しません。新規環境の初期ADMINは、権限を持つ運用者が
+専用のオフライン`InitialAdminCommand`を明示的に実行して作成します。既存ユーザーの昇格や
+既存ADMINのpassword再設定は行いません。ADMINが存在する場合は変更せず終了します。
+非表示入力、最小DB権限、並行実行、Docker実行例、失敗時の復旧は
+[初期ADMIN provisioning手順](docs/initial-admin-provisioning.md)を参照してください。
 
 ---
 

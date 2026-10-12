@@ -5,6 +5,7 @@ volume, AWS, deployment workflow or global Docker cleanup is used.
 """
 import argparse
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 import http.client
 import io
 import json
@@ -119,18 +120,66 @@ def db_query(name, sql):
                   input=sql.encode()).stdout.decode().strip()
 
 
-def api_regression(port, db):
+def provision_admin(image, network, db, username, database_password, password):
+    # A separate, bounded non-root CLI process: no app/JWT environment, secret argv, file or published port.
+    private_values.extend([database_password, password])
+    payload = bytearray((database_password + "\n" + password + "\n" + password + "\n").encode())
+    try:
+        result = docker("run", "--rm", "-i", "--network", network, "--user", "10001:10001",
+                        "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
+                        "--pids-limit=64", "--memory=256m", "--memory-swap=256m", "--ulimit", "core=0",
+                        "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m,mode=1777", "--no-healthcheck",
+                        "--env", "PROVISION_JDBC_URL=jdbc:mariadb://db:3306/inventory76",
+                        "--env", "PROVISION_DB_USER=bootstrap_operator",
+                        "--env", "PROVISION_ADMIN_USERNAME=" + username,
+                        "--entrypoint", "java", image,
+                        "-Dloader.main=com.example.demo.provisioning.InitialAdminCommand",
+                        "-cp", "/app/app.jar", "org.springframework.boot.loader.launch.PropertiesLauncher",
+                        "--passwords-stdin", input=payload, check=False)
+    finally:
+        payload[:] = b"\0" * len(payload)
+    text = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert all(value not in text for value in private_values), "Offline command leaked a credential"
+    assert not re.search(r"\$2[aby]\$\d{2}\$[A-Za-z0-9./]{53}", text), "Offline command leaked a password hash"
+    status = re.findall(r"^initial-admin: ([A-Z_]+)\r?$", text, re.M)
+    assert len(status) == 1, "Offline command must emit exactly one value-free status"
+    return result.returncode, status[0]
+
+
+def api_regression(port, db, image, network):
     checks = []
     password = secrets.token_urlsafe(18)
     private_values.append(password)
-    for username in ["docker_user", "docker_admin"]:
-        body, _ = request(port, "/auth/register", method="POST", data={"username": username, "password": password})
+    for username in ["docker_user", "admin"]:
+        body, _ = request(port, "/auth/register", method="POST", data={"username": username, "password": password, "role": "ROLE_ADMIN"})
         assert body["role"] == "ROLE_USER" and "password" not in body
-    db_query(db, "UPDATE users SET role='ROLE_ADMIN' WHERE username='docker_admin';")
+    assert db_query(db, "SELECT COUNT(*) FROM users WHERE role='ROLE_ADMIN';") == "0"
+    operator_secret = secrets.token_hex(24)
+    private_values.append(operator_secret)
+    # Test-generated hex credential travels only as SQL stdin to this disposable DB.
+    db_query(db, "CREATE USER 'bootstrap_operator'@'%' IDENTIFIED BY '" + operator_secret + "'; "
+             "GRANT SELECT (username,role), INSERT (username,password,role) ON inventory76.users TO 'bootstrap_operator'@'%';")
+    # Different names and independent CLI processes prove cross-process serialization, not just username UNIQUE.
+    names = ["docker_admin_" + str(i) for i in range(3)]
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = list(pool.map(lambda name: provision_admin(image, network, db, name, operator_secret, password), names))
+    assert results.count((0, "CREATED")) == 1 and results.count((0, "ADMIN_PRESENT")) == 2
+    administrator = names[results.index((0, "CREATED"))]
+    before = db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';")
+    stored_hash = before.split("\t")[2]
+    private_values.append(stored_hash)
+    assert stored_hash.startswith("$2a$10$")
+    assert provision_admin(image, network, db, "another_operator", operator_secret, secrets.token_urlsafe(18)) == (0, "ADMIN_PRESENT")
+    assert db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';") == before
+    wrong_password = secrets.token_hex(24)
+    private_values.append(wrong_password)
+    assert provision_admin(image, network, db, "another_operator", wrong_password, password) == (74, "DATABASE_FAILED")
+    assert db_query(db, "SELECT COUNT(*) FROM users WHERE role='ROLE_ADMIN';") == "1"
+    checks.append("Offline initial ADMIN: 3 concurrent processes, one insert, least-privilege DB account, rerun unchanged, failed credentials redacted")
     tokens = {}
-    for username in ["docker_user", "docker_admin"]:
+    for username in ["docker_user", administrator]:
         body, _ = request(port, "/auth/login", method="POST", data={"username": username, "password": password})
-        tokens[username] = body["token"]
+        tokens["docker_admin" if username == administrator else username] = body["token"]
         private_values.append(body["token"])
     user, admin = tokens["docker_user"], tokens["docker_admin"]
     request(port, "/products", 401)
@@ -282,7 +331,7 @@ def main():
             report["checks"].append("JRE startup and /readyz=200 with status only")
             assert inspect(app)["HostConfig"]["ReadonlyRootfs"] is True
             report["checks"].append("Read-only rootfs, non-root, dropped capabilities, bounded tmpfs")
-            report["api_checks"], tokens, password, pid = api_regression(port, db)
+            report["api_checks"], tokens, password, pid = api_regression(port, db, image, network)
             migrations = db_query(db, "SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank;").splitlines()
             assert migrations == ["1", "2", "3", "4", "5", "6"]
             report["migrations"] = migrations
@@ -291,6 +340,7 @@ def main():
             report["db_after_api"] = memory(db)
             report["checks"].append("MariaDB connection and unchanged Flyway V1-V6")
             data_signature = db_query(db, "SELECT (SELECT COUNT(*) FROM orders), (SELECT SUM(stock) FROM products);")
+            admin_signature = db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';")
             previous = temp / "previous.json"
             old_image = args.baseline_image or info["Id"]
             compose_file(previous, inspect(old_image)["Id"], hardened=not bool(args.baseline_image))
@@ -308,6 +358,12 @@ def main():
             db_after = inspect(db)
             assert db_after["Id"] == db_before["Id"] and db_after["State"]["StartedAt"] == db_before["State"]["StartedAt"]
             assert db_query(db, "SELECT (SELECT COUNT(*) FROM orders), (SELECT SUM(stock) FROM products);") == data_signature
+            assert db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';") == admin_signature
+            report["initial_admin_provisioning"] = dict(concurrent_cli_processes=3, created_admins=1,
+                    existing_admin_result="ADMIN_PRESENT", db_permissions=["SELECT", "INSERT"],
+                    db_select_columns=["username", "role"], db_insert_columns=["username", "password", "role"],
+                    bad_db_credentials_exit=74, credentials_not_in_command_output=True,
+                    identity_hash_and_role_unchanged_after_app_restarts=True, default_startup_created_admins=0)
             request(port, f"/products/{pid}", token=tokens["docker_user"])
             report["rollback"] = {"actual_app_only_cutover": True, "failed_readiness_then_old_image_restored": True,
                                   "failure_target": "container loopback 127.0.0.1:1",

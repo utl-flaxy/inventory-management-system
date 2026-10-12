@@ -8,6 +8,9 @@ Hibernateはテーブルを作成・変更しない。Entity annotationはmappin
 schema/data/Flyway historyをprivate bundleへ取得し、まずdisposable DBで復元・checksum/Flyway/Hibernateを検証する。
 backup中のconcurrent DDLを避け、restore中は全writerを停止する。productionへの自動restoreやvolume削除は行わない。
 
+新規環境の初期管理者は[オフラインADMIN provisioning](../initial-admin-provisioning.md)で明示的に作成する。
+公開register・通常起動・migrationには管理者作成を追加しない。provisioning用DB userには対象usersのSELECT(username,role) / INSERT(username,password,role)だけを付与する。
+
 ## 専用app DB userへの切替（Issue #37）
 
 appはrootを使わず、対象DBだけに権限を持つinventory_app等で接続する。
