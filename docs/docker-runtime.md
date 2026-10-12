@@ -15,6 +15,18 @@ Dockerfileの完全digestをregistry manifestと公式image sourceで確認し�
 動的検証対象はlinux/amd64で、他architectureの実行を検証済みとはしない。
 digest更新は正式release、Java patch、OS packages、image scan、全回帰のレビューPRで行う。
 可変tagの自動追従や無検証のapt upgradeは使用しない。
+初回image scanでbase由来の修正可能なMedium 2件を確認し、Ubuntu公式の公開済み修正版だけを
+version指定で導入する。APTは公式repositoryの署名・package hashを検証し、
+無署名許可や一括upgrade、未公開versionの採用は行わない。
+
+| CVE / 一次資料 | package | 固定修正版 |
+| --- | --- | --- |
+| [CVE-2026-95512](https://ubuntu.com/security/CVE-2026-95512) | libfreetype6 | 2.13.2+dfsg-1ubuntu0.2 |
+| [CVE-2026-46675](https://ubuntu.com/security/CVE-2026-46675) | libpng16-16t64 | 1.6.43-5ubuntu0.7 |
+
+修正版がmirrorで取得不能ならbuildを失敗させ、古い版へfallbackしない。
+package配布物の保存・APT timestamp・BuildKit version等までの完全なbit再現を主張せず、
+source/base digest/package version/jar timestampを固定したclean buildを検証する。
 
 ビルド順序はwrapper/POM → dependency cache → production source → executable jar。
 BuildKitの `/root/.m2` cache mountを2つのMaven処理で共有し、runtimeにはCOPYしない
