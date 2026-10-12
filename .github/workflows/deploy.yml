@@ -46,12 +46,12 @@ jobs:
           [[ "$DB_USERNAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "::error::DB_USERNAME must be a simple user identifier"; exit 1; }
           [[ "${DB_USERNAME,,}" != root ]] || { echo "::error::DB_USERNAME must not be root"; exit 1; }
       - name: Read deployment script from the verified commit
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
       - name: Deploy the verified commit
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USER }}

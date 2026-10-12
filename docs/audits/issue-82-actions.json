@@ -1,0 +1,328 @@
+{
+  "issue": 82,
+  "base_main_sha": "306a3c42d118e13e1cfebb7048284428e84f57c5",
+  "verified_at_utc": "2026-10-12T03:48:04.956633+00:00",
+  "method": "Official release + Git tag API (commit object) + independent git ls-remote + action definition",
+  "actions": [
+    {
+      "repository": "actions/checkout",
+      "official_repository_url": "https://github.com/actions/checkout",
+      "publisher": "GitHub / actions",
+      "repository_owner": "actions",
+      "original_tag": "v7",
+      "original_tag_commit_sha": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "release_tag": "v7.0.1",
+      "commit_sha": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "tag_object_type": "commit",
+      "release_url": "https://github.com/actions/checkout/releases/tag/v7.0.1",
+      "release_api": "https://api.github.com/repos/actions/checkout/releases/tags/v7.0.1",
+      "original_ref_api": "https://api.github.com/repos/actions/checkout/git/refs/tags/v7",
+      "release_ref_api": "https://api.github.com/repos/actions/checkout/git/refs/tags/v7.0.1",
+      "commit_url": "https://github.com/actions/checkout/commit/3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "action_definition_url": "https://github.com/actions/checkout/blob/3d3c42e5aac5ba805825da76410c181273ba90b1/action.yml",
+      "release_published_at": "2026-07-20T15:10:05Z",
+      "release_author": "aiqiaoy",
+      "release_draft": false,
+      "release_prerelease": false,
+      "runtime": "node24",
+      "commit_signature_verified": true,
+      "commit_signature_reason": "valid",
+      "workflow_occurrences": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 26
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 54
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 85
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 111
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 146
+        },
+        {
+          "workflow": ".github/workflows/deploy.yml",
+          "line": 49
+        }
+      ],
+      "evidence_files": [
+        {
+          "path": "actions-checkout-release.json",
+          "sha256": "c7daefb17d19aa04a86aa4484cfe7c26a79a07166348f7aa14297bf0869ae2b2"
+        },
+        {
+          "path": "actions-checkout-release-ref.json",
+          "sha256": "5c9ab7911ae8479dfc85e973592542eec629bfb7c09fffa4b266d203365250b2"
+        },
+        {
+          "path": "actions-checkout-ref.json",
+          "sha256": "1f1b527e3a209995a512c9cfc874b0f75fea0f869f69ca3c5e3eabcbc04dc02b"
+        },
+        {
+          "path": "actions-checkout-commit.json",
+          "sha256": "f8bc208662a9e9ac447bb666d2e7d297161e629a713f8588bb9fca498c7bf7d9"
+        },
+        {
+          "path": "actions-checkout-action.yml",
+          "sha256": "d59219cb79590abdb877deaa14e3b65a00c05318bf5a6f3b989b9162b5d08c35"
+        },
+        {
+          "path": "actions-checkout-ls-remote.txt",
+          "sha256": "b090e443b3b87bf8268025880f47b2ccc27857c775240602e6f44bc1e30a9a4d"
+        }
+      ]
+    },
+    {
+      "repository": "actions/setup-java",
+      "official_repository_url": "https://github.com/actions/setup-java",
+      "publisher": "GitHub / actions",
+      "repository_owner": "actions",
+      "original_tag": "v6",
+      "original_tag_commit_sha": "de7274f081f381c8f8158605e0321c36c376e2e6",
+      "release_tag": "v6.0.1",
+      "commit_sha": "de7274f081f381c8f8158605e0321c36c376e2e6",
+      "tag_object_type": "commit",
+      "release_url": "https://github.com/actions/setup-java/releases/tag/v6.0.1",
+      "release_api": "https://api.github.com/repos/actions/setup-java/releases/tags/v6.0.1",
+      "original_ref_api": "https://api.github.com/repos/actions/setup-java/git/refs/tags/v6",
+      "release_ref_api": "https://api.github.com/repos/actions/setup-java/git/refs/tags/v6.0.1",
+      "commit_url": "https://github.com/actions/setup-java/commit/de7274f081f381c8f8158605e0321c36c376e2e6",
+      "action_definition_url": "https://github.com/actions/setup-java/blob/de7274f081f381c8f8158605e0321c36c376e2e6/action.yml",
+      "release_published_at": "2026-09-09T12:10:42Z",
+      "release_author": "brunoborges",
+      "release_draft": false,
+      "release_prerelease": false,
+      "runtime": "node24",
+      "commit_signature_verified": true,
+      "commit_signature_reason": "valid",
+      "workflow_occurrences": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 31
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 115
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 150
+        }
+      ],
+      "evidence_files": [
+        {
+          "path": "actions-setup-java-release.json",
+          "sha256": "bafd6ec4ee3fe5a1967d0789cd9d4f7c227ae7c4f53d3a492106690621cc451c"
+        },
+        {
+          "path": "actions-setup-java-release-ref.json",
+          "sha256": "1459d10b18b58accbd5ee2d8d2611ef49e77e17bd00edffb93746a4e53d8f4f5"
+        },
+        {
+          "path": "actions-setup-java-ref.json",
+          "sha256": "c657114451fb6a85fcf72b7f41463f7018c592e03e4be537aa34f36a3a9481e3"
+        },
+        {
+          "path": "actions-setup-java-commit.json",
+          "sha256": "e8714b7b82478d42e993428141414b78ee08205b9b8d9dec20187872587e5ed4"
+        },
+        {
+          "path": "actions-setup-java-action.yml",
+          "sha256": "f213e989a7e9edee3ffd9e9a108ae7c42162104b6305b0c545f09fdc8be6e44d"
+        },
+        {
+          "path": "actions-setup-java-ls-remote.txt",
+          "sha256": "3b80633df0b25131f947e0f3bd90059525910f1289be803c94466a167407ff3e"
+        }
+      ]
+    },
+    {
+      "repository": "actions/upload-artifact",
+      "official_repository_url": "https://github.com/actions/upload-artifact",
+      "publisher": "GitHub / actions",
+      "repository_owner": "actions",
+      "original_tag": "v7",
+      "original_tag_commit_sha": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "release_tag": "v7.0.2",
+      "commit_sha": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "tag_object_type": "commit",
+      "release_url": "https://github.com/actions/upload-artifact/releases/tag/v7.0.2",
+      "release_api": "https://api.github.com/repos/actions/upload-artifact/releases/tags/v7.0.2",
+      "original_ref_api": "https://api.github.com/repos/actions/upload-artifact/git/refs/tags/v7",
+      "release_ref_api": "https://api.github.com/repos/actions/upload-artifact/git/refs/tags/v7.0.2",
+      "commit_url": "https://github.com/actions/upload-artifact/commit/cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "action_definition_url": "https://github.com/actions/upload-artifact/blob/cf430e030ddbb5b0abf93d22962f4752f3646cd9/action.yml",
+      "release_published_at": "2026-10-07T10:08:14Z",
+      "release_author": "tunc-d",
+      "release_draft": false,
+      "release_prerelease": false,
+      "runtime": "node24",
+      "commit_signature_verified": true,
+      "commit_signature_reason": "valid",
+      "workflow_occurrences": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 98
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 131
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 172
+        }
+      ],
+      "evidence_files": [
+        {
+          "path": "actions-upload-artifact-release.json",
+          "sha256": "12edb9822bcc4231e39f0286ac337dfc36c42036ff533a1d34b289f4f246cd81"
+        },
+        {
+          "path": "actions-upload-artifact-release-ref.json",
+          "sha256": "6af850b2af60935fbe52df6072aabe74f4bcf116220fa853470bf59d28576dad"
+        },
+        {
+          "path": "actions-upload-artifact-ref.json",
+          "sha256": "dce25bba66425f8f53ba6d1da993ed9e1a14b5b0508c5659e538daeac174ea16"
+        },
+        {
+          "path": "actions-upload-artifact-commit.json",
+          "sha256": "63125651df986794b7c9458a6833d3e8f0c490acae696676e0b3f769c98532f0"
+        },
+        {
+          "path": "actions-upload-artifact-action.yml",
+          "sha256": "2adbdab5421ad5dbdbf6d9579f7db5d8ccf6785c5e979bf35ba82bd629905f22"
+        },
+        {
+          "path": "actions-upload-artifact-ls-remote.txt",
+          "sha256": "818a3fab8f3a4b58ee71e170f514e1490a4d254996adedc2326f68f340731915"
+        }
+      ]
+    },
+    {
+      "repository": "hashicorp/setup-terraform",
+      "official_repository_url": "https://github.com/hashicorp/setup-terraform",
+      "publisher": "HashiCorp, Inc.",
+      "repository_owner": "hashicorp",
+      "original_tag": "v4.0.1",
+      "original_tag_commit_sha": "dfe3c3f87815947d99a8997f908cb6525fc44e9e",
+      "release_tag": "v4.0.1",
+      "commit_sha": "dfe3c3f87815947d99a8997f908cb6525fc44e9e",
+      "tag_object_type": "commit",
+      "release_url": "https://github.com/hashicorp/setup-terraform/releases/tag/v4.0.1",
+      "release_api": "https://api.github.com/repos/hashicorp/setup-terraform/releases/tags/v4.0.1",
+      "original_ref_api": "https://api.github.com/repos/hashicorp/setup-terraform/git/refs/tags/v4.0.1",
+      "release_ref_api": "https://api.github.com/repos/hashicorp/setup-terraform/git/refs/tags/v4.0.1",
+      "commit_url": "https://github.com/hashicorp/setup-terraform/commit/dfe3c3f87815947d99a8997f908cb6525fc44e9e",
+      "action_definition_url": "https://github.com/hashicorp/setup-terraform/blob/dfe3c3f87815947d99a8997f908cb6525fc44e9e/action.yml",
+      "release_published_at": "2026-05-12T12:23:15Z",
+      "release_author": "github-actions[bot]",
+      "release_draft": false,
+      "release_prerelease": false,
+      "runtime": "node24",
+      "commit_signature_verified": false,
+      "commit_signature_reason": "unsigned",
+      "workflow_occurrences": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 59
+        }
+      ],
+      "evidence_files": [
+        {
+          "path": "hashicorp-setup-terraform-release.json",
+          "sha256": "43c08b121ccfd30f3485acdd2ae6733f0284a7224a0b844ea825f7bee2687934"
+        },
+        {
+          "path": "hashicorp-setup-terraform-release-ref.json",
+          "sha256": "58f465869b6beda5906eabc762ea771cb6ff1029b1e5016803a528ffcf379a78"
+        },
+        {
+          "path": "hashicorp-setup-terraform-ref.json",
+          "sha256": "58f465869b6beda5906eabc762ea771cb6ff1029b1e5016803a528ffcf379a78"
+        },
+        {
+          "path": "hashicorp-setup-terraform-commit.json",
+          "sha256": "6b90c1d5d2ff92034b0586fec3c20772e9845175b1d3a03f0583161166387ba4"
+        },
+        {
+          "path": "hashicorp-setup-terraform-action.yml",
+          "sha256": "633b65c15ca342f668bf941a4b8ebd528e5d84cbe81cb5562c8df25d2abfcbc9"
+        },
+        {
+          "path": "hashicorp-setup-terraform-ls-remote.txt",
+          "sha256": "857da88e2af6033ea7a6e9817de30200b6064ca695c9ff2c58b71190b256ebcb"
+        }
+      ]
+    },
+    {
+      "repository": "appleboy/ssh-action",
+      "official_repository_url": "https://github.com/appleboy/ssh-action",
+      "publisher": "Bo-Yi Wu (appleboy)",
+      "repository_owner": "appleboy",
+      "original_tag": "v1.2.0",
+      "original_tag_commit_sha": "7eaf76671a0d7eec5d98ee897acda4f968735a17",
+      "release_tag": "v1.2.0",
+      "commit_sha": "7eaf76671a0d7eec5d98ee897acda4f968735a17",
+      "tag_object_type": "commit",
+      "release_url": "https://github.com/appleboy/ssh-action/releases/tag/v1.2.0",
+      "release_api": "https://api.github.com/repos/appleboy/ssh-action/releases/tags/v1.2.0",
+      "original_ref_api": "https://api.github.com/repos/appleboy/ssh-action/git/refs/tags/v1.2.0",
+      "release_ref_api": "https://api.github.com/repos/appleboy/ssh-action/git/refs/tags/v1.2.0",
+      "commit_url": "https://github.com/appleboy/ssh-action/commit/7eaf76671a0d7eec5d98ee897acda4f968735a17",
+      "action_definition_url": "https://github.com/appleboy/ssh-action/blob/7eaf76671a0d7eec5d98ee897acda4f968735a17/action.yml",
+      "release_published_at": "2024-11-17T07:08:47Z",
+      "release_author": "github-actions[bot]",
+      "release_draft": false,
+      "release_prerelease": false,
+      "runtime": "composite",
+      "commit_signature_verified": true,
+      "commit_signature_reason": "valid",
+      "workflow_occurrences": [
+        {
+          "workflow": ".github/workflows/deploy.yml",
+          "line": 54
+        }
+      ],
+      "evidence_files": [
+        {
+          "path": "appleboy-ssh-action-release.json",
+          "sha256": "6a63968d87fc9d41e2b49b29f0c5dc362ee35e7c7882988f74443110b278183a"
+        },
+        {
+          "path": "appleboy-ssh-action-release-ref.json",
+          "sha256": "96189dac6f0371eaf62c718d7e6fc016058e434c0d85b96bcc5a419ac23b0625"
+        },
+        {
+          "path": "appleboy-ssh-action-ref.json",
+          "sha256": "96189dac6f0371eaf62c718d7e6fc016058e434c0d85b96bcc5a419ac23b0625"
+        },
+        {
+          "path": "appleboy-ssh-action-commit.json",
+          "sha256": "8be36b3c71deafa0704a8729ff4a338c213c0863ff28b6b191c60a123228d47a"
+        },
+        {
+          "path": "appleboy-ssh-action-action.yml",
+          "sha256": "ad3c5244ad563760a517655730b11527942e60f98443bb798bd81f24069cc1b7"
+        },
+        {
+          "path": "appleboy-ssh-action-ls-remote.txt",
+          "sha256": "f21bf667a5b77e1e1bff62c2497435cdc4d350d3dab413c9e2fe30439b3a88ad"
+        },
+        {
+          "path": "appleboy-ssh-action-entrypoint.sh",
+          "sha256": "1746df412033186505f95535d8e9bcee74659ec10036a0d8e9aee9c6740dd14c"
+        }
+      ]
+    }
+  ]
+}
