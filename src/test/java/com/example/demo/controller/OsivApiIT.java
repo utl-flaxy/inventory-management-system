@@ -4,9 +4,9 @@ import com.example.demo.DemoApplication;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.service.OrderService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import io.jsonwebtoken.Jwts;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.servlet.*;
@@ -15,10 +15,10 @@ import org.hibernate.Hibernate;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
+import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.web.context.WebServerApplicationContext;
+import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.MethodParameter;
@@ -55,7 +55,7 @@ class OsivApiIT {
     private static final String SECRET = Base64.getEncoder().encodeToString(Jwts.SIG.HS256.key().build().getEncoded());
     private static final String PASSWORD = Base64.getEncoder().encodeToString(Jwts.SIG.HS256.key().build().getEncoded());
     @Container static final MariaDBContainer database = new MariaDBContainer("mariadb:12.2.2");
-    private final ObjectMapper json = new ObjectMapper();
+    private final ObjectMapper json = new tools.jackson.databind.json.JsonMapper();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private static final String ADMIN = "/api/v1/admin/orders";
     private static final String ME = "/api/v1/me/orders";
@@ -301,7 +301,7 @@ class OsivApiIT {
 
     private Set<String> fields(JsonNode node) {
         var result = new HashSet<String>();
-        node.fieldNames().forEachRemaining(result::add);
+        node.propertyNames().forEach(result::add);
         return result;
     }
 

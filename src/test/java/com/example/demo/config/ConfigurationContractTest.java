@@ -95,7 +95,7 @@ class ConfigurationContractTest {
     }
 
     @Test
-    void standardProbesAreConfiguredOnlyInProd() throws Exception {
+    void standardProbesAreEnabledOnlyInProd() throws Exception {
         var expected = java.util.Map.of(
                 "management.endpoint.health.probes.enabled", "true",
                 "management.endpoint.health.probes.add-additional-paths", "true",
@@ -104,7 +104,8 @@ class ConfigurationContractTest {
         var prod = properties("application-prod.properties");
         for (var entry : expected.entrySet()) {
             assertEquals(entry.getValue(), prod.getProperty(entry.getKey()));
-            assertNull(properties("application.properties").getProperty(entry.getKey()));
+            assertEquals(entry.getKey().equals("management.endpoint.health.probes.enabled") ? "false" : null,
+                    properties("application.properties").getProperty(entry.getKey()));
             assertNull(properties("application-local.properties").getProperty(entry.getKey()));
         }
     }

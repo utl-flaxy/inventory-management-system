@@ -1,7 +1,7 @@
 package com.example.demo.entity;
 
 import com.example.demo.dto.InventoryMovementResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
@@ -27,7 +27,7 @@ class InventoryAdjustmentIdempotencyTest {
         var movement = manual("KeyABC", "a".repeat(64));
         assertEquals("KeyABC", movement.getIdempotencyKey());
         assertEquals("a".repeat(64), movement.getRequestFingerprint());
-        var json = new ObjectMapper().findAndRegisterModules().valueToTree(InventoryMovementResponse.from(movement));
+        var json = tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build().valueToTree(InventoryMovementResponse.from(movement));
         for (String name : new String[]{"idempotencyKey", "requestFingerprint", "password", "hash"})
             assertFalse(json.toString().contains(name));
         for (var method : InventoryMovement.class.getMethods()) assertFalse(method.getName().startsWith("set"));

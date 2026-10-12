@@ -1,6 +1,6 @@
 package com.example.demo.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Test;
@@ -8,8 +8,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.actuate.health.HealthContributorRegistry;
-import org.springframework.boot.actuate.health.HealthEndpointGroups;
+import org.springframework.boot.health.registry.HealthContributorRegistry;
+import org.springframework.boot.health.actuate.endpoint.HealthEndpointGroups;
 import org.springframework.boot.availability.AvailabilityChangeEvent;
 import org.springframework.boot.availability.LivenessState;
 import org.springframework.boot.availability.ReadinessState;
@@ -168,7 +168,7 @@ class ProbeHealthIT {
     private Set<String> members(String groupName) {
         var result = new HashSet<String>();
         contributors.forEach(contributor -> {
-            if (groups.get(groupName).isMember(contributor.getName())) result.add(contributor.getName());
+            if (groups.get(groupName).isMember(contributor.name())) result.add(contributor.name());
         });
         return result;
     }

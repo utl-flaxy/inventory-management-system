@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
         // 途中のCSVにJSONを混ぜずcontainerへ中断を伝える。例外自体はsafe messageのみ。
         if (response.isCommitted()) throw ex;
         response.resetBuffer();
-        response.setCharacterEncoding(null);
+        response.setCharacterEncoding((String) null);
         response.setHeader(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, null);
         return ApiProblemFactory.response(HttpStatus.INTERNAL_SERVER_ERROR, "SYSTEM_ERROR",
                 ApiProblemFactory.SYSTEM_ERROR_DETAIL, request);

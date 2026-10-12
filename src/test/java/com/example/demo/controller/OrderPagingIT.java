@@ -3,8 +3,8 @@ package com.example.demo.controller;
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.service.OrderService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
@@ -17,8 +17,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -373,7 +373,7 @@ class OrderPagingIT {
         assertEquals(100, parameters.get("size").path("schema").path("maximum").asInt());
         assertTrue(parameters.get("sort").path("description").asText().contains("totalPrice"));
         assertTrue(parameters.get("sort").path("description").asText().contains("id DESC"));
-        var ref = operation.path("responses").path("200").path("content").elements().next().path("schema").path("$ref").asText();
+        var ref = operation.path("responses").path("200").path("content").values().iterator().next().path("schema").path("$ref").asText();
         var pageSchema = api.path("components").path("schemas").path(ref.substring(ref.lastIndexOf('/') + 1));
         assertEquals(PAGE_FIELDS, fields(pageSchema.path("properties")));
         assertEquals("#/components/schemas/OrderResponse", pageSchema.path("properties").path("content").path("items").path("$ref").asText());
@@ -409,7 +409,7 @@ class OrderPagingIT {
     }
 
     private Set<String> fields(JsonNode node) {
-        var result = new TreeSet<String>(); node.fieldNames().forEachRemaining(result::add); return result;
+        var result = new TreeSet<String>(); node.propertyNames().forEach(result::add); return result;
     }
 
     static final class SqlCapture implements StatementInspector {

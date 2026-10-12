@@ -2,15 +2,15 @@ package com.example.demo.controller;
 
 import com.example.demo.repository.OrderRepository;
 import com.example.demo.security.JwtUtil;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.http.MediaType;
@@ -30,7 +30,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
@@ -272,7 +272,7 @@ class IdempotentOrderIT {
         assertTrue(header.path("description").asText().contains("customer"));
         assertTrue(header.path("description").asText().contains("409"));
         assertFalse(header.path("example").asText().isBlank());
-        document.path("paths").fields().forEachRemaining(path -> path.getValue().fields().forEachRemaining(operation -> {
+        document.path("paths").properties().forEach(path -> path.getValue().properties().forEach(operation -> {
             // Issue #43 adds the required header only to manual adjustment POST; all other operations remain unchanged.
             if (operation.getKey().equals("post") && List.of(ME,
                     "/api/v1/admin/products/{id}/inventory-adjustments").contains(path.getKey())) return;
@@ -373,7 +373,7 @@ class IdempotentOrderIT {
     private record Outcome(int status, JsonNode body) { }
     private JsonNode persistedPrecision(JsonNode response) {
         // 初回の既存Instant.nano精度とDB DATETIME(6)の差だけを正規化し、全業務fieldを比較する。
-        ObjectNode normalized = response.deepCopy();
+        ObjectNode normalized = (ObjectNode) response.deepCopy();
         for (String field : List.of("orderedAt", "updatedAt"))
             normalized.put(field, Instant.parse(response.path(field).asText()).truncatedTo(ChronoUnit.MICROS).toString());
         return normalized;

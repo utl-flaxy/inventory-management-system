@@ -3,7 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.service.OrderService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import io.jsonwebtoken.Jwts;
 import jakarta.persistence.EntityManager;
@@ -17,7 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -146,7 +146,7 @@ class OrderCsvExportIT {
         for (String username : new String[]{"alice", null}) {
             var response = request(username);
             assertEquals(username == null ? 401 : 403, response.statusCode());
-            var body = new ObjectMapper().readTree(response.body());
+            var body = new tools.jackson.databind.json.JsonMapper().readTree(response.body());
             assertEquals(username == null ? "UNAUTHENTICATED" : "ACCESS_DENIED", body.get("code").asText());
         }
         verify(items, never()).findCsvBatch(anyLong(), anyLong(), anyInt());

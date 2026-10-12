@@ -1,0 +1,332 @@
+{
+  "as_of": "2026-10-12 Asia/Tokyo",
+  "baseline_main": "306a3c42d118e13e1cfebb7048284428e84f57c5",
+  "branch": "security/issue-89-boot4",
+  "java": 17,
+  "scanner": "OSV 2.6.0",
+  "sbom": "CycloneDX 2.9.3",
+  "suppression": false,
+  "baseline": {
+    "mode": "AUDIT_ONLY_NOT_A_SECURITY_PASS",
+    "components": 137,
+    "advisories": 8,
+    "severity": {
+      "MODERATE": 5,
+      "LOW": 1,
+      "CRITICAL": 2
+    },
+    "scanner_exit": 1
+  },
+  "unpatched_boot4": {
+    "mode": "AUDIT_ONLY_NOT_A_SECURITY_PASS",
+    "components": 169,
+    "advisories": 10,
+    "severity": {
+      "HIGH": 5,
+      "MODERATE": 2,
+      "CRITICAL": 3
+    },
+    "scanner_exit": 1
+  },
+  "after": {
+    "mode": "AUDIT_ONLY_NOT_A_SECURITY_PASS",
+    "components": 169,
+    "advisories": 0,
+    "severity": {},
+    "scanner_exit": 0
+  },
+  "baseline_ids": [
+    "GHSA-g9jj-cgmh-9f38",
+    "GHSA-j288-q9x7-2f5v",
+    "GHSA-j9f9-w8pj-32f8",
+    "GHSA-pc63-qcmh-9cmg",
+    "GHSA-qv9r-c865-cp47",
+    "GHSA-qxvw-fvwx-5cp7",
+    "GHSA-wxmm-q36w-r9xj",
+    "GHSA-xvr9-35cr-46v9"
+  ],
+  "unpatched_ids": [
+    "GHSA-7hhh-6rmp-j9qf",
+    "GHSA-9xv2-5v5q-p794",
+    "GHSA-cxp5-3px4-pw24",
+    "GHSA-gcx9-497g-6cp6",
+    "GHSA-gx83-3vf8-gh7j",
+    "GHSA-h3x4-894j-xpx5",
+    "GHSA-p6pp-m3f8-5c89",
+    "GHSA-q4xh-88c3-wmh7",
+    "GHSA-wjgm-6hv5-3cvf",
+    "GHSA-wv8q-qhhj-9h54"
+  ],
+  "remaining_ids": [],
+  "removed_baseline_ids": [
+    "GHSA-g9jj-cgmh-9f38",
+    "GHSA-j288-q9x7-2f5v",
+    "GHSA-j9f9-w8pj-32f8",
+    "GHSA-pc63-qcmh-9cmg",
+    "GHSA-qv9r-c865-cp47",
+    "GHSA-qxvw-fvwx-5cp7",
+    "GHSA-wxmm-q36w-r9xj",
+    "GHSA-xvr9-35cr-46v9"
+  ],
+  "new_initial_ids": [
+    "GHSA-7hhh-6rmp-j9qf",
+    "GHSA-9xv2-5v5q-p794",
+    "GHSA-cxp5-3px4-pw24",
+    "GHSA-gcx9-497g-6cp6",
+    "GHSA-gx83-3vf8-gh7j",
+    "GHSA-h3x4-894j-xpx5",
+    "GHSA-p6pp-m3f8-5c89",
+    "GHSA-q4xh-88c3-wmh7",
+    "GHSA-wjgm-6hv5-3cvf",
+    "GHSA-wv8q-qhhj-9h54"
+  ],
+  "new_final_ids": [],
+  "versions": [
+    {
+      "coordinate": "org.springframework.boot:spring-boot",
+      "before": "3.5.16",
+      "after": "4.1.1"
+    },
+    {
+      "coordinate": "org.springframework:spring-webmvc",
+      "before": "6.2.19",
+      "after": "7.0.9"
+    },
+    {
+      "coordinate": "org.springframework.security:spring-security-core",
+      "before": "6.5.11",
+      "after": "7.1.1"
+    },
+    {
+      "coordinate": "org.springframework.data:spring-data-jpa",
+      "before": "3.5.13",
+      "after": "4.1.1"
+    },
+    {
+      "coordinate": "org.hibernate.orm:hibernate-core",
+      "before": "6.6.53.Final",
+      "after": "7.4.5.Final"
+    },
+    {
+      "coordinate": "org.flywaydb:flyway-core",
+      "before": "11.7.2",
+      "after": "12.4.0"
+    },
+    {
+      "coordinate": "org.flywaydb:flyway-mysql",
+      "before": "11.7.2",
+      "after": "12.4.0"
+    },
+    {
+      "coordinate": "org.mariadb.jdbc:mariadb-java-client",
+      "before": "3.5.8",
+      "after": "3.5.10"
+    },
+    {
+      "coordinate": "org.apache.tomcat.embed:tomcat-embed-core",
+      "before": "10.1.60",
+      "after": "11.0.26"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-core",
+      "before": "2.21.7",
+      "after": "2.21.7"
+    },
+    {
+      "coordinate": "tools.jackson.core:jackson-core",
+      "before": null,
+      "after": "3.1.7"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind",
+      "before": "2.21.7",
+      "after": "2.21.7"
+    },
+    {
+      "coordinate": "tools.jackson.core:jackson-databind",
+      "before": null,
+      "after": "3.1.7"
+    },
+    {
+      "coordinate": "org.springdoc:springdoc-openapi-starter-webmvc-ui",
+      "before": "2.8.8",
+      "after": "3.1.1"
+    },
+    {
+      "coordinate": "com.h2database:h2",
+      "before": "2.3.232",
+      "after": "2.5.252"
+    },
+    {
+      "coordinate": "org.testcontainers:testcontainers",
+      "before": "2.0.5",
+      "after": "2.0.5"
+    },
+    {
+      "coordinate": "org.junit.jupiter:junit-jupiter-api",
+      "before": "5.12.2",
+      "after": "6.0.3"
+    }
+  ],
+  "critical_triage": [
+    {
+      "id": "GHSA-j9f9-w8pj-32f8",
+      "cve": "CVE-2026-47890",
+      "osv_severity": "CRITICAL",
+      "vendor_severity": "LOW",
+      "condition": "MVC/WebFlux plus SSE view fragments plus attacker-controlled data streamed to other users",
+      "source_result": "Five application controllers are REST response-body endpoints; no SSE/FragmentsRendering/ModelAndView or view resolver customization found.",
+      "regression": "Three CR/LF/CRLF fixture cases: Framework 7.0.8 failed two; 7.0.9 passed all three.",
+      "baseline_version": "6.2.19",
+      "fixed_oss_version": "7.0.9",
+      "enterprise_fix": "6.2.20; contract not verified; never retrieved",
+      "runtime_result": "Actual prod/local/default contexts: no XSLT beans; own handlers are response-body, no /** or SSE/fragment/view return. Production external configuration and dynamically added code remain unverified.",
+      "emergency": "No actual application use established. If prerequisites are established externally, escalate to independent 48-hour emergency remediation.",
+      "after_osv_status": "ABSENT_FROM_UNSUPPRESSED_SCAN",
+      "decision_due": "2026-10-14",
+      "remediation_target": "2026-10-26"
+    },
+    {
+      "id": "GHSA-pc63-qcmh-9cmg",
+      "cve": "CVE-2026-47884",
+      "osv_severity": "CRITICAL",
+      "vendor_severity": "MEDIUM",
+      "condition": "XsltView plus MVC /** mapping with implicit view name rendering",
+      "source_result": "No XsltView/XsltViewResolver, implicit-rendering controller, or application MVC /** mapping found. Security matchers and static-resource patterns are not such view controllers.",
+      "regression": "Three invalid stylesheet locations: Framework 7.0.8 fetched the mock resource; 7.0.9 rejected before resource access.",
+      "baseline_version": "6.2.19",
+      "fixed_oss_version": "7.0.9",
+      "enterprise_fix": "6.2.20; contract not verified; never retrieved",
+      "runtime_result": "Actual prod/local/default contexts: no XSLT beans; own handlers are response-body, no /** or SSE/fragment/view return. Production external configuration and dynamically added code remain unverified.",
+      "emergency": "No actual application use established. If prerequisites are established externally, escalate to independent 48-hour emergency remediation.",
+      "after_osv_status": "ABSENT_FROM_UNSUPPRESSED_SCAN",
+      "decision_due": "2026-10-14",
+      "remediation_target": "2026-10-26"
+    }
+  ],
+  "local_verify": {
+    "surefire": {
+      "tests": 1031,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "failsafe": {
+      "tests": 738,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "total": 1769,
+    "flyway_warnings": 3,
+    "maven_time": "13:27 min"
+  },
+  "python_tests": 28,
+  "terraform_mock_tests": 27,
+  "primary_sources": [
+    "https://spring.io/security/cve-2026-47890/",
+    "https://spring.io/security/cve-2026-47884/",
+    "https://docs.spring.io/spring-boot/system-requirements.html",
+    "https://spring.io/blog/2026/08/20/spring-boot-4-1-1-available-now/",
+    "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide",
+    "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.1-Release-Notes",
+    "https://github.com/spring-projects/spring-boot/wiki/Supported-Versions",
+    "https://enterprise.spring.io/lts-releases/",
+    "https://enterprise.spring.io/projects/spring-framework/6.2.20/",
+    "https://springdoc.org/",
+    "https://tomcat.apache.org/security-11.html",
+    "https://github.com/FasterXML/jackson-bom/releases/tag/jackson-bom-3.1.7",
+    "https://github.com/h2database/h2database/releases/tag/version-2.5.250",
+    "https://github.com/h2database/h2database/releases/tag/version-2.5.252"
+  ],
+  "evidence_sha256": [
+    {
+      "path": "baseline-bom.json",
+      "sha256": "c34597f5d996e5e3ee8a0c68a42e378682729769e227d6aa0edc6f49e567225f"
+    },
+    {
+      "path": "baseline-osv.json",
+      "sha256": "18350c352a70136adc113d1199e754987e86d20c52645911d33d5811609e0470"
+    },
+    {
+      "path": "baseline-summary.json",
+      "sha256": "11d9bbf5d28a8882f5aa7c5a131b04cbb428fdd803efcfa0ca2367c959b11e95"
+    },
+    {
+      "path": "boot4-initial-bom.json",
+      "sha256": "38ba3f02f5f39b5c2ad3fd485ce50820d97b9480b75356c8c51cad8ebb83490d"
+    },
+    {
+      "path": "boot4-initial-osv.json",
+      "sha256": "f41e83669914675a89a522316a56ae750f197e463270adbdab1504332b8ec380"
+    },
+    {
+      "path": "boot4-initial-summary.json",
+      "sha256": "df20a751748cee9f488a8774f4aa964efb1176fbd45b303ba96a7bbcadf1c327"
+    },
+    {
+      "path": "boot4-bom.json",
+      "sha256": "9f1b477d1e8deb4af14d3acd22c0884ceaa0ab01c569ae126ce7be20a3887f87"
+    },
+    {
+      "path": "boot4-osv.json",
+      "sha256": "5ae3e63f48f84b647bb375d93314799d1ff7448dd2b930e2b33122d31e898e13"
+    },
+    {
+      "path": "boot4-summary.json",
+      "sha256": "36b8c8d092030638b9f055a42f7a6d896e0d044bf487040e132070dbd8655714"
+    },
+    {
+      "path": "spring-view-negative-7.0.8.log",
+      "sha256": "b6a291b3ba82471b9fe3ffcb948da78a18946bfcac06a15e7f33218f4c58c0c7"
+    },
+    {
+      "path": "jackson3-negative.log",
+      "sha256": "0f6929be417005cc96b2091c1c61c37d9c62c7c469490f16eed299efaf5bfece"
+    },
+    {
+      "path": "security-positive.log",
+      "sha256": "c1f6501fd87fc45df2b893516b5000c624e40d8a6df60c4323ebc0b20809274d"
+    },
+    {
+      "path": "targeted-security-jpa-fixed.log",
+      "sha256": "33b7579beae308aff2776d55fdd95b7d77fa61a8bd5fc3e4780682df7d0acc22"
+    },
+    {
+      "path": "targeted-mariadb-fixed.log",
+      "sha256": "82191fd7ce238144a5b62fce1b3d4fbdfcf97429dff6207c89b9f88a7001832d"
+    },
+    {
+      "path": "targeted-final-contracts.log",
+      "sha256": "b6fcaf27226becb20b90311b27e737a3fec6e178bd609dfab77e6a160ec7c62e"
+    },
+    {
+      "path": "boot4-verify.log",
+      "sha256": "7313e932310165b4b598f9f59876db758b35b2d6712a6ddcf5545d601e6416b6"
+    },
+    {
+      "path": "boot4-verify-summary.json",
+      "sha256": "a6c3436eb6bf2e99ed58305dc53ec38b4f218649a51b276564ed684c9dcf0e25"
+    },
+    {
+      "path": "boot4-static.log",
+      "sha256": "250e496e674468359845a21e4db82e7944a77d017d1a551f9674df3bd174cac0"
+    },
+    {
+      "path": "boot4-static-self.log",
+      "sha256": "e2615cce557dcfd6e133c3c78048dbcaea5c0e32ea0ed28b1fb4eef85ad11bb0"
+    },
+    {
+      "path": "boot4-python.log",
+      "sha256": "a811bb2c8992eb6c37fa492d42a55dc2c084145fe5130010ae2971a6aa81585c"
+    },
+    {
+      "path": "boot4-secret-self.log",
+      "sha256": "e41098d25eb9b136def9b173cbe7f4511f4b5dd525f4cc9aaf7e47f3c934a344"
+    },
+    {
+      "path": "terraform.log",
+      "sha256": "7b80b795a8f4238ca985a42ea8cd7415c97c849f962033f8fed3b3ef2f84c5c7"
+    }
+  ]
+}
