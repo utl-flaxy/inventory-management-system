@@ -29,7 +29,8 @@ class DeploymentScriptTest {
             "missing-db-root-password", "root-db-user", "bad-db-name", "bad-db-user",
             "modern-rollback", "modern-rollback-failure", "health-status-down", "health-details",
             "readiness-rollback", "readiness-rollback-failure", "unsupported-previous-path",
-            "unsupported-target-path", "running-image-mismatch", "health-redirect"})
+            "unsupported-target-path", "running-image-mismatch", "health-redirect",
+            "missing-memory", "invalid-memory"})
     void executesDeploymentAgainstOnlyMockCommands(String scenario) throws Exception {
         var output = Files.createTempFile("deployment-test-", ".log");
         try {

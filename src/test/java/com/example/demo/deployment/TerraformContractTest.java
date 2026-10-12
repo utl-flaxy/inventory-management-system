@@ -39,7 +39,7 @@ class TerraformContractTest {
         assertTrue(provider.contains("version = \"~> 6.0\""));
         String ci = Files.readString(Path.of(".github/workflows/ci.yml"));
         assertTrue(ci.contains("terraform_version: 1.15.6"));
-        assertTrue(ci.contains("hashicorp/setup-terraform@v4.0.1"));
+        assertTrue(ci.contains("uses: " + ReviewedActionsTest.reference("hashicorp/setup-terraform")));
     }
 
     @Test

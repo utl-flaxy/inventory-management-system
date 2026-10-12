@@ -14,7 +14,7 @@ main push → Spring Boot CI success
                     ↓ EC2側flock → fetch → commit存在確認
               旧appのimage ID/Compose設定を保存
                     ↓ checkout --detach DEPLOY_SHA、HEAD一致確認
-              Java 17 Maven package → Compose config → SHA tag image build
+              Compose config → Docker内Java 17 Maven package → SHA tag image build
                     ↓ 再びHEAD一致確認
               appだけ切替 → HTTP確認
                     ├─成功 → .deploy/currentを確定
@@ -38,6 +38,7 @@ Issue #37では参照するコード・契約だけを追加し、実際の設�
 |DB_USERNAME（Variable）|root以外の専用app user。例inventory_app|
 |DB_PASSWORD（Secret）|app userのpassword。固定fallbackなし|
 |DB_ROOT_PASSWORD（Secret）|MariaDB管理用。app containerには渡さない|
+|APP_MEMORY_LIMIT（Variable）|実host/DB容量確認後のapp memory予算。m/g形式で明示。未設定なら切替前に失敗|
 
 Issue #74のlogin制限は[接続元の信頼境界](auth.md#接続元とプロキシの信頼境界)を参照。
 公開前に運用者がCaddy→appの実際のsocket peerを確認し、hostローカル `.env` の
@@ -46,14 +47,18 @@ Docker bridge gatewayを含む可能性があり、loopbackやprivate CIDR全体
 未設定でも制限は有効だがproxy背後でsource枠を共有する。閾値/windowはSpring外部設定で調整できる。
 Deploy workflowの有効化や本番設定変更はこのPRでは行わない。
 
-runnerはSSH前に8項目の非空とSHA形式、JWT鍵長、DB名/userの英字開始の英数字・underscore、root禁止を検証する。
+runnerはSSH前に9項目の非空とSHA形式、JWT鍵長、DB名/userの英字開始の英数字・underscore、root禁止、memory予算形式を検証する。
 EC2側もDEPLOY_SHA/JWT_SECRET/DB設定を再検証し、SPRING_PROFILES_ACTIVE=prodを保証する。
 DB URLはComposeがDB_NAMEからjdbc:mariadb://db:3306/DB_NAMEへ導出するため、別のDB_URL secretは不要。
 DB_ROOT_PASSWORDは全serviceのCompose解決のためrunner/remoteで必要だが、app環境・datasourceには渡さない。
 DB停止・再作成やroot password変更は行わない。既存DBのuser/資格情報は[DB移行手順](db/README.md#専用app-db-userへの切替issue-37)を先に実施する。
 SSH actionのdebugやshellのset -xを有効にしない。EC2のログインshellがshでも配備処理は明示的にBashで実行する。
 
-EC2にはBash、Git、Java 17（既定JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto）、Docker Engine/Compose v2、curl、flock、Mavenの依存取得に必要な通信を用意する。配備ユーザーにはDocker実行権限とcheckoutの書き込み権限が必要。
+EC2にはBash、Git、BuildKit対応Docker Engine/Compose v2、curl、flock、公式image/Maven依存取得に必要な通信を用意する。
+Issue #76からhost Maven/JDKによる事前jar生成は不要。Docker内のdigest固定JDKで1回だけpackageする。
+既存Terraformが導入するJava 17は削除せず、旧配備手順の復旧時に利用できる。
+配備ユーザーにはDocker実行権限とcheckoutの書き込み権限が必要。
+[Docker runtime・メモリ設計](docker-runtime.md)で実容量とビルド時の余裕を確認してAPP_MEMORY_LIMITを選ぶ。
 
 Issue #59の [Terraform host定義](../terraform/README.md) はAL2023 x86_64の新規hostへこれらを準備する。
 Composeはv2.40.3/checksum固定、checkoutはec2-user所有の `/home/ec2-user/inventory-management-system`。
@@ -90,7 +95,7 @@ GitHub environmentは現在未設定のため必須にしない。運用時はpr
 
 target SHA checkout/HEAD検証後、既存app稼働中に次を完了する。
 
-1. 必要ファイルとJava 17検証、`./mvnw clean package -DskipTests`、jar存在確認
+1. 必要ファイル・APP_MEMORY_LIMIT・commit timestampを確認し、Docker内の固定Java 17でjar生成
 2. `docker compose config`（出力にはsecretがあるため私有ファイルへ保存）
 3. `inventory-management-system-app:${DEPLOY_SHA}` のbuildとrevision/health-path label検証
 4. 切替直前のHEAD一致確認
@@ -121,7 +126,7 @@ curlはconnect timeout 2秒、全体timeout 5秒、最大30試行、失敗ごと
 
 |失敗地点|動作|
 |---|---|
-|secrets/SHA形式/commit取得/Java/DB前提/checkout/Maven/Compose/build|app切替なし、既存app継続|
+|secrets/SHA/memory形式/commit取得/DB前提/checkout/Compose/Docker内Maven/build|app切替なし、既存app継続|
 |target app起動/HTTP確認/image ID検証|直前image IDと保存Composeでappだけ復元、復元後もHTTP確認|
 |rollback app起動/HTTP確認|CDは失敗、明確なoperator recovery errorとログを出す|
 |初回appの起動/HTTP確認失敗|復元先がない旨を明示、DBと失敗appを保存して調査|
@@ -156,13 +161,13 @@ Deploy再有効化・本番操作は本Issueに含めない。
    Issue #37以前のlabelのないimageへの復元確認だけ旧/v3/api-docsを使う。DB container/volumeは保持する。
 3. rollback不能なら [DB手順](db/README.md) を参照し、先にschema互換性を調べる。旧imageを試すだけでDBが戻ったと判断しない。
 4. 手動復元を行う際も `.deploy/lock` をflockで保持し、保存Composeにprevious-imageのimage IDをoverrideしてappだけを更新する。current/previousは復元後HTTP成功を確認して整合させる。
-5. host lock競合、ディスク不足、missing secret、DB停止、Java version、Git checkout変更を解消後、検証済みSHAの配備を再実行する。GitHub CI runをre-runして起動条件を再評価できるが、PR runは常に配備対象外。
+5. host lock競合、ディスク/メモリ不足、missing secret、DB停止、Docker build取得失敗、Git checkout変更を解消後、検証済みSHAの配備を再実行する。GitHub CI runをre-runして起動条件を再評価できるが、PR runは常に配備対象外。
 
 ## 自動検証
 
 `./mvnw verify` が既存JWT/Validation/状態遷移/並行制御/集約/認可/DB migration全テストとDeploymentWorkflowTest/DeploymentScriptTestを実行する。Deploymentテストは本番配備を行わない静的・mockテストのためSurefireに残し、`./mvnw test` でも実行する。YAMLはBoot依存のSnakeYAMLで構造を解析し、triggerの全8組み合わせ、SHA伝達、concurrency、権限、Compose tag、禁止操作を検証する。runnerの不足secretガードもBashで実行する。
 
-shellのモックはGit/Docker/curl/Java/Maven/flock/sleepを隔離したPATHで置き換え、invalid/missing SHA、
+shellのモックはGit/Docker/curl/flock/sleepを隔離したPATHで置き換え、host Java/Maven非実行、invalid/missing SHA、memory不足/不正、
 DB/JWT不足・弱い鍵・root/不正identifier、host lock、取得失敗、HEAD不一致、DB停止、
 Maven/config/Docker失敗、成功/初回成功、リトライ、DOWN/details拒否、起動失敗、HTTP失敗、
 legacy/modern rollback、rollback失敗、初回失敗、DB/root/JWTのログ伏せ字を検証する。

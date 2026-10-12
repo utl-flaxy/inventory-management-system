@@ -29,12 +29,13 @@ jobs:
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+      APP_MEMORY_LIMIT: ${{ vars.APP_MEMORY_LIMIT }}
     steps:
       - name: Validate deployment inputs before SSH
         shell: bash
         run: |
           set -euo pipefail
-          for name in EC2_HOST EC2_USER EC2_SSH_KEY JWT_SECRET DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD; do
+          for name in EC2_HOST EC2_USER EC2_SSH_KEY JWT_SECRET DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD APP_MEMORY_LIMIT; do
             if [[ -z "${!name}" ]]; then
               echo "::error::$name is required"
               exit 1
@@ -45,18 +46,19 @@ jobs:
           [[ "$DB_NAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "::error::DB_NAME must be a simple database identifier"; exit 1; }
           [[ "$DB_USERNAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "::error::DB_USERNAME must be a simple user identifier"; exit 1; }
           [[ "${DB_USERNAME,,}" != root ]] || { echo "::error::DB_USERNAME must not be root"; exit 1; }
+          [[ "$APP_MEMORY_LIMIT" =~ ^[1-9][0-9]*(m|g)$ ]] || { echo "::error::APP_MEMORY_LIMIT must be an explicit m/g budget"; exit 1; }
       - name: Read deployment script from the verified commit
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
       - name: Deploy the verified commit
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USER }}
           key: ${{ env.EC2_SSH_KEY }}
           timeout: 60s
           command_timeout: 30m
-          envs: DEPLOY_SHA,JWT_SECRET,DB_NAME,DB_USERNAME,DB_PASSWORD,DB_ROOT_PASSWORD
+          envs: DEPLOY_SHA,JWT_SECRET,DB_NAME,DB_USERNAME,DB_PASSWORD,DB_ROOT_PASSWORD,APP_MEMORY_LIMIT
           script_path: scripts/deploy.sh

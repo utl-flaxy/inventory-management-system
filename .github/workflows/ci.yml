@@ -18,17 +18,17 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup Java 17
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 17
@@ -43,6 +43,18 @@ jobs:
       - name: Verify (Surefire + Failsafe, including MariaDB)
         run: ./mvnw verify
 
+      - name: Clean-source Docker build, non-root API, rollback and image audit
+        run: python3 scripts/docker/verify_image.py --scan
+
+      - name: Preserve value-free Docker validation and image audit
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docker-validation-${{ github.event.pull_request.head.sha || github.sha }}
+          path: target/docker-validation/
+          if-no-files-found: warn
+          retention-days: 30
+
   terraform:
     name: terraform
     runs-on: ubuntu-latest
@@ -51,12 +63,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4.0.1
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: 1.15.6
           terraform_wrapper: false
@@ -82,7 +94,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Gate policy regression tests
@@ -95,7 +107,7 @@ jobs:
         run: python3 scripts/ci/quality_gates.py secrets --scanner target/quality-gates/gitleaks
       - name: Preserve value-free secret findings
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: secret-scan-${{ github.event.pull_request.head.sha || github.sha }}
           path: target/quality-gates/secrets.json
@@ -108,11 +120,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup Java 17
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 17
@@ -128,7 +140,7 @@ jobs:
         run: python3 scripts/ci/quality_gates.py static
       - name: Preserve static analysis evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: java-static-analysis-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
@@ -143,11 +155,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup Java 17
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 17
@@ -169,7 +181,7 @@ jobs:
         run: python3 scripts/ci/quality_gates.py dependencies --scanner target/quality-gates/osv-scanner
       - name: Preserve unsuppressed dependency audit and resolved SBOM
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-audit-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
