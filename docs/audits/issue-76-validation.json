@@ -321,5 +321,21 @@
       "path": "patched-boot4-validation/summary.json",
       "sha256": "552a3a00c6a6f0969f144e818f8693eae020d665afb9292a17be02252f9316fa"
     }
-  ]
+  ],
+  "loopback_failure_verification": {
+    "rollback": {
+      "actual_app_only_cutover": true,
+      "failed_readiness_then_old_image_restored": true,
+      "failure_target": "container loopback 127.0.0.1:1",
+      "db_id_and_start_time_unchanged": true,
+      "order_and_stock_data_unchanged": true,
+      "previous_image_id": "sha256:42abac37fcc11428312274b4e4937faf04e36181f8cf0550032b3dea6afe2b79",
+      "legacy_jdk_root_image": true
+    },
+    "test_script_sha256": "d8be7ee8a7c6dd7249b168ee604025790ed2ccbbaf390197275606edc6ce4b3d",
+    "evidence": {
+      "path": "loopback-validation/summary.json",
+      "sha256": "39bb09fb7c732e59cf21e1e63b83c5fcc94898d7b60b191e8d1f3a77c8ded72f"
+    }
+  }
 }

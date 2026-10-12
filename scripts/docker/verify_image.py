@@ -265,7 +265,8 @@ def main():
                                    security_opt=["no-new-privileges:true"], pids_limit=256,
                                    tmpfs=["/tmp:rw,noexec,nosuid,size=32m,mode=1777"])
                 if broken:
-                    service["environment"] = {"SPRING_DATASOURCE_URL": "jdbc:mariadb://unreachable-db:3306/inventory76",
+                    # Guaranteed container-local failure; never resolve an external DB hostname.
+                    service["environment"] = {"SPRING_DATASOURCE_URL": "jdbc:mariadb://127.0.0.1:1/inventory76",
                                               "SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT": "2500"}
                 path.write_text(json.dumps({"services": {"app": service},
                                            "networks": {"disposable": {"external": True, "name": network}}}), encoding="utf-8")
@@ -309,6 +310,7 @@ def main():
             assert db_query(db, "SELECT (SELECT COUNT(*) FROM orders), (SELECT SUM(stock) FROM products);") == data_signature
             request(port, f"/products/{pid}", token=tokens["docker_user"])
             report["rollback"] = {"actual_app_only_cutover": True, "failed_readiness_then_old_image_restored": True,
+                                  "failure_target": "container loopback 127.0.0.1:1",
                                   "db_id_and_start_time_unchanged": True, "order_and_stock_data_unchanged": True,
                                   "previous_image_id": inspect(old_image)["Id"],
                                   "legacy_jdk_root_image": bool(args.baseline_image)}
