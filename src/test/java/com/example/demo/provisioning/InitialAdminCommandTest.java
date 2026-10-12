@@ -67,7 +67,7 @@ class InitialAdminCommandTest {
                 new ByteArrayInputStream("not-a-console-secret\n".getBytes(StandardCharsets.UTF_8)), null,
                 new PrintStream(output), (url, properties) -> { fail("No connection without console"); return null; });
         assertEquals(64, status);
-        assertEquals("initial-admin: CONSOLE_REQUIRED", output.toString(StandardCharsets.UTF_8).strip());
+        assertTrue("initial-admin: CONSOLE_REQUIRED".equals(output.toString(StandardCharsets.UTF_8).strip()), "Unexpected CLI status");
     }
 
     @ParameterizedTest
@@ -103,7 +103,7 @@ class InitialAdminCommandTest {
                 });
         assertTrue(called.get());
         assertEquals(74, status);
-        assertEquals("initial-admin: DATABASE_FAILED", output.toString(StandardCharsets.UTF_8).strip());
+        assertTrue("initial-admin: DATABASE_FAILED".equals(output.toString(StandardCharsets.UTF_8).strip()), "Unexpected CLI status");
         assertTrue(Arrays.equals(new char[secret.length], secret));
     }
 

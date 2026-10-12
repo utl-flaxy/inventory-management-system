@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -49,7 +50,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {"spring.jpa.show-sql=false", "spring.jpa.hibernate.ddl-auto=validate"})
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @ActiveProfiles("prod")
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -257,7 +258,7 @@ class InitialAdminProvisioningIT {
         assertEquals(0, InitialAdminCommand.execute(new String[]{"--passwords-stdin"}, environment,
                 new ByteArrayInputStream(input), null, new PrintStream(output), DriverManager::getConnection));
         Arrays.fill(input, (byte) 0);
-        assertEquals("initial-admin: CREATED", output.toString(StandardCharsets.UTF_8).strip());
+        assertTrue("initial-admin: CREATED".equals(output.toString(StandardCharsets.UTF_8).strip()), "Unexpected CLI status");
         String token = login("initial_operator");
         String text = logs.getAll() + output.toString(StandardCharsets.UTF_8);
         for (String secret : List.of(DATABASE_SECRET, OPERATOR_SECRET, PASSWORD, JWT_SECRET, token, hash("initial_operator"))) {
@@ -274,16 +275,17 @@ class InitialAdminProvisioningIT {
         assertEquals(64, InitialAdminCommand.execute(new String[]{"--passwords-stdin"}, environment,
                 new ByteArrayInputStream(input), null, new PrintStream(output), DriverManager::getConnection));
         Arrays.fill(input, (byte) 0);
-        assertEquals("initial-admin: INVALID_INPUT", output.toString(StandardCharsets.UTF_8).strip());
+        assertTrue("initial-admin: INVALID_INPUT".equals(output.toString(StandardCharsets.UTF_8).strip()), "Unexpected CLI status");
         assertEquals(0, countAdmins());
     }
 
     @Test
     void publicAdminUsernameAndRoleInputStayUserWhileProvisionedAdminUsesNormalJwtAuthorization() throws Exception {
-        mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+        String registration = mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("username", "admin", "password", PASSWORD, "role", "ROLE_ADMIN"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("ROLE_USER"))
-                .andExpect(jsonPath("$.password").doesNotExist());
+                .andReturn().getResponse().getContentAsString();
+        assertFalse(json.readTree(registration).has("password"), "Registration response must omit the stored credential");
         mvc.perform(get("/api/v1/admin/orders")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/admin/orders").header("Authorization", "Bearer " + login("admin")))
                 .andExpect(status().isForbidden());
