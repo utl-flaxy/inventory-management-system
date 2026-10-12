@@ -1,5 +1,11 @@
 # Flyway / MariaDB互換性判断（Issue #69）
 
+Issue #86ではBoot 3.5.16のセキュリティBOM更新に伴い、JDBC clientを3.5.8へ更新する。
+Flyway core/mysql 11.7.2、MariaDB server 12.2、migration V1〜V6、既存volumeは維持する。
+以下はIssue #69時点の履歴であり、JDBC patch後の全回帰・警告実測は
+[Issue #86のBOM監査比較](../audit/2026-10-12-issue86-boot-bom.md)とPR本文に別記する。
+今回のJDBC更新はセキュリティ/BOM是正であり、互換性警告を消す目的ではない。
+
 ## 判断と対象
 
 2026-10-11、main `54f2a30f43106a6691197c7dc7461fe1e743cc04` を基準に調査した。
