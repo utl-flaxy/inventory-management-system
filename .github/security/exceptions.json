@@ -11,18 +11,18 @@
     },
     {
       "path": "README.md",
-      "line": 617,
+      "line": 624,
       "rule": "generic-api-key",
-      "sha256_lf": "32e023d2099a3c44060f9634753530111444149f1a03d192f254435d29db82a7",
+      "sha256_lf": "8e24a874d0364d353df24b7f6460bc86c06ddaec4ae9e9b27968ddc8fca0ff17",
       "reason": "Same public Idempotency-Key HTTP documentation example; not an authentication credential.",
       "owner": "utl-flaxy repository maintainer",
       "expires": "2026-11-11"
     },
     {
       "path": "README.md",
-      "line": 778,
+      "line": 785,
       "rule": "generic-api-key",
-      "sha256_lf": "32e023d2099a3c44060f9634753530111444149f1a03d192f254435d29db82a7",
+      "sha256_lf": "8e24a874d0364d353df24b7f6460bc86c06ddaec4ae9e9b27968ddc8fca0ff17",
       "reason": "Truncated JWT example with literal ellipsis; not a complete signed token and cannot authenticate.",
       "owner": "utl-flaxy repository maintainer",
       "expires": "2026-11-11"
