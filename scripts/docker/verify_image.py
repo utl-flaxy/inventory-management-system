@@ -158,7 +158,7 @@ def api_regression(port, db, image, network):
     private_values.append(operator_secret)
     # Test-generated hex credential travels only as SQL stdin to this disposable DB.
     db_query(db, "CREATE USER 'bootstrap_operator'@'%' IDENTIFIED BY '" + operator_secret + "'; "
-             "GRANT SELECT, INSERT ON inventory76.users TO 'bootstrap_operator'@'%';")
+             "GRANT SELECT (username,role), INSERT (username,password,role) ON inventory76.users TO 'bootstrap_operator'@'%';")
     # Different names and independent CLI processes prove cross-process serialization, not just username UNIQUE.
     names = ["docker_admin_" + str(i) for i in range(3)]
     with ThreadPoolExecutor(max_workers=3) as pool:
@@ -361,6 +361,7 @@ def main():
             assert db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';") == admin_signature
             report["initial_admin_provisioning"] = dict(concurrent_cli_processes=3, created_admins=1,
                     existing_admin_result="ADMIN_PRESENT", db_permissions=["SELECT", "INSERT"],
+                    db_select_columns=["username", "role"], db_insert_columns=["username", "password", "role"],
                     bad_db_credentials_exit=74, credentials_not_in_command_output=True,
                     identity_hash_and_role_unchanged_after_app_restarts=True, default_startup_created_admins=0)
             request(port, f"/products/{pid}", token=tokens["docker_user"])

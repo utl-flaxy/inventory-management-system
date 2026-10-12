@@ -13,7 +13,8 @@ HTTP endpoint、起動runner、seed/default credential、migrationは追加し�
 
 実行権限は、レビュー済みjar/imageを実行するOS/Docker権限と、対象DBのprovisioning用アカウントへのアクセス。
 HTTP/JWTの一般ユーザーにはこの権限を与えない。DB管理者は新規環境で専用DB userを安全な認証手順で用意し、
-対象databaseの`users`にSELECT/INSERTのみを付与する。UPDATE/DELETE/DDL/global権限/GRANT OPTIONは不要。rootはCLIで拒否する。
+対象databaseの`users`にSELECT(username,role) / INSERT(username,password,role)だけを付与する。
+既存password hashやidのSELECT、UPDATE/DELETE/DDL/global権限/GRANT OPTIONは不要。rootはCLIで拒否する。
 DB user作成のsecretをSQL履歴・引数・repoへ書く例は提供しない。認証情報は承認済み保管先から非表示で入力する。
 完了後は専用DB userのアクセスを失効し、保管先の一時権限も閉じる。アプリ用DB userの権限・secretは変更しない。
 
@@ -113,7 +114,7 @@ CLIの対象DBを誤った場合はそこで止め、承認なしに削除・権
 
 ## 検証範囲
 
-新規MariaDB Testcontainersで、fresh作成/BCrypt/SELECT+INSERTのみ/再実行/異なる名前の並行実行/入力abortとrollback/unique競合/DB CHECK/
+新規MariaDB Testcontainersで、fresh作成/BCrypt/列単位SELECT+INSERTのみ（既存hash/id SELECT拒否）/再実行/異なる名前の並行実行/入力abortとrollback/unique競合/DB CHECK/
 public admin username・role無視/JWTの401・403・ADMIN成功/credential非露出/実app再起動を検証する。
 Docker実検証では別の3 CLI processから競合実行し、1 ADMINのみ、再実行hash/id/role不変、誤DB passwordの非ゼロ・redactionを確認し、
 そのADMINで既存JWT/注文/在庫の実HTTP回帰を行う。使い捨てDBはtmpfsで、既存volumeを使用しない。

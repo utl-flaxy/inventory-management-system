@@ -89,7 +89,7 @@ class InitialAdminProvisioningIT {
                 create.setString(1, OPERATOR_SECRET);
                 create.execute();
             }
-            statement.execute("GRANT SELECT, INSERT ON initial_admin.users TO 'bootstrap_operator'@'%'");
+            statement.execute("GRANT SELECT (username,role), INSERT (username,password,role) ON initial_admin.users TO 'bootstrap_operator'@'%'");
         }
     }
 
@@ -128,6 +128,8 @@ class InitialAdminProvisioningIT {
         try (Connection connection = operator(); var statement = connection.createStatement()) {
             assertThrows(SQLException.class, () -> statement.executeUpdate("UPDATE users SET role='ROLE_USER'"));
             assertThrows(SQLException.class, () -> statement.execute("CREATE TABLE forbidden_table (id INT)"));
+            assertThrows(SQLException.class, () -> statement.executeQuery("SELECT password FROM users"));
+            assertThrows(SQLException.class, () -> statement.executeQuery("SELECT id FROM users"));
         }
     }
 
