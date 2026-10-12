@@ -14,7 +14,7 @@ main push → Spring Boot CI success
                     ↓ EC2側flock → fetch → commit存在確認
               旧appのimage ID/Compose設定を保存
                     ↓ checkout --detach DEPLOY_SHA、HEAD一致確認
-              Java 17 Maven package → Compose config → SHA tag image build
+              Compose config → Docker内Java 17 Maven package → SHA tag image build
                     ↓ 再びHEAD一致確認
               appだけ切替 → HTTP確認
                     ├─成功 → .deploy/currentを確定
@@ -38,6 +38,7 @@ Issue #37では参照するコード・契約だけを追加し、実際の設�
 |DB_USERNAME（Variable）|root以外の専用app user。例inventory_app|
 |DB_PASSWORD（Secret）|app userのpassword。固定fallbackなし|
 |DB_ROOT_PASSWORD（Secret）|MariaDB管理用。app containerには渡さない|
+|APP_MEMORY_LIMIT（Variable）|実host/DB容量確認後のapp memory予算。m/g形式で明示。未設定なら切替前に失敗|
 
 Issue #74のlogin制限は[接続元の信頼境界](auth.md#接続元とプロキシの信頼境界)を参照。
 公開前に運用者がCaddy→appの実際のsocket peerを確認し、hostローカル `.env` の
@@ -46,14 +47,18 @@ Docker bridge gatewayを含む可能性があり、loopbackやprivate CIDR全体
 未設定でも制限は有効だがproxy背後でsource枠を共有する。閾値/windowはSpring外部設定で調整できる。
 Deploy workflowの有効化や本番設定変更はこのPRでは行わない。
 
-runnerはSSH前に8項目の非空とSHA形式、JWT鍵長、DB名/userの英字開始の英数字・underscore、root禁止を検証する。
+runnerはSSH前に9項目の非空とSHA形式、JWT鍵長、DB名/userの英字開始の英数字・underscore、root禁止、memory予算形式を検証する。
 EC2側もDEPLOY_SHA/JWT_SECRET/DB設定を再検証し、SPRING_PROFILES_ACTIVE=prodを保証する。
 DB URLはComposeがDB_NAMEからjdbc:mariadb://db:3306/DB_NAMEへ導出するため、別のDB_URL secretは不要。
 DB_ROOT_PASSWORDは全serviceのCompose解決のためrunner/remoteで必要だが、app環境・datasourceには渡さない。
 DB停止・再作成やroot password変更は行わない。既存DBのuser/資格情報は[DB移行手順](db/README.md#専用app-db-userへの切替issue-37)を先に実施する。
 SSH actionのdebugやshellのset -xを有効にしない。EC2のログインshellがshでも配備処理は明示的にBashで実行する。
 
-EC2にはBash、Git、Java 17（既定JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto）、Docker Engine/Compose v2、curl、flock、Mavenの依存取得に必要な通信を用意する。配備ユーザーにはDocker実行権限とcheckoutの書き込み権限が必要。
+EC2にはBash、Git、BuildKit対応Docker Engine/Compose v2、curl、flock、公式image/Maven依存取得に必要な通信を用意する。
+Issue #76からhost Maven/JDKによる事前jar生成は不要。Docker内のdigest固定JDKで1回だけpackageする。
+既存Terraformが導入するJava 17は削除せず、旧配備手順の復旧時に利用できる。
+配備ユーザーにはDocker実行権限とcheckoutの書き込み権限が必要。
+[Docker runtime・メモリ設計](docker-runtime.md)で実容量とビルド時の余裕を確認してAPP_MEMORY_LIMITを選ぶ。
 
 Issue #59の [Terraform host定義](../terraform/README.md) はAL2023 x86_64の新規hostへこれらを準備する。
 Composeはv2.40.3/checksum固定、checkoutはec2-user所有の `/home/ec2-user/inventory-management-system`。
@@ -121,7 +126,7 @@ curlはconnect timeout 2秒、全体timeout 5秒、最大30試行、失敗ごと
 
 |失敗地点|動作|
 |---|---|
-|secrets/SHA形式/commit取得/Java/DB前提/checkout/Maven/Compose/build|app切替なし、既存app継続|
+|secrets/SHA/memory形式/commit取得/DB前提/checkout/Compose/Docker内Maven/build|app切替なし、既存app継続|
 |target app起動/HTTP確認/image ID検証|直前image IDと保存Composeでappだけ復元、復元後もHTTP確認|
 |rollback app起動/HTTP確認|CDは失敗、明確なoperator recovery errorとログを出す|
 |初回appの起動/HTTP確認失敗|復元先がない旨を明示、DBと失敗appを保存して調査|

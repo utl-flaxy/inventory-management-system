@@ -60,7 +60,7 @@ class DeploymentWorkflowTest {
         assertFalse(qualityGate.containsKey("if"), "The quality gate must run unconditionally");
         assertFalse(qualityGate.containsKey("continue-on-error"), "IT failures must fail CI");
         assertFalse(ciJob.containsKey("continue-on-error"), "The test job must propagate failures");
-        assertEquals(10, ciJob.get("timeout-minutes"));
+        assertEquals(20, ciJob.get("timeout-minutes"));
     }
 
     static Stream<Arguments> triggerEvents() {
@@ -104,7 +104,7 @@ class DeploymentWorkflowTest {
         var ssh = steps().stream().filter(s -> ReviewedActionsTest.reference("appleboy/ssh-action")
                 .equals(s.get("uses"))).findFirst().orElseThrow();
         var inputs = map(ssh.get("with"));
-        assertEquals("DEPLOY_SHA,JWT_SECRET,DB_NAME,DB_USERNAME,DB_PASSWORD,DB_ROOT_PASSWORD", inputs.get("envs"));
+        assertEquals("DEPLOY_SHA,JWT_SECRET,DB_NAME,DB_USERNAME,DB_PASSWORD,DB_ROOT_PASSWORD,APP_MEMORY_LIMIT", inputs.get("envs"));
         assertEquals("scripts/deploy.sh", inputs.get("script_path"));
         assertFalse(inputs.containsKey("script"));
         assertFalse(inputs.containsKey("debug"));
@@ -123,7 +123,7 @@ class DeploymentWorkflowTest {
         String script = Files.readString(Path.of("scripts/deploy.sh"));
         for (String required : List.of("set -euo pipefail", "flock -n 9", "git fetch origin",
                 "git cat-file -e \"${DEPLOY_SHA}^{commit}\"", "git checkout --detach \"$DEPLOY_SHA\"",
-                "[[ \"$ACTUAL_SHA\" == \"$DEPLOY_SHA\" ]]", "./mvnw clean package -DskipTests",
+                "[[ \"$ACTUAL_SHA\" == \"$DEPLOY_SHA\" ]]", "SOURCE_DATE_EPOCH=$source_epoch",
                 "org.opencontainers.image.revision=$DEPLOY_SHA", "inventory-management-system-app:$DEPLOY_SHA",
                 "attempt<=30", "--connect-timeout 2 --max-time 5", "http://127.0.0.1:8080$path", "health /readyz",
                 "/readyz|/actuator/health|/v3/api-docs", "/readyz|/actuator/health",
@@ -148,9 +148,11 @@ class DeploymentWorkflowTest {
         assertEquals("inventory-management-system-app:${APP_IMAGE_TAG:-local}", app.get("image"));
         assertEquals(".", app.get("build"));
         assertTrue(map(compose.get("volumes")).containsKey("mariadb_data"));
-        assertEquals(List.of("# The runtime image only needs the already-built jar.", "*", "!Dockerfile",
-                "!target/", "target/*", "!target/demo-0.0.1-SNAPSHOT.jar"),
-                Files.readAllLines(Path.of(".dockerignore")));
+        String ignore = Files.readString(Path.of(".dockerignore"));
+        assertTrue(ignore.contains("!src/main/**"));
+        assertFalse(ignore.contains("!target"));
+        assertFalse(ignore.contains("!src/test"));
+        assertTrue(ignore.contains("**/*.key"));
     }
 
     @Test
@@ -181,7 +183,7 @@ class DeploymentWorkflowTest {
         assertEquals(Map.of("test", List.of("CMD", "healthcheck.sh", "--connect", "--innodb_initialized"),
                 "interval", "10s", "timeout", "5s", "retries", 10, "start_period", "30s"), db.get("healthcheck"));
         assertTrue(Files.readString(Path.of("Dockerfile"))
-                .contains("LABEL inventory-management-system.health-path=\"/readyz\""));
+                .contains("inventory-management-system.health-path=\"/readyz\""));
     }
 
     @Test
@@ -208,7 +210,8 @@ class DeploymentWorkflowTest {
 
     @ParameterizedTest(name = "runner input: {0}")
     @ValueSource(strings = {"valid", "EC2_HOST", "EC2_USER", "EC2_SSH_KEY", "JWT_SECRET", "invalid-sha", "weak-secret",
-            "DB_NAME", "DB_USERNAME", "DB_PASSWORD", "DB_ROOT_PASSWORD", "root-user", "bad-db-name", "bad-db-user"})
+            "DB_NAME", "DB_USERNAME", "DB_PASSWORD", "DB_ROOT_PASSWORD", "root-user", "bad-db-name", "bad-db-user",
+            "APP_MEMORY_LIMIT", "invalid-memory"})
     void runnerRejectsMissingSecretsBeforeAnySshStep(String scenario) throws Exception {
         var output = Files.createTempFile("deployment-input-", ".log");
         try {
@@ -220,10 +223,13 @@ class DeploymentWorkflowTest {
             }
             builder.environment().put("DEPLOY_SHA", "a".repeat(40));
             builder.environment().put("DB_NAME", "asset_management");
+            builder.environment().put("APP_MEMORY_LIMIT", "1g");
             builder.environment().put("DB_USERNAME", "inventory_app");
             builder.environment().put("DB_PASSWORD", "test-only-value-012345678901234567890");
             builder.environment().put("DB_ROOT_PASSWORD", "test-only-root-012345678901234567890");
             if (scenario.startsWith("DB_")) builder.environment().put(scenario, "");
+            if (scenario.equals("APP_MEMORY_LIMIT")) builder.environment().put(scenario, "");
+            if (scenario.equals("invalid-memory")) builder.environment().put("APP_MEMORY_LIMIT", "unbounded");
             if (scenario.equals("root-user")) builder.environment().put("DB_USERNAME", "ROOT");
             if (scenario.equals("bad-db-name")) builder.environment().put("DB_NAME", "bad name");
             if (scenario.equals("bad-db-user")) builder.environment().put("DB_USERNAME", "bad user");
@@ -241,12 +247,15 @@ class DeploymentWorkflowTest {
             String log = Files.readString(output);
             assertFalse(log.contains("test-only-value"));
             assertFalse(log.contains("test-only-root"));
-            if (scenario.startsWith("EC2_") || scenario.equals("JWT_SECRET") || scenario.startsWith("DB_")) {
+            if (scenario.startsWith("EC2_") || scenario.equals("JWT_SECRET") || scenario.startsWith("DB_")
+                    || scenario.equals("APP_MEMORY_LIMIT")) {
                 assertTrue(log.contains(scenario + " is required"), log);
             } else if (scenario.equals("invalid-sha")) {
                 assertTrue(log.contains("Invalid DEPLOY_SHA"), log);
             } else if (scenario.equals("weak-secret")) {
                 assertTrue(log.contains("JWT_SECRET must be at least 32 bytes"), log);
+            } else if (scenario.equals("invalid-memory")) {
+                assertTrue(log.contains("APP_MEMORY_LIMIT must be an explicit m/g budget"), log);
             }
         } finally {
             Files.deleteIfExists(output);

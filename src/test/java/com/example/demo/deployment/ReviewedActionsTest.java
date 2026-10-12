@@ -95,7 +95,7 @@ class ReviewedActionsTest {
                 }
             }
         }
-        assertEquals(Map.of("ci.yml", 12, "deploy.yml", 2), observed);
+        assertEquals(Map.of("ci.yml", 13, "deploy.yml", 2), observed);
         assertEquals(reviewed.keySet(), publishers, "The inventory must cover every referenced publisher");
     }
 
@@ -125,7 +125,8 @@ class ReviewedActionsTest {
         assertFalse(source.contains("pull_request_target"));
         for (String command : List.of("./mvnw verify", "secret-self-test", "static-self-test",
                 "quality_gates.py secrets", "quality_gates.py static", "quality_gates.py dependencies",
-                "terraform test -no-color", "terraform init -backend=false -input=false -lockfile=readonly")) {
+                "terraform test -no-color", "terraform init -backend=false -input=false -lockfile=readonly",
+                "python3 scripts/docker/verify_image.py --scan")) {
             assertTrue(source.contains(command), "Missing mandatory gate: " + command);
         }
     }

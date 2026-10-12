@@ -17,6 +17,8 @@ done
 [[ "$DB_USERNAME" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || fail "DB_USERNAME must be a simple user identifier"
 [[ "${DB_USERNAME,,}" != root ]] || fail "DB_USERNAME must not be root"
 export DB_NAME DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD
+[[ "${APP_MEMORY_LIMIT:-}" =~ ^[1-9][0-9]*(m|g)$ ]] || fail "APP_MEMORY_LIMIT must be an explicit positive m/g budget"
+export APP_MEMORY_LIMIT
 export SPRING_PROFILES_ACTIVE=prod
 
 cd "${DEPLOY_DIR:-$HOME/inventory-management-system}"
@@ -27,10 +29,6 @@ chmod 700 .deploy
 exec 9>.deploy/lock
 flock -n 9 || fail "Another deployment holds the host lock"
 
-export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-amazon-corretto}"
-export PATH="$JAVA_HOME/bin:$PATH"
-java_version=$(java -version 2>&1)
-[[ "$java_version" == *'version "17.'* ]] || fail "Java 17 is required"
 echo "Preparing verified commit $DEPLOY_SHA"
 git fetch origin
 git cat-file -e "${DEPLOY_SHA}^{commit}"
@@ -174,12 +172,14 @@ ACTUAL_SHA=$(git rev-parse HEAD)
 [[ "$ACTUAL_SHA" == "$DEPLOY_SHA" ]] || fail "Checked-out HEAD does not match DEPLOY_SHA"
 [[ -f mvnw && -f Dockerfile && -f docker-compose.yml ]] || fail "Required build files are missing"
 chmod +x mvnw
-./mvnw clean package -DskipTests
-[[ -s target/demo-0.0.1-SNAPSHOT.jar ]] || fail "Built jar is missing"
+# The digest-pinned Docker build stage compiles once; no host Maven/JDK or stale host jar.
+source_epoch=$(git show -s --format=%ct "$DEPLOY_SHA")
+[[ "$source_epoch" =~ ^[0-9]+$ ]] || fail "Invalid commit build timestamp"
 export APP_IMAGE_TAG="$DEPLOY_SHA"
 image="inventory-management-system-app:$DEPLOY_SHA"
 "${compose[@]}" -f docker-compose.yml config >"$work/target-compose.yml"
-docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" -t "$image" .
+docker build --build-arg "REVISION=$DEPLOY_SHA" --build-arg "SOURCE_DATE_EPOCH=$source_epoch" \
+  --label "org.opencontainers.image.revision=$DEPLOY_SHA" -t "$image" .
 [[ $(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}') == "$DEPLOY_SHA" ]] \
     || fail "Built image revision does not match DEPLOY_SHA"
 target_image=$(docker image inspect "$image" --format '{{.Id}}')
