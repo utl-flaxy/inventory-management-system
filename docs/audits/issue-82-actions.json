@@ -34,23 +34,23 @@
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 54
+          "line": 66
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 85
+          "line": 97
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 111
+          "line": 123
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 146
+          "line": 158
         },
         {
           "workflow": ".github/workflows/deploy.yml",
-          "line": 49
+          "line": 51
         }
       ],
       "evidence_files": [
@@ -110,11 +110,11 @@
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 115
+          "line": 127
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 150
+          "line": 162
         }
       ],
       "evidence_files": [
@@ -170,15 +170,19 @@
       "workflow_occurrences": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 98
+          "line": 51
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 131
+          "line": 110
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 172
+          "line": 143
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "line": 184
         }
       ],
       "evidence_files": [
@@ -234,7 +238,7 @@
       "workflow_occurrences": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "line": 59
+          "line": 71
         }
       ],
       "evidence_files": [
@@ -290,7 +294,7 @@
       "workflow_occurrences": [
         {
           "workflow": ".github/workflows/deploy.yml",
-          "line": 54
+          "line": 56
         }
       ],
       "evidence_files": [
@@ -324,5 +328,6 @@
         }
       ]
     }
-  ]
+  ],
+  "workflow_inventory_note": "Issue #76 adds one Docker evidence upload using the same reviewed upload-artifact SHA; all release/commit identities remain unchanged."
 }

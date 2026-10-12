@@ -1,6 +1,18 @@
-# The runtime image only needs the already-built jar.
+# Allow only production build inputs; never send host jars, Git, tests or secrets.
 *
 !Dockerfile
-!target/
-target/*
-!target/demo-0.0.1-SNAPSHOT.jar
+!pom.xml
+!mvnw
+!.mvn/
+!.mvn/wrapper/
+!.mvn/wrapper/maven-wrapper.properties
+!src/
+!src/main/
+!src/main/**
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+**/settings.xml

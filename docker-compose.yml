@@ -27,6 +27,16 @@ services:
     image: inventory-management-system-app:${APP_IMAGE_TAG:-local}
     build: .
     restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    # Required: choose the app budget only after confirming actual host + DB capacity.
+    mem_limit: ${APP_MEMORY_LIMIT:?APP_MEMORY_LIMIT must be selected for the verified host}
+    memswap_limit: ${APP_MEMORY_LIMIT:?APP_MEMORY_LIMIT must be selected for the verified host}
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
 
     container_name: inventory-app
 

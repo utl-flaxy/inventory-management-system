@@ -18,7 +18,7 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
 
@@ -42,6 +42,18 @@ jobs:
 
       - name: Verify (Surefire + Failsafe, including MariaDB)
         run: ./mvnw verify
+
+      - name: Clean-source Docker build, non-root API, rollback and image audit
+        run: python3 scripts/docker/verify_image.py --scan
+
+      - name: Preserve value-free Docker validation and image audit
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docker-validation-${{ github.event.pull_request.head.sha || github.sha }}
+          path: target/docker-validation/
+          if-no-files-found: warn
+          retention-days: 30
 
   terraform:
     name: terraform

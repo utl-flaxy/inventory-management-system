@@ -13,6 +13,7 @@ export JWT_SECRET='new-test-secret-only-012345678901234567890'
 export OLD_SECRET='old-test-secret-only-012345678901234567890'
 export DB_PASSWORD='test-password-never-print'
 export DB_NAME=asset_management DB_USERNAME=inventory_app
+export APP_MEMORY_LIMIT=1g
 export DB_ROOT_PASSWORD='root-test-password-never-print'
 if [[ "$SCENARIO" == multiline-secret ]]; then
   JWT_SECRET=$'new-test-secret-only-012345678901234567890\nnew-line-private\n'
@@ -44,6 +45,7 @@ case "$tool" in
       checkout) [[ "$2" == --detach && "$3" == "$DEPLOY_SHA" ]] ;;
       rev-parse)
         if [[ "$SCENARIO" == head-mismatch ]]; then echo "$OLD_SHA"; else echo "$DEPLOY_SHA"; fi ;;
+      show) [[ "$*" == "show -s --format=%ct $DEPLOY_SHA" ]] && echo 1791760000 ;;
       *) exit 97 ;;
     esac ;;
   mvnw)
@@ -123,7 +125,7 @@ case "$tool" in
           [[ "$SCENARIO" == image-mismatch ]] && echo "$OLD_SHA" || echo "$DEPLOY_SHA"
         elif [[ "$*" == *'{{.Id}}'* ]]; then echo "$NEW_IMAGE"
         else exit 93; fi ;;
-      build) [[ "$SCENARIO" != docker-failure ]] ;;
+      build) [[ "$SCENARIO" != docker-failure && "$SCENARIO" != maven-failure && "$SCENARIO" != missing-jar ]] ;;
       logs) printf 'diagnostic JWT=%s old=%s db=%s root=%s\n' "$JWT_SECRET" "$OLD_SECRET" "$DB_PASSWORD" "$DB_ROOT_PASSWORD" ;;
       compose)
         if [[ "$*" == *' config' ]]; then
@@ -156,6 +158,8 @@ export PATH="$fixture/bin:$PATH"
 case "$SCENARIO" in
   invalid-sha) DEPLOY_SHA='main; echo unsafe' ;;
   missing-sha) unset DEPLOY_SHA ;;
+  missing-memory) unset APP_MEMORY_LIMIT ;;
+  invalid-memory) APP_MEMORY_LIMIT='1g; unsafe' ;;
   missing-secret) unset JWT_SECRET ;;
   weak-secret) JWT_SECRET=short ;;
   missing-db-name) unset DB_NAME ;;
@@ -197,7 +201,8 @@ case "$SCENARIO" in
     # Build / configuration / HEAD check must precede the first app mutation.
     check grep -Fq "git checkout --detach $DEPLOY_SHA" "$TRACE"
     check grep -Fq "git cat-file -e $DEPLOY_SHA^{commit}" "$TRACE"
-    check grep -Fq "docker build --label org.opencontainers.image.revision=$DEPLOY_SHA -t inventory-management-system-app:$DEPLOY_SHA ." "$TRACE"
+    check grep -Fq "docker build --build-arg REVISION=$DEPLOY_SHA --build-arg SOURCE_DATE_EPOCH=1791760000 --label org.opencontainers.image.revision=$DEPLOY_SHA -t inventory-management-system-app:$DEPLOY_SHA ." "$TRACE"
+    check_not grep -Eq '^(mvnw|java) ' "$TRACE"
     build_line=$(grep -n 'docker build ' "$TRACE" | cut -d: -f1)
     config_line=$(grep -n 'docker-compose.yml config' "$TRACE" | tail -1 | cut -d: -f1)
     up_line=$(grep -n ' up ' "$TRACE" | cut -d: -f1)
