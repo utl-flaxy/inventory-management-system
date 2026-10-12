@@ -8,7 +8,7 @@ import com.example.demo.repository.InventoryMovementRepository;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.service.InventoryService;
 import com.example.demo.service.OrderService;
-import com.fasterxml.jackson.databind.*;
+import tools.jackson.databind.*;
 import io.jsonwebtoken.Jwts;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.*;
@@ -16,7 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.*;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.context.annotation.*;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -463,7 +463,7 @@ class InventoryApiIT {
         var history = document.path("paths").path(BASE + "{id}/inventory-movements").path("get");
         var content = history.path("responses").path("200").path("content");
         assertEquals(1, content.size());
-        var response = content.elements().next().path("schema");
+        var response = content.values().iterator().next().path("schema");
         assertEquals("#/components/schemas/PageResponseInventoryMovementResponse", response.path("$ref").asText());
         var pageProperties = document.at(response.path("$ref").asText().substring(1)).path("properties");
         assertEquals(PAGE_FIELDS, fields(pageProperties));
@@ -492,7 +492,7 @@ class InventoryApiIT {
 
     private Set<String> fields(JsonNode node) {
         var fields = new TreeSet<String>();
-        node.fieldNames().forEachRemaining(fields::add);
+        node.propertyNames().forEach(fields::add);
         return fields;
     }
 }

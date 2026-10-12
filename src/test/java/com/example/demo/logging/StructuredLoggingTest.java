@@ -2,7 +2,7 @@ package com.example.demo.logging;
 
 import ch.qos.logback.classic.LoggerContext;
 import com.example.demo.TestApplicationLogs;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.logging.logback.StructuredLogEncoder;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
@@ -34,7 +34,7 @@ class StructuredLoggingTest {
                         new RequestCorrelationFilter().doFilter(new MockHttpServletRequest("GET", "/products"),
                                 response, (request, res) -> res.setContentType("application/json"));
                         String output = new String(encoder.encode(logs.events().get(0)), StandardCharsets.UTF_8);
-                        var json = new ObjectMapper().readTree(output);
+                        var json = new tools.jackson.databind.json.JsonMapper().readTree(output);
                         for (String field : java.util.List.of("@timestamp", "message", "level", "event", "requestId")) {
                             assertTrue(json.hasNonNull(field), field);
                         }

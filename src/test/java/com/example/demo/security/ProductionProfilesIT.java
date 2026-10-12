@@ -1,7 +1,7 @@
 package com.example.demo.security;
 
 import com.example.demo.DemoApplication;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,7 +10,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.boot.web.context.WebServerApplicationContext;
+import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.boot.actuate.endpoint.web.WebEndpointsSupplier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -42,7 +42,7 @@ class ProductionProfilesIT {
             .withCopyFileToContainer(MountableFile.forHostPath("scripts/db-init/01-app-privileges.sh", 0755),
                     "/docker-entrypoint-initdb.d/01-app-privileges.sh");
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
-    private final ObjectMapper json = new ObjectMapper();
+    private final ObjectMapper json = new tools.jackson.databind.json.JsonMapper();
     private String base;
 
     @ParameterizedTest(name = "profile: {0}")
@@ -66,6 +66,26 @@ class ProductionProfilesIT {
             assertEquals("never", environment.getProperty("management.endpoint.health.show-details"));
             assertEquals("never", environment.getProperty("management.endpoint.health.show-components"));
             assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
+
+            // Check actual prod/local/default contexts, including dependency auto-configuration.
+            assertTrue(context.getBeansOfType(org.springframework.web.servlet.view.xslt.XsltView.class).isEmpty());
+            assertTrue(context.getBeansOfType(org.springframework.web.servlet.view.xslt.XsltViewResolver.class).isEmpty());
+            var applicationHandlers = context.getBeansOfType(RequestMappingHandlerMapping.class).values().stream()
+                    .flatMap(mapping -> mapping.getHandlerMethods().entrySet().stream())
+                    .filter(entry -> entry.getValue().getBeanType().getPackageName().startsWith("com.example.demo.controller"))
+                    .toList();
+            assertFalse(applicationHandlers.isEmpty());
+            for (var entry : applicationHandlers) {
+                var handler = entry.getValue();
+                assertTrue(org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(
+                        handler.getBeanType(), org.springframework.web.bind.annotation.ResponseBody.class));
+                assertFalse(entry.getKey().getPatternValues().contains("/**"));
+                assertFalse(org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter.class
+                        .isAssignableFrom(handler.getMethod().getReturnType()));
+                assertFalse(org.springframework.web.servlet.ModelAndView.class.isAssignableFrom(handler.getMethod().getReturnType()));
+                assertFalse(org.springframework.web.servlet.View.class.isAssignableFrom(handler.getMethod().getReturnType()));
+                assertFalse(org.springframework.web.servlet.view.FragmentsRendering.class.isAssignableFrom(handler.getMethod().getReturnType()));
+            }
 
             var health = get("/actuator/health", null);
             assertEquals(200, health.statusCode());

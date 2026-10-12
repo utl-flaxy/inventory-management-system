@@ -109,7 +109,8 @@ class EmptyDatabaseMigrationIT {
     void missingMigrationsCannotBeReplacedByHibernateDdl() {
         var failure = assertThrows(RuntimeException.class,
                 () -> { try (var ignored = start("--spring.flyway.locations=classpath:db/no-migrations")) { fail("schemaなしで起動してはいけない"); } });
-        assertTrue(rootCause(failure).getMessage().contains("Schema-validation"));
+        var schemaFailure = assertInstanceOf(org.hibernate.tool.schema.spi.SchemaManagementException.class, rootCause(failure));
+        assertTrue(schemaFailure.getMessage().contains("missing table"));
         assertEquals(0, domainTables());
     }
 

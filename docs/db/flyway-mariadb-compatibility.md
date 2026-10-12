@@ -1,5 +1,11 @@
 # Flyway / MariaDB互換性判断（Issue #69）
 
+Issue #89のBoot 4.1.1 PoCでは、公式BOMのFlyway core/mysql 12.4.0とJDBC 3.5.10を検証する。
+MariaDB server 12.2.2、DB制約、migration V1〜V6、既存volumeは変更しない。
+専用Testcontainers DBでFlyway11.7.2→12.4.0→11.7.2のvalidate/migrateとhistory checksum、保存dataの不変性を確認した。
+通常起動と旧Flyway rollback fixtureの警告件数は、[Issue #89の比較](../audit/2026-10-12-issue89-boot4.md)とPR本文へ実測を記録する。
+以下のIssue #69/#86の記録は履歴として保持し、警告をlogger設定で隠さない。
+
 Issue #86ではBoot 3.5.16のセキュリティBOM更新に伴い、JDBC clientを3.5.8へ更新する。
 Flyway core/mysql 11.7.2、MariaDB server 12.2、migration V1〜V6、既存volumeは維持する。
 以下はIssue #69時点の履歴であり、JDBC patch後の全回帰・警告実測は

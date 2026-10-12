@@ -1,8 +1,8 @@
 package com.example.demo.controller;
 
 import com.example.demo.security.JwtUtil;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,7 +11,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
@@ -160,7 +160,7 @@ class ProductPagingIT {
         assertTrue(sortDescription.contains("sort=price,asc&sort=name,desc"));
         assertEquals("array", parameters.get("sort").path("schema").path("type").asText());
 
-        var responseSchema = operation.path("responses").path("200").path("content").elements().next().path("schema");
+        var responseSchema = operation.path("responses").path("200").path("content").values().iterator().next().path("schema");
         assertTrue(responseSchema.path("$ref").asText().contains("PageResponse"));
         var page = resolve(api, responseSchema);
         assertEquals(PAGE_FIELDS, fields(page.path("properties")));
@@ -186,7 +186,7 @@ class ProductPagingIT {
 
     private Set<String> fields(JsonNode node) {
         var fields = new TreeSet<String>();
-        node.fieldNames().forEachRemaining(fields::add);
+        node.propertyNames().forEach(fields::add);
         return fields;
     }
 }

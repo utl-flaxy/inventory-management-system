@@ -1,7 +1,7 @@
 package com.example.demo.security;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,7 +11,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -174,7 +174,7 @@ class ProductNotFoundIT {
     @ParameterizedTest
     @ValueSource(strings = {"name", "price", "stock"})
     void existingProductFieldValidationStillReturns400(String field) throws Exception {
-        var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(update(0L));
+        var body = (tools.jackson.databind.node.ObjectNode) json.readTree(update(0L));
         switch (field) {
             case "name" -> body.put("name", "");
             case "price" -> body.put("price", 0);
