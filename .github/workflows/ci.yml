@@ -8,6 +8,8 @@ on:
   pull_request:
     branches:
       - main
+      # Issue #86 uses stacked dependency-family PRs; run the same gates on each base.
+      - security/issue-86-*
 
 permissions:
   contents: read
