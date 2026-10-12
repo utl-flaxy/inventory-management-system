@@ -1,0 +1,325 @@
+{
+  "issue": 76,
+  "base_main_sha": "74e8d953f8c132c5c0ebf79accc0f784cd75af1e",
+  "local_image_source_sha": "68d0a0b83212081ce387eda9a7ba758ea5c14d04",
+  "platform": "linux/amd64",
+  "docker_engine": "29.8.1",
+  "image": {
+    "image_id": "sha256:8d3e46356c8ae4456772eb9c30f91e5762e173cab5b66b86e873473f24b3adb2",
+    "revision_label": "68d0a0b83212081ce387eda9a7ba758ea5c14d04",
+    "image_bytes": 515421681,
+    "baseline_image_bytes": 824405479,
+    "identity": {
+      "uid": 10001,
+      "gid": 10001,
+      "app_and_jar_not_writable": true,
+      "jdk_maven_jcmd_absent": true
+    },
+    "java_version": "Picked up JAVA_TOOL_OPTIONS: -XX:InitialRAMPercentage=10 -XX:MaxRAMPercentage=25 -XX:MaxMetaspaceSize=160m -XX:MaxDirectMemorySize=32m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+ExitOnOutOfMemoryError\nopenjdk version \"17.0.20.1\" 2026-08-18\nOpenJDK Runtime Environment Temurin-17.0.20.1+1 (build 17.0.20.1+1)\nOpenJDK 64-Bit Server VM Temurin-17.0.20.1+1 (build 17.0.20.1+1, mixed mode, sharing)",
+    "jvm_flags_at_1g": {
+      "MaxHeapSize": "268435456",
+      "MaxMetaspaceSize": "167772160",
+      "MaxDirectMemorySize": "33554432",
+      "ReservedCodeCacheSize": "67108864",
+      "ThreadStackSize": "512",
+      "ExitOnOutOfMemoryError": "true"
+    }
+  },
+  "image_size_reduction_percent": 37.48,
+  "docker_checks": [
+    "JRE startup and /readyz=200 with status only",
+    "Read-only rootfs, non-root, dropped capabilities, bounded tmpfs",
+    "MariaDB connection and unchanged Flyway V1-V6"
+  ],
+  "api_checks": [
+    "JWT signature verification and USER/ADMIN authorization",
+    "Order idempotency, stock decrement, inventory adjustment, cancellation transaction",
+    "Security headers",
+    "Validation error response",
+    "Production-only endpoint isolation"
+  ],
+  "migrations": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+  ],
+  "rollback": {
+    "actual_app_only_cutover": true,
+    "failed_readiness_then_old_image_restored": true,
+    "db_id_and_start_time_unchanged": true,
+    "order_and_stock_data_unchanged": true,
+    "previous_image_id": "sha256:42abac37fcc11428312274b4e4937faf04e36181f8cf0550032b3dea6afe2b79",
+    "legacy_jdk_root_image": true
+  },
+  "capacity_probes": [
+    {
+      "limit": "384m",
+      "startup": "READY",
+      "memory": {
+        "cgroup_bytes": 276262912,
+        "cgroup_peak_bytes": 279814144,
+        "rss_bytes": 292331520,
+        "threads": 31
+      },
+      "sustained_load_validated": false
+    },
+    {
+      "limit": "512m",
+      "startup": "READY",
+      "memory": {
+        "cgroup_bytes": 338358272,
+        "cgroup_peak_bytes": 342867968,
+        "rss_bytes": 352681984,
+        "threads": 32
+      },
+      "sustained_load_validated": false
+    }
+  ],
+  "heap_oom_probe": {
+    "exit": 3,
+    "actual_heap_oom": true,
+    "rootfs_remains_read_only": true,
+    "heap_dump_enabled": false
+  },
+  "memory": {
+    "app_startup_peak_cgroup_bytes": 355229696,
+    "app_after_api": {
+      "cgroup_bytes": 375468032,
+      "cgroup_peak_bytes": 381095936,
+      "rss_bytes": 390475776,
+      "threads": 35
+    },
+    "db_after_api": {
+      "cgroup_bytes": 273399808,
+      "cgroup_peak_bytes": 285364224,
+      "rss_bytes": 128274432,
+      "threads": 22
+    }
+  },
+  "memory_limit_used": {
+    "app": "1g",
+    "db": "512m"
+  },
+  "sustained_production_load_validated": false,
+  "ec2_current_capacity": "UNCONFIRMED; June 2026 t3.micro/1GiB is historical only",
+  "boot4_runtime_poc": {
+    "readiness": true,
+    "jwt": true,
+    "user_authorization": true,
+    "migrations_unchanged": true,
+    "image_id": "sha256:71bd16add39863483eefa5dd73ad6490dbd407198d0995d3110085a2e6276b05",
+    "startup_peak_cgroup_bytes": 375726080
+  },
+  "pr93_changed": false,
+  "image_scan": {
+    "mode": "AUDIT_ONLY_NOT_A_SECURITY_PASS",
+    "before": {
+      "finding_instances": 73,
+      "unique_cve_ids": 56,
+      "severity": {
+        "LOW": 14,
+        "MEDIUM": 50,
+        "CRITICAL": 2,
+        "HIGH": 3,
+        "UNKNOWN": 4
+      },
+      "os": {
+        "Family": "ubuntu",
+        "Name": "26.04"
+      },
+      "os_findings": 52,
+      "library_findings": 21,
+      "ids": [
+        "CVE-2017-13716",
+        "CVE-2021-31879",
+        "CVE-2024-56433",
+        "CVE-2025-48924",
+        "CVE-2025-66382",
+        "CVE-2026-13757",
+        "CVE-2026-18374",
+        "CVE-2026-18477",
+        "CVE-2026-18508",
+        "CVE-2026-35341",
+        "CVE-2026-35344",
+        "CVE-2026-35345",
+        "CVE-2026-35348",
+        "CVE-2026-35350",
+        "CVE-2026-35351",
+        "CVE-2026-35352",
+        "CVE-2026-35354",
+        "CVE-2026-35357",
+        "CVE-2026-35359",
+        "CVE-2026-35360",
+        "CVE-2026-35363",
+        "CVE-2026-35364",
+        "CVE-2026-35367",
+        "CVE-2026-35368",
+        "CVE-2026-35370",
+        "CVE-2026-35371",
+        "CVE-2026-35373",
+        "CVE-2026-35374",
+        "CVE-2026-35377",
+        "CVE-2026-40228",
+        "CVE-2026-46675",
+        "CVE-2026-47884",
+        "CVE-2026-47890",
+        "CVE-2026-49844",
+        "CVE-2026-55856",
+        "CVE-2026-55857",
+        "CVE-2026-55858",
+        "CVE-2026-56857",
+        "CVE-2026-56866",
+        "CVE-2026-61700",
+        "CVE-2026-78659",
+        "CVE-2026-78660",
+        "CVE-2026-78663",
+        "CVE-2026-78667",
+        "CVE-2026-78669",
+        "CVE-2026-85091",
+        "CVE-2026-86145",
+        "CVE-2026-89092",
+        "CVE-2026-89161",
+        "CVE-2026-94439",
+        "CVE-2026-94440",
+        "CVE-2026-94448",
+        "CVE-2026-95512",
+        "CVE-2026-97030",
+        "CVE-2026-97031",
+        "CVE-2026-97032"
+      ]
+    },
+    "after": {
+      "finding_instances": 25,
+      "unique_cve_ids": 19,
+      "severity": {
+        "MEDIUM": 18,
+        "LOW": 5,
+        "CRITICAL": 2
+      },
+      "os": {
+        "Family": "ubuntu",
+        "Name": "24.04"
+      },
+      "os_findings": 17,
+      "library_findings": 8,
+      "ids": [
+        "CVE-2021-31879",
+        "CVE-2024-56433",
+        "CVE-2025-48924",
+        "CVE-2025-66382",
+        "CVE-2026-18374",
+        "CVE-2026-18477",
+        "CVE-2026-18508",
+        "CVE-2026-40228",
+        "CVE-2026-47884",
+        "CVE-2026-47890",
+        "CVE-2026-49844",
+        "CVE-2026-55856",
+        "CVE-2026-55857",
+        "CVE-2026-55858",
+        "CVE-2026-61700",
+        "CVE-2026-85091",
+        "CVE-2026-86145",
+        "CVE-2026-89092",
+        "CVE-2026-89161"
+      ]
+    },
+    "scanner_image": "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
+  },
+  "osv": {
+    "mode": "AUDIT_ONLY_NOT_A_SECURITY_PASS",
+    "components": 137,
+    "advisories": 8,
+    "severity": {
+      "MODERATE": 5,
+      "LOW": 1,
+      "CRITICAL": 2
+    },
+    "scanner_exit": 1
+  },
+  "osv_ids_added": [],
+  "osv_ids_removed": [],
+  "java": {
+    "surefire": {
+      "tests": 1042,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "failsafe": {
+      "tests": 737,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "total": 1779,
+    "flyway_warnings": 99,
+    "maven_time": "11:16 min",
+    "java_version": "Temurin 17.0.18+8"
+  },
+  "python_tests": 28,
+  "terraform_mock_tests": 27,
+  "deploy_state": "disabled_manually",
+  "aws_production_db_existing_volume_operations": false,
+  "evidence_files": [
+    {
+      "path": "full-verify.log",
+      "sha256": "d9b7e3ba94b13a02863bd1f0e2a1e4ba7d6d9bfa50ea76bcc240d4c8b1c65284"
+    },
+    {
+      "path": "verify-summary.json",
+      "sha256": "2cd470a01ce39fad5ccbf9e34eca2a33cae625f3f84cdc8ddbb87754ee38e1b0"
+    },
+    {
+      "path": "python.log",
+      "sha256": "e4408ebdb81b723f595298f30193e4fc23f37ef2b54a8f96688289d5dbfb8aa0"
+    },
+    {
+      "path": "terraform.log",
+      "sha256": "34cbe9df8dbcaabda913b3c22cf45bcab907d099ced2872da1466df408f40ab5"
+    },
+    {
+      "path": "secret.log",
+      "sha256": "bc0f199530a788768d6d21b47f2ad17f2152d71f99b2ae8e4877f42a5a68f681"
+    },
+    {
+      "path": "secret-self.log",
+      "sha256": "e41098d25eb9b136def9b173cbe7f4511f4b5dd525f4cc9aaf7e47f3c934a344"
+    },
+    {
+      "path": "static.log",
+      "sha256": "250e496e674468359845a21e4db82e7944a77d017d1a551f9674df3bd174cac0"
+    },
+    {
+      "path": "static-self.log",
+      "sha256": "e2615cce557dcfd6e133c3c78048dbcaea5c0e32ea0ed28b1fb4eef85ad11bb0"
+    },
+    {
+      "path": "dependency.log",
+      "sha256": "99c193710e1df89cc01e50c45633d19fb31145e888c9fbea96bebe58dfb666a3"
+    },
+    {
+      "path": "repro-summary.json",
+      "sha256": "0b83d458b7c701e29376f2c146a15c9565f56bdccc533c70e4ecc89e4172bf12"
+    },
+    {
+      "path": "baseline-scan/image-scan.json",
+      "sha256": "ae1bc623560992eff02549f533f2d64302518af2ad326faecdb09c6d1ef16866"
+    },
+    {
+      "path": "patched-local-docker/summary.json",
+      "sha256": "e1fb23ef434d6d1b4219572985be62f9bc5b100e8b3fcc4c5532d6f6966d5a72"
+    },
+    {
+      "path": "patched-local-docker/image-scan.json",
+      "sha256": "5a03facafc0b759c07cfc8e07be8c03f8d9fe1845fedd535d6126e8092008fa6"
+    },
+    {
+      "path": "patched-boot4-validation/summary.json",
+      "sha256": "552a3a00c6a6f0969f144e818f8693eae020d665afb9292a17be02252f9316fa"
+    }
+  ]
+}

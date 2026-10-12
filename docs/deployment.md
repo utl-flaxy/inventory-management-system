@@ -95,7 +95,7 @@ GitHub environmentは現在未設定のため必須にしない。運用時はpr
 
 target SHA checkout/HEAD検証後、既存app稼働中に次を完了する。
 
-1. 必要ファイルとJava 17検証、`./mvnw clean package -DskipTests`、jar存在確認
+1. 必要ファイル・APP_MEMORY_LIMIT・commit timestampを確認し、Docker内の固定Java 17でjar生成
 2. `docker compose config`（出力にはsecretがあるため私有ファイルへ保存）
 3. `inventory-management-system-app:${DEPLOY_SHA}` のbuildとrevision/health-path label検証
 4. 切替直前のHEAD一致確認
@@ -161,13 +161,13 @@ Deploy再有効化・本番操作は本Issueに含めない。
    Issue #37以前のlabelのないimageへの復元確認だけ旧/v3/api-docsを使う。DB container/volumeは保持する。
 3. rollback不能なら [DB手順](db/README.md) を参照し、先にschema互換性を調べる。旧imageを試すだけでDBが戻ったと判断しない。
 4. 手動復元を行う際も `.deploy/lock` をflockで保持し、保存Composeにprevious-imageのimage IDをoverrideしてappだけを更新する。current/previousは復元後HTTP成功を確認して整合させる。
-5. host lock競合、ディスク不足、missing secret、DB停止、Java version、Git checkout変更を解消後、検証済みSHAの配備を再実行する。GitHub CI runをre-runして起動条件を再評価できるが、PR runは常に配備対象外。
+5. host lock競合、ディスク/メモリ不足、missing secret、DB停止、Docker build取得失敗、Git checkout変更を解消後、検証済みSHAの配備を再実行する。GitHub CI runをre-runして起動条件を再評価できるが、PR runは常に配備対象外。
 
 ## 自動検証
 
 `./mvnw verify` が既存JWT/Validation/状態遷移/並行制御/集約/認可/DB migration全テストとDeploymentWorkflowTest/DeploymentScriptTestを実行する。Deploymentテストは本番配備を行わない静的・mockテストのためSurefireに残し、`./mvnw test` でも実行する。YAMLはBoot依存のSnakeYAMLで構造を解析し、triggerの全8組み合わせ、SHA伝達、concurrency、権限、Compose tag、禁止操作を検証する。runnerの不足secretガードもBashで実行する。
 
-shellのモックはGit/Docker/curl/Java/Maven/flock/sleepを隔離したPATHで置き換え、invalid/missing SHA、
+shellのモックはGit/Docker/curl/flock/sleepを隔離したPATHで置き換え、host Java/Maven非実行、invalid/missing SHA、memory不足/不正、
 DB/JWT不足・弱い鍵・root/不正identifier、host lock、取得失敗、HEAD不一致、DB停止、
 Maven/config/Docker失敗、成功/初回成功、リトライ、DOWN/details拒否、起動失敗、HTTP失敗、
 legacy/modern rollback、rollback失敗、初回失敗、DB/root/JWTのログ伏せ字を検証する。
