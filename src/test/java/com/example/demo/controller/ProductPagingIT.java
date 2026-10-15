@@ -113,6 +113,38 @@ class ProductPagingIT {
                 .map(i -> response.path("content").get(i).path("id").asLong()).toList());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\u3000", "\u00a0", "\t"})
+    void realMariaDbRejectsBlankKeywordWithSafe400(String keyword) throws Exception {
+        mvc.perform(as("alice", get("/products/search").param("keyword", keyword)))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/search"));
+        assertEquals(4L, jdbc.queryForObject("SELECT COUNT(*) FROM products", Long.class));
+    }
+
+    @Test
+    void realMariaDbUsesUnicodeCodePointLimit() throws Exception {
+        var atLimit = "🍎".repeat(100);
+        var response = read(as("alice", get("/products/search").param("keyword", atLimit)));
+        assertEquals(0L, response.path("totalElements").asLong());
+        mvc.perform(as("alice", get("/products/search").param("keyword", "🍎".repeat(101))))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/search"));
+    }
+
+    @Test
+    void existingCaseInsensitiveSubstringAndWhitespaceSemanticsStayUnchanged() throws Exception {
+        var upper = read(as("alice", get("/products/search").param("keyword", "APPLE")));
+        assertEquals(3L, upper.path("totalElements").asLong());
+        var spaces = read(as("alice", get("/products/search").param("keyword", " apple ")));
+        assertEquals(3L, spaces.path("totalElements").asLong());
+    }
+
+    @Test
+    void leadingWildcardSearchPlanRemainsExplicitlyUnoptimized() {
+        var plan = jdbc.queryForList("EXPLAIN SELECT id FROM products WHERE name LIKE ?", "%apple%");
+        assertFalse(plan.isEmpty());
+        assertTrue(plan.get(0).containsKey("type")); // Inspect planning; no claim of index/rate improvement.
+    }
+
     static Stream<Arguments> actors() {
         return Stream.of("/products", "/products/search").flatMap(path ->
                 Stream.of(Arguments.of(path, "", 401), Arguments.of(path, "alice", 200), Arguments.of(path, "admin", 200)));
