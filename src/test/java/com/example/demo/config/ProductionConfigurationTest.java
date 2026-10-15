@@ -94,6 +94,7 @@ class ProductionConfigurationTest {
     void dedicatedDatasourceAndSufficientUtf8SecretPassValidation() {
         var values = valid();
         values.put("JWT_SECRET", "あ".repeat(11));
+        values.put("server.forward-headers-strategy", "FRAMEWORK");
         runner.withPropertyValues(properties(values)).run(context -> assertNull(context.getStartupFailure()));
     }
 

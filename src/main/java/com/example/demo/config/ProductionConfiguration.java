@@ -40,7 +40,7 @@ public class ProductionConfiguration {
             }
             Binder.get(environment).bind("app.login.rate-limit", LoginRateLimitProperties.class)
                     .orElseGet(LoginRateLimitProperties::new).validateProduction();
-            if (!"framework".equals(environment.getProperty("server.forward-headers-strategy")))
+            if (!"framework".equalsIgnoreCase(environment.getProperty("server.forward-headers-strategy")))
                 throw new IllegalStateException("Production forwarding must use framework after transport capture");
         };
     }
