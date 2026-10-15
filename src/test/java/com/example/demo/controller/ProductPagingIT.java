@@ -183,6 +183,13 @@ class ProductPagingIT {
         var parameters = new java.util.HashMap<String, JsonNode>();
         operation.path("parameters").forEach(parameter -> parameters.put(parameter.path("name").asText(), parameter));
         assertTrue(parameters.keySet().containsAll(Set.of("page", "size", "sort")));
+        if (path.equals("/products/search")) {
+            assertTrue(parameters.containsKey("keyword"));
+            var keywordSchema = parameters.get("keyword").path("schema");
+            assertEquals(1, keywordSchema.path("minLength").asInt());
+            assertEquals(100, keywordSchema.path("maxLength").asInt());
+            assertTrue(parameters.get("keyword").path("description").asText().contains("nonblank"));
+        }
         assertEquals(0, parameters.get("page").path("schema").path("default").asInt(-1));
         assertEquals(20, parameters.get("size").path("schema").path("default").asInt());
         assertEquals(100, parameters.get("size").path("schema").path("maximum").asInt());
