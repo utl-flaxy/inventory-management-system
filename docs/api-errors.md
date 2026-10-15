@@ -99,6 +99,30 @@ SecurityはSpring管理ObjectMapperと共通factoryを使い、status/content-ty
 JWT parse/署名/issuer/DB role優先、CSRF/session/matcher/roles/permitAllは変更しない。
 firewallのDispatcherServlet前の拒否も共通writerで400にする。
 
+## 商品検索keywordの入力境界（Issue #78）
+
+`GET /products/search?keyword=...` の `keyword` は**必須・1〜100 Unicodeコードポイント・空白だけは不可**。
+Java `Character.isWhitespace` / `Character.isSpaceChar` と U+0085 (NEXT LINE) を空白として扱い、Unicode White_Space 全25種のみの入力を400にする。未対のUTF-16サロゲートも400でRepository呼出前に拒否する。
+U+200B / U+FEFF は空白の定義に含めず、置換文字U+FFFDも有効なUnicodeとして保持する。HTTPデコーダが不正なバイトを置換した場合、元のバイト列はServiceで識別できない。生のHTTP request-targetの構文拒否はWebサーバーの責務であり、MockMvcの未対サロゲート検証と区別する。
+`null`/空文字/空白のみ（NBSP・全角スペース等）/101コードポイント以上の文字列は、Repositoryを呼ぶ前に拒否する。
+不足query parameterはSpring標準の400。URL長制限等によりServletの前段で拒否される場合もあり得る。
+成功時は従来と同じ部分一致（caseの扱いはDB collation依存）で、前後の空白・特殊文字をtrim/正規化/小文字化しない。
+すでに空文字で全件候補を検索していたclientは**400への契約変更**となるため、全件取得には `GET /products` を使う。
+
+~~~json
+{
+  "type": "https://inventory-management-system.example/problems/invalid-request",
+  "title": "Invalid Request",
+  "status": 400,
+  "detail": "リクエストの形式が不正です",
+  "instance": "/products/search",
+  "code": "INVALID_REQUEST"
+}
+~~~
+
+既存Product一覧・検索のpage/size/sort、注文・Inventory APIの契約は変更しない。
+この入力制約は巨大/空白検索を抑制するだけで、先頭ワイルドカードによるテーブル走査や負荷への根本的な対策ではない。性能は実データ量で別途測定する。
+
 ## Product resource未存在（Issue #35）
 
 ```json

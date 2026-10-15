@@ -64,6 +64,7 @@ class ProductionLoggingIT {
         registry.add("spring.datasource.username", database::getUsername);
         registry.add("spring.datasource.password", database::getPassword);
         registry.add("spring.datasource.driver-class-name", database::getDriverClassName);
+        registry.add("app.login.rate-limit.trusted-proxies", () -> "127.0.0.1");
         registry.add("JWT_SECRET", () -> SECRET);
     }
 
@@ -236,7 +237,7 @@ class ProductionLoggingIT {
     }
     private HttpResponse<String> post(String path, Map<String, ?> body, String token, String key) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).timeout(Duration.ofSeconds(15))
-                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
+                .header("Content-Type", "application/json").header("X-Forwarded-For", "198.51.100.1").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
         if (token != null) request.header("Authorization", "Bearer " + token);
         if (key != null) request.header("Idempotency-Key", key);
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());

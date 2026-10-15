@@ -67,7 +67,8 @@ class OsivApiIT {
     @ValueSource(strings = {"default", "local", "prod"})
     void allApisMaterializeResponsesAndPreserveTransactionsWithoutOsiv(String profile) throws Exception {
         try (var context = new SpringApplicationBuilder(DemoApplication.class, ProbeConfiguration.class).run(
-                "--server.port=0", "--spring.profiles.active=" + (profile.equals("default") ? "" : profile),
+                "--server.port=0", "--app.login.rate-limit.trusted-proxies=127.0.0.1",
+                "--spring.profiles.active=" + (profile.equals("default") ? "" : profile),
                 "--spring.datasource.url=" + database.getJdbcUrl(),
                 "--spring.datasource.username=" + database.getUsername(),
                 "--spring.datasource.password=" + database.getPassword(), "--JWT_SECRET=" + SECRET)) {
@@ -250,7 +251,7 @@ class OsivApiIT {
         probe.pending.put(id, completion);
         var request = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(10)).header("X-Osiv-Probe", id)
                 .method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
-        if (body != null) request.header("Content-Type", "application/json");
+        if (body != null) request.header("Content-Type", "application/json").header("X-Forwarded-For", "198.51.100.1");
         if (token != null) request.header("Authorization", "Bearer " + token);
         if (key != null) request.header("Idempotency-Key", key);
         try {

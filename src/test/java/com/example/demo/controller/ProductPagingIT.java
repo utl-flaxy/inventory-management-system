@@ -113,6 +113,55 @@ class ProductPagingIT {
                 .map(i -> response.path("content").get(i).path("id").asLong()).toList());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\u3000", "\u00a0", "\t"})
+    void realMariaDbRejectsBlankKeywordWithSafe400(String keyword) throws Exception {
+        mvc.perform(as("alice", get("/products/search").param("keyword", keyword)))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/search"));
+        assertEquals(4L, jdbc.queryForObject("SELECT COUNT(*) FROM products", Long.class));
+    }
+
+    @Test
+    void realMariaDbUsesUnicodeCodePointLimit() throws Exception {
+        var atLimit = "🍎".repeat(100);
+        var response = read(as("alice", get("/products/search").param("keyword", atLimit)));
+        assertEquals(0L, response.path("totalElements").asLong());
+        mvc.perform(as("alice", get("/products/search").param("keyword", "🍎".repeat(101))))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/search"));
+    }
+
+    @Test
+    void existingCaseInsensitiveSubstringAndWhitespaceSemanticsStayUnchanged() throws Exception {
+        var upper = read(as("alice", get("/products/search").param("keyword", "APPLE")));
+        assertEquals(3L, upper.path("totalElements").asLong());
+        var spaces = read(as("alice", get("/products/search").param("keyword", " apple ")));
+        assertEquals(3L, spaces.path("totalElements").asLong());
+    }
+
+    @Test
+    void leadingWildcardSearchPlanRemainsExplicitlyUnoptimized() {
+        var plan = jdbc.queryForList("EXPLAIN SELECT id FROM products WHERE name LIKE ?", "%apple%");
+        assertFalse(plan.isEmpty());
+        assertTrue(plan.get(0).containsKey("type")); // Inspect planning; no claim of index/rate improvement.
+    }
+
+    @Test
+    void unicodeNextLineBlankIsRejectedWithRealSecurityAndMariaDb() throws Exception {
+        mvc.perform(as("alice", get("/products/search").param("keyword", "\u0085\u00a0")))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/search"));
+        mvc.perform(get("/products/search").param("keyword", "\u0085"))
+                .andExpect(problem(401, "UNAUTHENTICATED", "Unauthenticated", "/products/search"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"%", "_", "\\", "' OR 1=1 --"})
+    void mariaDbTreatsLikeMetacharactersAndSqlTextAsLiteralSubstring(String keyword) throws Exception {
+        jdbc.update("INSERT INTO products (id,name,price,stock) VALUES (5,?,100,10)", "literal" + keyword + "end");
+        var result = read(as("alice", get("/products/search").param("keyword", keyword)));
+        assertEquals(1L, result.path("totalElements").asLong());
+        assertEquals(5L, result.path("content").get(0).path("id").asLong());
+    }
+
     static Stream<Arguments> actors() {
         return Stream.of("/products", "/products/search").flatMap(path ->
                 Stream.of(Arguments.of(path, "", 401), Arguments.of(path, "alice", 200), Arguments.of(path, "admin", 200)));
@@ -151,6 +200,13 @@ class ProductPagingIT {
         var parameters = new java.util.HashMap<String, JsonNode>();
         operation.path("parameters").forEach(parameter -> parameters.put(parameter.path("name").asText(), parameter));
         assertTrue(parameters.keySet().containsAll(Set.of("page", "size", "sort")));
+        if (path.equals("/products/search")) {
+            assertTrue(parameters.containsKey("keyword"));
+            var keywordSchema = parameters.get("keyword").path("schema");
+            assertEquals(1, keywordSchema.path("minLength").asInt());
+            assertEquals(100, keywordSchema.path("maxLength").asInt());
+            assertTrue(parameters.get("keyword").path("description").asText().contains("nonblank"));
+        }
         assertEquals(0, parameters.get("page").path("schema").path("default").asInt(-1));
         assertEquals(20, parameters.get("size").path("schema").path("default").asInt());
         assertEquals(100, parameters.get("size").path("schema").path("maximum").asInt());

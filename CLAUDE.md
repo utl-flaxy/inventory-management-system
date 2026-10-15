@@ -1,175 +1,94 @@
 # CLAUDE.md
 
-このファイルは、Claude Code がこのリポジトリで安全に作業するためのガイドです。
-記載内容はリポジトリから確認できる事実に基づきます。確認できなかった点は「未確認」と明記しています。
+このファイルは、Claude Code 等の開発エージェントがこのリポジトリで安全に作業するためのガイドです。
+記載は **main @ 78886413894b1211f77cee3ec3b6d7e5045f6534（2026-10-15）** を基準とします。古いIssue・過去の監査記録は現在の実装を保証しません。
+変更前には対象ブランチの実コード・正本文書を再確認してください。
 
-## プロジェクト概要
+## 作業原則
 
-在庫管理・注文管理のバックエンド REST API（Spring Boot）。
-README のテーマは「データ整合性を担保した注文処理設計」。
+1. **1 Issue = 1責務**。Issueと受入条件を確認し、専用branch → 小さなPR → 実CI → review → 運用者判断の順に進める。
+2. `main`へ直接pushしない。merge、auto-merge、Deploy workflow有効化は運用者の明示的な承認なしに行わない。
+3. **AWS/Terraform apply・destroy、本番DB/既存Docker volume、本番DNS/TLS、実secretや秘密鍵を操作しない**。必要な作業はrunbookと未実施事項として報告する。
+4. PR前に Java 17 + Docker で `./mvnw verify`。unitだけの `test`、skipしたテスト、greenでないCIを完了と扱わない。Java/Terraform/secret/static-analysis/dependency-auditとDocker回帰を確認する。
+5. 証拠は「コード上の対策」「使い捨て環境でのテスト」「GitHub実CI」「実本番適用」を区別する。変更しなかった領域を検証済みと断定しない。
+6. トークン・password/hash・JWT・DB接続文字列・SSH鍵・`.env`・Terraform state・バックアップ・解決済みComposeの秘密値をログ、PR、artifactに載せない。実値を確認・転載しない。
 
-- 商品 CRUD・検索（ページング）— `/products`
-- 注文作成・一覧・詳細・ステータス変更・キャンセル・売上集計・CSV 出力 — `/orders`
-- ユーザー登録・ログイン（JWT 発行）— `/auth`
-- リモート: `https://github.com/utl-flaxy/inventory-management-system.git`
+## プロジェクトと現行技術スタック
 
-## 技術スタック
+在庫・注文の整合性を主題とする Spring Boot REST API。Controller → Service → Repository の責務分離と、DTOによる外部契約を採用する。
+詳細は [README](README.md)、[注文設計](docs/orders/order-aggregate.md)、[在庫設計](docs/inventory.md) にある。
 
-| 分類 | 内容（出典） |
+| 分類 | mainの実装・正本 |
 |---|---|
-| 言語 | Java 17（`pom.xml` の `java.version`、CI の setup-java） |
-| フレームワーク | Spring Boot 3.5.12（`pom.xml`） |
-| Web / 検証 | spring-boot-starter-web, spring-boot-starter-validation |
-| 永続化 | Spring Data JPA / MariaDB（`mariadb-java-client`）。H2 も runtime 依存にあり |
-| セキュリティ | Spring Security + JWT（jjwt 0.12.7） |
-| API ドキュメント | springdoc-openapi 2.8.8（`/swagger-ui.html`） |
-| その他 | Lombok |
-| テスト | spring-boot-starter-test（JUnit 5, Mockito, MockMvc） |
-| ビルド | Maven Wrapper（`mvnw` / `mvnw.cmd`） |
-| インフラ | Docker / Docker Compose, AWS EC2, Terraform（AWS provider `~> 6.0`, `ap-northeast-1`） |
-| CI/CD | GitHub Actions |
+| Java | 17（`pom.xml`、CI） |
+| Spring Boot | **4.1.1**（`pom.xml` parent） |
+| Web | `spring-boot-starter-webmvc`、Jakarta Validation |
+| Security | Spring Security、JJWT 0.12.7、BCrypt。署名鍵は `JWT_SECRET` 外部入力 |
+| Persistence | Spring Data JPA、MariaDB 12.2、Flyway V1〜V6、Hibernate `ddl-auto=validate` |
+| Testing | Surefireのunit/slice/H2補助テスト、Failsafeの実MariaDB/Testcontainers `*IT` |
+| API docs | springdoc OpenAPI 3.1.1。Swaggerは明示した `local` profileのみ |
+| Infra | Docker Compose、Terraform 1.15.6 / AWS provider 6.68.0、EC2・Caddy想定 |
+| CI/CD | GitHub Actionsの5ジョブCI。Deploy workflowは **disabled**。EC2実配備・本番運用は未確認 |
 
-## ディレクトリ構成
+H2はtest scopeであり本番DBではない。アプリは `spring.jpa.open-in-view=false`、SchemaはFlywayが正本。
+Spring Boot 4移行の履歴と残余課題は [Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8) に記録する。
+`README.md`などに旧Boot 3.5等の記載が残る場合、**実コードの版を優先して不整合として報告**し、黙って版を戻さない。
 
-```text
-.
-├── src/main/java/com/example/demo/
-│   ├── config/       OpenApiConfig（Swagger の Bearer 認証設定）
-│   ├── controller/   AuthController, OrderController, ProductController
-│   ├── dto/          リクエスト／レスポンス DTO
-│   ├── entity/       Order, OrderItem, OrderStatus, Product, User
-│   ├── exception/    GlobalExceptionHandler, OutOfStockException
-│   ├── repository/   Spring Data JPA リポジトリ
-│   ├── security/     SecurityConfig, JwtAuthenticationFilter, JwtUtil, CustomUserDetailsService
-│   └── service/      AuthService, OrderService, ProductService
-├── src/main/resources/application.properties
-├── src/test/java/com/example/demo/
-│   ├── controller/   OrderControllerTest, ProductControllerTest
-│   └── service/      OrderServiceTest
-├── terraform/        EC2・Security Group・Key Pair・user_data
-├── .github/workflows/ ci.yml, deploy.yml
-├── docs/images/      README 用スクリーンショット
-├── Dockerfile, docker-compose.yml, pom.xml, README.md
-```
+## API・ドメインの守るべき契約
 
-`src/test/resources` はありません。
+- 登録 `POST /auth/register` は `ROLE_USER` 固定。通常起動でADMINを作成しない。初期ADMINは [offline provisioning](docs/initial-admin-provisioning.md) の運用者専用CLIで作る。
+- 商品は `/products`。POSTは初期stockを指定できるが、PUTはname/price/versionのみ。stock変更は注文・cancel・ADMIN手動調整で行い、履歴を残す。
+- 注文は `/api/v1/me/orders`（本人）と `/api/v1/admin/orders`（ADMIN）。旧 `/orders/**` は廃止。所有者不一致は404、認証/認可は401/403。
+- 注文作成・手動在庫調整の `Idempotency-Key` は必須。同一keyの正常retryで二重減算・二重調整をしない。状態遷移は `PENDING → SHIPPED → COMPLETED`、またはPENDINGからCANCELLED。cancelは在庫を一度だけ戻す。
+- `Product`/`Order` のversion管理、User/Order/Productの行ロック、複数商品のID昇順取得、Transaction境界を壊さない。途中失敗では在庫・注文・履歴を一括rollbackする。
+- 金額は円の整数 `long/Long`・MariaDB BIGINT。価格・商品名を注文時にsnapshotし、計算overflowは在庫変更前に拒否する。
+- EntityをHTTPへ直接返さない。注文・登録・商品・在庫はResponse DTO。商品・注文・在庫履歴のページング契約を維持する。
+- エラーは [ProblemDetail / `application/problem+json`](docs/api-errors.md)。単純な `{"code","message"}` の旧形式を新しいAPIへ戻さない。
+- JWTとlogin試行制限の現行仕様は [Auth仕様](docs/auth.md) と対象ブランチの実装を照合する。**Issue #97 / PR #98 のlogin改善はこのmainではまだ未merge**。修正済みと誤認して契約変更しない。
 
-## アーキテクチャ
+主な正本: [注文認可](docs/security/order-authorization.md)、[状態遷移](docs/orders/state-transitions.md)、[冪等性](docs/orders/idempotency.md)、[CSV](docs/order-csv.md)、[売上](docs/sales.md)。
 
-Controller → Service → Repository → Entity のレイヤード構成です。
-
-- **Controller**: 薄く保ち、Service に処理を任せる。入力検証は `@Valid` と DTO の Bean Validation で行う（`ProductController`、`OrderController#create`）。
-- **Service**: 業務ロジックを書く。更新系のうち `OrderService` の作成・ステータス変更・キャンセルは `@Transactional`。
-- **Repository**: `JpaRepository` を継承。独自クエリは `@Query`（`OrderRepository#getTotalSales`）か、メソッド名で導出（`findByNameContaining`）。
-- **Entity**: 注文時の単価を `OrderItem.price` に保存する（README の「注文時価格を保持」）。
-- **レスポンス**: Product は DTO（`ProductResponse`）を返す。Order と User（`/auth/register`）は Entity をそのまま返している。
-- **例外処理**: `GlobalExceptionHandler`（`@RestControllerAdvice`）でまとめて扱う。
-  - `OutOfStockException` → 400 `{"code":"OUT_OF_STOCK","message":...}`
-  - `MethodArgumentNotValidException` → 400 `{"<フィールド名>":"<メッセージ>"}`
-  - その他の `Exception` → 500 `{"code":"SYSTEM_ERROR","message":...}`
-  - 「商品が存在しません」などは `RuntimeException` で投げているため、現状は 500 になる。
-- **認証・認可**:
-  - JWT はステートレス。`/auth/**`、Swagger、`/h2-console/**` 以外は認証が必要。
-  - `@EnableMethodSecurity` を有効にし、商品の登録・更新・削除は `@PreAuthorize("hasRole('ADMIN')")`。
-  - `/auth/register` は常に `ROLE_USER` で登録する。ADMIN を作る手段はコード上にない。
-- **注文ステータス**: `PENDING` / `SHIPPED` / `COMPLETED` / `CANCELLED`。キャンセル時は在庫を戻す。`SHIPPED` と `COMPLETED` はキャンセルできない。
-
-## コーディング規約（既存コードから読み取れるもの）
-
-- パッケージ: `com.example.demo.<layer>`。新しいクラスは既存のレイヤーのパッケージに置く。
-- DI: Lombok の `@RequiredArgsConstructor` と `private final` フィールドでコンストラクタ注入。
-- Lombok:
-  - DTO は `@Data`、または `@Getter` / `@Setter`。
-  - Entity は `@Getter @Setter @NoArgsConstructor @AllArgsConstructor`、必要なら `@Builder`。
-- コメント: 日本語の短い1行コメントをメソッドや処理ブロックの前に置く（例: `// 注文作成`、`// 在庫チェック`）。
-- バリデーションのメッセージは日本語。「〜は必須です」「〜は1以上を入力してください」のように書く。
-- インデントはスペース4つ。メソッド本体の先頭に空行を1行入れるスタイルが多い。
-- import はアルファベット順。`org.springframework.web.bind.annotation.*` はワイルドカードを使っている。
-- 既存コードの `System.out.println` によるデバッグ出力（`AuthService`、`JwtAuthenticationFilter`）は、新しいコードではまねしない。整理するかどうかは別タスクとして扱う。
-
-## テスト方針
-
-- **Service の単体テスト**:
-  - `@ExtendWith(MockitoExtension.class)` + `@Mock` / `@InjectMocks` でリポジトリをモックする。
-  - `// Arrange` / `// Act` / `// Assert` のコメントを書く。
-  - 異常系では `verify(..., never()).save(any())` で、副作用が起きていないことを確認する。
-- **Controller のテスト**:
-  - `@WebMvcTest(XxxController.class)` + `@AutoConfigureMockMvc(addFilters = false)` を使う。
-  - `@MockBean` で Service、`JwtAuthenticationFilter`、`JwtUtil`、`UserDetailsService` をモックする（既存テストに合わせて `@MockBean` を使う）。
-  - `addFilters = false` なので、認証・認可の動き（401/403、`@PreAuthorize`）は検証していない。
-  - バリデーションエラーのテストでは、Service が呼ばれないことを `verify(service, never())` で確認する。
-- テストメソッド名は日本語（例: `注文成功`、`商品登録バリデーションエラー`）。
-- `@SpringBootTest` や DB に接続するテストはない。そのため `./mvnw test` は DB なしで動く。
-- 振る舞いを変えたら、対応する Service テストと Controller テストを追加・更新する。
-
-## よく使うコマンド
+## テスト・検証
 
 ```bash
-./mvnw test                 # 全テスト（CI と同じ）
-./mvnw test -Dtest=OrderControllerTest   # 特定のテストクラス
-./mvnw clean package -DskipTests         # jar 作成（Dockerfile は target/demo-0.0.1-SNAPSHOT.jar をコピー）
-./mvnw spring-boot:run      # ローカル起動（MariaDB への接続が必要）
-docker compose up -d        # MariaDB + アプリを起動（先に jar の作成が必要）
-docker compose down
+./mvnw test          # Surefireの高速テスト。Docker不要
+./mvnw verify        # Surefire + Failsafe実MariaDB/Testcontainers。PR前必須
+git diff --check     # 空白・パッチ形式の確認
+terraform fmt -check -recursive terraform
+terraform -chdir=terraform init -backend=false -input=false -lockfile=readonly
+terraform -chdir=terraform validate
+terraform -chdir=terraform test -no-color  # AWS mock。実plan/applyではない
 ```
 
-Windows では `mvnw.cmd` も使えます。
+Windowsは `mvnw.cmd test` / `mvnw.cmd verify`。**JAVA_HOMEはJava 17** を選び、full verify時はDocker daemonを起動する。
+Mavenのunitは主に `*Test`、統合は `*IT`。Controller sliceはBoot4に対応した `@MockitoBean` / `@MockitoSpyBean` を使い、旧 `@MockBean` を新規追加しない。
+認可はfilterを無効にしたsliceテストだけで合格とせず、Security実動作・JWT・MariaDBの統合テストで確認する。
+合否は件数だけでなく failures/errors/skipped=0、Surefire/Failsafe別結果、GitHub CIの実run、セキュリティ検査を記録する。既存のテスト削除・無根拠skipはしない。
+詳細: [テスト手順](docs/testing.md)、[CI品質ゲート](docs/ci-quality-gates.md)。
 
-- **ローカル DB の注意**: `application.properties` の接続先は `127.0.0.1:3307` です。一方、`docker-compose.yml` が公開している MariaDB のポートは `3306` です。ローカルでどう起動するのが想定なのか（別の DB を 3307 で動かしているのか）は未確認です。
-- H2 は依存関係と `/h2-console` の許可設定がありますが、`application.properties` には H2 の設定がありません。H2 をどう使うのかは未確認です。
+## DB・構成・インフラ
 
-## 変更時に注意すべきポイント
+- `src/main/resources/db/migration` の Flyway **V1〜V6** がschemaのsource of truth。mainへ取り込まれたmigrationを変更・削除しない。新しい変更はVxを追加し、backup・preflight・reviewを行う。無検証の `baseline` / `repair` / `clean` を使わない。
+- `application.properties` とprod設定は `spring.jpa.hibernate.ddl-auto=validate`、`spring.flyway.clean-disabled=true`、OSIV=false。DDLの安全なrollbackを仮定しない。
+- DB username/password/URLとJWT_SECRETは環境から与える。prodでroot接続やURL内認証情報、弱いJWT_SECRETは拒否する。認証・profileは [設定手順](docs/configuration.md)。
+- ComposeはMariaDBをhostへpublishしない。appは `127.0.0.1:8080` のみ。appはnon-root・read-only root filesystemで、`APP_MEMORY_LIMIT` を実host容量確認の上指定する。
+- Dockerfileはdigest固定Java17ビルドimageとJRE runtimeのmulti-stage。skipTestsのpackageは**CIのverify後のimage生成工程**であり、検証省略の許可ではない。
+- TerraformはVPC/EC2/EIP/限定SSH/80・443/Caddyを**定義**するが、実AWS apply・公開TLS稼働を証明しない。stateはlocalで、remote state/lockは [Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75) の残余。
+- CDはmain push後のCI成功SHAを対象にした設計だが **workflow自体がdisabled**。PR成功で配備しない。DB container/volumeを停止せずappだけ切替し、readiness失敗時は旧app imageへrollbackする設計。実本番適用は未検証。
+- 手動配備、DNS、プロキシ、DB既存データ、backup/restoreの危険操作は [配備手順](docs/deployment.md)、[TLS](docs/tls.md)、[DB運用](docs/db/README.md)、[backup/restore](docs/db/backup-restore.md) に従い別途運用者の承認を得る。
 
-- **`main` への push は本番デプロイにつながる。**
-  - `ci.yml` は `main` への push と PR で `./mvnw test` を実行する。
-  - `deploy.yml` は CI が成功すると（`workflow_run`）、EC2 に SSH して `git reset --hard origin/main` → `./mvnw clean package -DskipTests` → `docker compose down` → `docker build` → `docker compose up -d` を実行する。
-  - `workflow_run` のトリガーは CI がどのイベントで動いたかを区別しないため、PR の CI が成功したときにも `main` のデプロイが走る可能性がある。
-  - **push や PR の作成は、ユーザーから明示的に指示されたときだけ行う。**
-- **DB スキーマ**:
-  - `spring.jpa.hibernate.ddl-auto=update` なので、Entity の変更は起動時にそのままスキーマへ反映される。マイグレーションツール（Flyway / Liquibase）はない。
-  - カラムの削除・名前変更・型変更は既存データに影響するので、事前に確認する。
-- **API の互換性**:
-  - Order 系はレスポンスで Entity を直接返している。Entity のフィールドを変えると API のレスポンスも変わる。
-  - `Order.orderItems` は `@JsonManagedReference`、`OrderItem.order` は `@JsonBackReference` で循環参照を避けている。
-- **在庫と金額**:
-  - 注文作成とキャンセルは在庫を増減する。`@Transactional` の範囲を崩さない。
-  - 金額は `Integer` 同士の掛け算で計算している（オーバーフロー対策はない）。
-  - 排他制御（ロック）は未導入（README の「今後の改善」に記載）。
-- **エラーレスポンスの形式**:
-  - 新しい例外は `GlobalExceptionHandler` に追加し、既存の `{"code","message"}` 形式に合わせる。
-  - README のエラー例（`{"message": ...}` だけ）は、実装（`code` も含む）と食い違っている。
-- **README**: 1400行を超える、採用担当者向けのポートフォリオ文書。API の挙動を変えたら、該当する節（API 一覧、レスポンス例、エラーハンドリング）を更新するかどうか、ユーザーに確認する。
-- **コミット**: 直近のコミットは Conventional Commits 形式（例: `fix(order): ...`）。それ以前の履歴は自由形式。コミットは指示されたときだけ行う。
+## ログ・セキュリティの注意
 
-## 変更禁止・慎重に扱うべきファイル
+- prodは構造化JSONログとserver生成の `X-Request-Id` を使う。秘密のheader/body、username、JWT、password、Idempotency-Key、SQL/constraint messageをapplication eventへ出さない。
+- 信頼プロキシ、レート制御、JWT FilterなどのSecurity変更は必ずproxy topology・400/401/403/429・匿名入口・偽装header・再試行・例外時cleanupを区別してテストする。
+- OSV/Trivyの数値は**scanner・DB・対象SHA・日付・依存/OSの別**を添える。Java依存のOSV 0件をOS image脆弱性ゼロと表現しない。audit-onlyのTrivyは合格ゲートではない。
+- `terraform.tfvars`、`*.tfstate*`、`*.pem`、`.env*`（例外:サンプル）、`.deploy/`、backup bundle、解決済みComposeをコミット・転載しない。
+- code reviewでは未検証事項・運用前提・回帰リスクを明記する。実装を超えた「production ready」「監査完了」を断定しない。
 
-**秘密情報。値を読み上げたり、ログ・コミット・外部サービスに出したりしない。**
+## PR作業の流れ
 
-- `terraform/terraform.tfvars`、`terraform/terraform.tfstate`、`terraform/terraform.tfstate.backup`
-  - ローカルにはあるが、`.gitignore` の対象なので Git の管理外。state には AWS リソースの情報が含まれる。編集もコミットもしない。
-- `*.pem` や SSH 鍵（`.gitignore` の対象）。
-- `src/main/java/com/example/demo/security/JwtUtil.java`
-  - JWT の署名鍵がソースに直書きされている（コメントに「本番では application.properties に切り出す」とある）。値を変えると、発行済みのトークンがすべて無効になる。
-- `src/main/resources/application.properties`、`docker-compose.yml`
-  - DB の認証情報が平文で書かれていて、Git の管理下にある。値を別の場所へ広めない。
-
-**変更すると本番や CI に直接影響するもの。変更前にユーザーに確認する。**
-
-- `.github/workflows/deploy.yml`、`.github/workflows/ci.yml`
-- `Dockerfile`（jar 名 `demo-0.0.1-SNAPSHOT.jar` に依存。`pom.xml` の `artifactId` / `version` を変えると壊れる）
-- `docker-compose.yml`（本番の EC2 でもこれを使う）
-- `terraform/*.tf`、`terraform/userdata.sh`
-  - `terraform apply` / `destroy` は実行しない。`plan` もユーザーの指示があるときだけ行う。
-  - Security Group は 22 番と 8080 番を `0.0.0.0/0` に開けている。
-- `security/SecurityConfig.java`（認可ルール全体）
-- `pom.xml`（依存バージョン。Spring Boot の parent は 3.5.12）
-
-**生成物・ローカル専用。編集もコミットもしない。**
-
-- `target/`、`data/`（H2 のファイル `testdb.mv.db`）、`log.txt`、`HELP.md`、`.idea/`、`terraform/.terraform/`
-
-## ローカル環境の注意（この作業 PC で確認したこと）
-
-- リポジトリの所有者と作業ユーザーが違うため、git コマンドは `git -c safe.directory=C:/Users/y03iw/Desktop/demo <cmd>` の形で実行する。グローバル設定は変えない。
-- `core.autocrlf=true`。`.gitattributes` で `mvnw` は LF、`*.cmd` は CRLF に固定している。
-- ローカルの JDK は 17 ではない可能性がある（Java 26 で実行された記録あり）。CI とビルドの対象は Java 17。
+1. Issue、関連PR、対象mainのSHAと最新変更を確認する。先行PRの未merge変更をmain実装として扱わない。
+2. 対応する正本docsと周辺コードを読む。互換性・Transaction・ロック・role・secret boundaryを明文化する。
+3. 専用branchで最小差分を作り、テストを追加/更新する。不要な整形や領域外のリファクタはしない。
+4. 対象テスト→`./mvnw verify`→Terraform mock/CIゲート→GitHub実CIを確認する。利用できない検証はそのまま記録する。
+5. PRへIssue・base/head SHA・変更一覧・実測結果・残余リスク・本番未実施・rollback境界を記載する。**自動mergeしない**。
