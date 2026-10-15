@@ -212,6 +212,9 @@ class LoginSecurityIT {
             var rejected = httpLogin("203.0.113." + i, true);
             assertEquals(503, rejected.statusCode());
             assertEquals("LOGIN_SOURCE_UNAVAILABLE", json.readTree(rejected.body()).path("code").asText());
+            assertEquals(6, json.readTree(rejected.body()).size());
+            assertTrue(rejected.headers().firstValue("Retry-After").isEmpty());
+            assertTrue(rejected.headers().firstValue("X-Request-Id").isPresent());
         }
     }
 
