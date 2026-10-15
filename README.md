@@ -553,7 +553,7 @@ GET /products/search?keyword=apple
 ```
 
 一覧と同じpage/size/sort・ページレスポンスを使用します。
-keywordは従来通りnameの部分一致検索へそのまま渡します（trim等の変換なし）。
+keywordは必須、1〜100 Unicodeコードポイントで空文字・空白のみ・101コードポイント以上は400 INVALID_REQUESTです。前後空白はtrimせず、従来のname部分一致・大文字小文字のDB照合規則を維持します。空文字で全件候補を取得していたclientはGET /productsへ移行してください（[エラー仕様](docs/api-errors.md#商品検索keywordの入力境界issue-78)）。
 
 ---
 
