@@ -4,6 +4,7 @@ import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
 import com.example.demo.dto.ProductUpdateRequest;
 import com.example.demo.entity.Product;
+import com.example.demo.exception.InvalidProductSearchKeywordException;
 import com.example.demo.exception.InvalidProductUpdateException;
 import com.example.demo.exception.ProductDeleteConflictException;
 import com.example.demo.exception.ProductNotFoundException;
@@ -27,6 +28,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ProductService {
 
+    // Unicode code points, not UTF-16 char units. Search is case/whitespace preserving.
+    private static final int MAX_SEARCH_KEYWORD_CODE_POINTS = 100;
     private static final Set<String> PRODUCT_REFERENCE_CONSTRAINTS =
             Set.of("fk_order_items_product", "fk_inventory_movement_product");
     private static final Pattern FOREIGN_KEY_CONSTRAINT =
@@ -49,6 +52,11 @@ public class ProductService {
     public Page<ProductResponse> search(
             String keyword,
             Pageable pageable) {
+
+        if (keyword == null || keyword.codePointCount(0, keyword.length()) > MAX_SEARCH_KEYWORD_CODE_POINTS
+                || keyword.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+            throw new InvalidProductSearchKeywordException();
+        }
 
         return productRepository
                 .findByNameContaining(keyword, ProductPageableNormalizer.normalize(pageable))
