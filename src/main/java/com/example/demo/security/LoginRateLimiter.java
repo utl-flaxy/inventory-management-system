@@ -28,12 +28,11 @@ public class LoginRateLimiter {
 
         @Override
         public void close() {
-            synchronized (LoginRateLimiter.this) {
-                if (!closed) { inFlight--; closed = true; }
-            }
+            release(this);
         }
     }
 
+    private final Object lock = new Object();
     private final Clock clock;
     private final Duration window;
     private final int pairLimit, sourceLimit, maxConcurrent, maxEntries;
@@ -52,44 +51,46 @@ public class LoginRateLimiter {
         maxEntries = properties.getMaxEntries();
     }
 
-    public synchronized Permit acquire(String source, String username) {
-        Instant now = clock.instant();
-        if (now.isBefore(lastNow)) now = lastNow;
-        lastNow = now;
-        var expired = sources.entrySet().iterator();
-        while (expired.hasNext()) {
-            var entry = expired.next();
-            if (entry.getValue().expires.isAfter(now)) break;
-            entries -= entry.getValue().size();
-            expired.remove();
+    public Permit acquire(String source, String username) {
+        synchronized (lock) {
+            Instant now = clock.instant();
+            if (now.isBefore(lastNow)) now = lastNow;
+            lastNow = now;
+            var expired = sources.entrySet().iterator();
+            while (expired.hasNext()) {
+                var entry = expired.next();
+                if (entry.getValue().expires.isAfter(now)) break;
+                entries -= entry.getValue().size();
+                expired.remove();
+            }
+            SourceWindow counter = sources.get(source);
+            String normalizedUsername = username.toLowerCase(Locale.ROOT);
+            int pairCount = counter == null ? 0 : counter.usernames.getOrDefault(normalizedUsername, 0);
+            if (counter != null && (counter.count >= sourceLimit || pairCount >= pairLimit))
+                throw limitedUntil(now, counter.expires);
+            // No queue and no time-window debt for other sources after authentication finishes.
+            if (inFlight >= maxConcurrent) throw new LoginRateLimitExceededException(1);
+            int required = (counter == null ? 1 : 0) + (pairCount == 0 ? 1 : 0);
+            // A source cannot evict its own counters by rotating usernames.
+            if (counter != null && counter.size() + required > maxEntries)
+                throw limitedUntil(now, counter.expires);
+            var oldest = sources.entrySet().iterator();
+            while (entries + required > maxEntries && oldest.hasNext()) {
+                var entry = oldest.next();
+                if (entry.getKey().equals(source)) continue;
+                entries -= entry.getValue().size();
+                oldest.remove();
+            }
+            if (counter == null) {
+                counter = new SourceWindow(now.plus(window));
+                sources.put(source, counter);
+            }
+            entries += required;
+            counter.count++;
+            counter.usernames.put(normalizedUsername, pairCount + 1);
+            inFlight++;
+            return new Permit();
         }
-        SourceWindow counter = sources.get(source);
-        String normalizedUsername = username.toLowerCase(Locale.ROOT);
-        int pairCount = counter == null ? 0 : counter.usernames.getOrDefault(normalizedUsername, 0);
-        if (counter != null && (counter.count >= sourceLimit || pairCount >= pairLimit))
-            throw limitedUntil(now, counter.expires);
-        // No queue and no time-window debt for other sources after authentication finishes.
-        if (inFlight >= maxConcurrent) throw new LoginRateLimitExceededException(1);
-        int required = (counter == null ? 1 : 0) + (pairCount == 0 ? 1 : 0);
-        // A source cannot evict its own counters by rotating usernames.
-        if (counter != null && counter.size() + required > maxEntries)
-            throw limitedUntil(now, counter.expires);
-        var oldest = sources.entrySet().iterator();
-        while (entries + required > maxEntries && oldest.hasNext()) {
-            var entry = oldest.next();
-            if (entry.getKey().equals(source)) continue;
-            entries -= entry.getValue().size();
-            oldest.remove();
-        }
-        if (counter == null) {
-            counter = new SourceWindow(now.plus(window));
-            sources.put(source, counter);
-        }
-        entries += required;
-        counter.count++;
-        counter.usernames.put(normalizedUsername, pairCount + 1);
-        inFlight++;
-        return new Permit();
     }
 
     private LoginRateLimitExceededException limitedUntil(Instant now, Instant expires) {
@@ -97,6 +98,12 @@ public class LoginRateLimiter {
         return new LoginRateLimitExceededException(remaining.getSeconds() + (remaining.getNano() > 0 ? 1 : 0));
     }
 
-    synchronized int entryCount() { return entries; }
-    synchronized int inFlightCount() { return inFlight; }
+    private void release(Permit permit) {
+        synchronized (lock) {
+            if (!permit.closed) { inFlight--; permit.closed = true; }
+        }
+    }
+
+    int entryCount() { synchronized (lock) { return entries; } }
+    int inFlightCount() { synchronized (lock) { return inFlight; } }
 }
