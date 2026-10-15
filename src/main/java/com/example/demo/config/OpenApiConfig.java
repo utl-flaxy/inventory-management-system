@@ -65,7 +65,7 @@ public class OpenApiConfig {
                     responses.putIfAbsent("404", new ApiResponse().description("PRODUCT_NOT_FOUND"));
                 if (java.util.Set.of("/products", "/products/search").contains(path)
                         && method == io.swagger.v3.oas.models.PathItem.HttpMethod.GET) {
-                    responses.putIfAbsent("400", new ApiResponse().description("INVALID_REQUEST: unsupported sort property"));
+                    responses.putIfAbsent("400", new ApiResponse().description("INVALID_REQUEST: unsupported sort property or invalid keyword"));
                     operation.getParameters().forEach(parameter -> {
                         switch (parameter.getName()) {
                             case "page" -> {
@@ -81,6 +81,12 @@ public class OpenApiConfig {
                                 parameter.setDescription("Allowed fields: id,name,price,stock,version. Format: sort=price,asc. Multiple sort parameters supported (sort=price,asc&sort=name,desc). Default id,asc; append id ASC only when id is absent. Unsupported fields return 400 INVALID_REQUEST.");
                                 parameter.setSchema(new ArraySchema().items(new StringSchema())
                                         ._default(java.util.List.of("id,asc")));
+                            }
+                            case "keyword" -> {
+                                if (path.equals("/products/search")) {
+                                    parameter.setDescription("Required: 1–100 Unicode code points, nonblank. Spaces are significant; no trim or case normalization. Blank, whitespace-only or longer values return 400 INVALID_REQUEST.");
+                                    parameter.setSchema(new StringSchema().minLength(1).maxLength(100));
+                                }
                             }
                             default -> { }
                         }
