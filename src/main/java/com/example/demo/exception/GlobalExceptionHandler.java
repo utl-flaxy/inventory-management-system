@@ -164,6 +164,17 @@ public class GlobalExceptionHandler {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", ApiProblemFactory.INVALID_REQUEST_DETAIL, request);
     }
 
+    @ExceptionHandler(org.apache.tomcat.util.http.InvalidParameterException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidServletParameter(
+            org.apache.tomcat.util.http.InvalidParameterException ex, HttpServletRequest request) {
+        // Servlet 6.1 parameter decoding can fail before @RequestParam binding/Service validation.
+        // Preserve client statuses (including body-size 413); never echo parser messages or values.
+        int status = ex.getErrorCode();
+        if (status < 400 || status > 499) return handleException(ex, request);
+        return ApiProblemFactory.response(org.springframework.http.HttpStatusCode.valueOf(status), "INVALID_REQUEST",
+                ApiProblemFactory.INVALID_REQUEST_DETAIL, request);
+    }
+
     @ExceptionHandler(InvalidOrderRequestException.class)
     public ResponseEntity<ProblemDetail> handleInvalidOrderRequestException(InvalidOrderRequestException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_ORDER_REQUEST", ex.getMessage(), request);

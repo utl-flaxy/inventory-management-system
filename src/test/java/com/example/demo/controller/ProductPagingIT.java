@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -20,6 +21,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import com.example.demo.repository.ProductRepository;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mariadb.MariaDBContainer;
@@ -36,7 +39,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = {"spring.jpa.hibernate.ddl-auto=validate", "spring.jpa.open-in-view=false"})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {"spring.jpa.hibernate.ddl-auto=validate", "spring.jpa.open-in-view=false"})
 @AutoConfigureMockMvc
 @ActiveProfiles("local")
 @Testcontainers
@@ -62,6 +66,8 @@ class ProductPagingIT {
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired JwtUtil jwt;
+    @LocalServerPort int port;
+    @MockitoSpyBean ProductRepository products;
 
     @BeforeEach
     void fixtures() {
@@ -160,6 +166,38 @@ class ProductPagingIT {
         var result = read(as("alice", get("/products/search").param("keyword", keyword)));
         assertEquals(1L, result.path("totalElements").asLong());
         assertEquals(5L, result.path("content").get(0).path("id").asLong());
+    }
+
+    static Stream<Arguments> malformedWireKeywords() {
+        return Stream.of("%FF", "%ED%A0%80", "%ZZ", "%", "%C0%AF", "%E2%82")
+                .flatMap(encoded -> Stream.of(Arguments.of(encoded, true), Arguments.of(encoded, false)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("malformedWireKeywords")
+    void realTomcatRejectsMalformedQueryBeforeProductQueryAndKeepsAuthentication(String encoded, boolean authenticated)
+            throws Exception {
+        String authorization = authenticated ? "Authorization: Bearer " + jwt.generateToken("alice") + "\r\n" : "";
+        org.mockito.Mockito.clearInvocations(products);
+        // Raw HTTP/1.0 avoids URI-client re-encoding and chunking; never log the token or response.
+        try (var socket = new java.net.Socket("127.0.0.1", port)) {
+            socket.setSoTimeout(5000);
+            var wire = "GET /products/search?keyword=" + encoded + " HTTP/1.0\r\nHost: localhost\r\n"
+                    + authorization + "Connection: close\r\n\r\n";
+            socket.getOutputStream().write(wire.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            socket.getOutputStream().flush();
+            var response = new String(socket.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            var parts = response.split("\r\n\r\n", 2);
+            assertEquals(authenticated ? "400" : "401", parts[0].split(" ")[1]);
+            assertTrue(parts[0].toLowerCase(java.util.Locale.ROOT).contains("application/problem+json"));
+            var body = json.readTree(parts[1]);
+            assertEquals(6, body.size());
+            assertEquals(authenticated ? "INVALID_REQUEST" : "UNAUTHENTICATED", body.path("code").asText());
+            assertEquals(authenticated ? com.example.demo.exception.ApiProblemFactory.INVALID_REQUEST_DETAIL
+                    : com.example.demo.exception.ApiProblemFactory.UNAUTHENTICATED_DETAIL, body.path("detail").asText());
+            assertEquals("/products/search", body.path("instance").asText());
+        }
+        org.mockito.Mockito.verifyNoInteractions(products);
     }
 
     static Stream<Arguments> actors() {
