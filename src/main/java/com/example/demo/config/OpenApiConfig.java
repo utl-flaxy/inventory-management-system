@@ -84,7 +84,7 @@ public class OpenApiConfig {
                             }
                             case "keyword" -> {
                                 if (path.equals("/products/search")) {
-                                    parameter.setDescription("Required: 1–100 Unicode code points, nonblank. Spaces are significant; no trim or case normalization. Blank, whitespace-only or longer values return 400 INVALID_REQUEST.");
+                                    parameter.setDescription("Required: 1–100 Unicode scalar values, nonblank. Spaces are significant; no trim or case normalization. Whitespace includes Unicode NEXT LINE (U+0085). Blank, whitespace-only, unpaired surrogate or longer values return 400 INVALID_REQUEST.");
                                     parameter.setSchema(new StringSchema().minLength(1).maxLength(100));
                                 }
                             }

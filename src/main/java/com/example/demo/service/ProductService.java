@@ -53,10 +53,23 @@ public class ProductService {
             String keyword,
             Pageable pageable) {
 
-        if (keyword == null || keyword.codePointCount(0, keyword.length()) > MAX_SEARCH_KEYWORD_CODE_POINTS
-                || keyword.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+        // At most two UTF-16 units per valid scalar. Reject huge inputs without traversing them.
+        if (keyword == null || keyword.isEmpty() || keyword.length() > MAX_SEARCH_KEYWORD_CODE_POINTS * 2) {
             throw new InvalidProductSearchKeywordException();
         }
+        boolean nonblank = false;
+        int count = 0;
+        for (int offset = 0; offset < keyword.length();) {
+            int codePoint = keyword.codePointAt(offset);
+            if ((codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE)
+                    || ++count > MAX_SEARCH_KEYWORD_CODE_POINTS) {
+                throw new InvalidProductSearchKeywordException();
+            }
+            // Java whitespace/space characters omit Unicode White_Space U+0085 (NEXT LINE).
+            nonblank |= !(Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) || codePoint == 0x85);
+            offset += Character.charCount(codePoint);
+        }
+        if (!nonblank) throw new InvalidProductSearchKeywordException();
 
         return productRepository
                 .findByNameContaining(keyword, ProductPageableNormalizer.normalize(pageable))
