@@ -112,7 +112,8 @@ public class GlobalExceptionHandler {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_UPDATE", ex.getMessage(), request);
     }
 
-    @ExceptionHandler({InvalidProductPageRequestException.class, InvalidOrderPageRequestException.class})
+    @ExceptionHandler({InvalidProductPageRequestException.class, InvalidProductSearchKeywordException.class,
+            InvalidOrderPageRequestException.class})
     public ResponseEntity<ProblemDetail> handleInvalidPageRequest(RuntimeException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", ApiProblemFactory.INVALID_REQUEST_DETAIL, request);
     }
