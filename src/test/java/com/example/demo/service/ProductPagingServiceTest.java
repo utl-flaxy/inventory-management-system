@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.ProductResponse;
 import com.example.demo.entity.Product;
 import com.example.demo.exception.InvalidProductPageRequestException;
+import com.example.demo.exception.InvalidProductSearchKeywordException;
 import com.example.demo.repository.InventoryMovementRepository;
 import com.example.demo.repository.OrderItemRepository;
 import com.example.demo.repository.ProductRepository;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -106,6 +108,42 @@ class ProductPagingServiceTest {
                 .stock(10).version(product.getVersion()).build()),
                 service.search(" Apple ", PageRequest.of(0, 20)).getContent());
         verify(products).findByNameContaining(" Apple ", pageable);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t", "\r\n", "\u3000", "\u00a0", "\u2003"})
+    void searchRejectsBlankUnicodeAndNullBeforeRepository(String keyword) {
+        assertThrows(InvalidProductSearchKeywordException.class,
+                () -> service.search(keyword, PageRequest.of(0, 20)));
+        verifyNoInteractions(products, items, movements);
+    }
+
+    @Test
+    void searchUsesCodePointsRatherThanUtf16UnitsAndKeepsOriginalKeyword() {
+        var keyword = "🍎".repeat(100);
+        var normalized = PageRequest.of(0, 20, Sort.by("id"));
+        when(products.findByNameContaining(keyword, normalized)).thenReturn(Page.empty(normalized));
+
+        assertTrue(service.search(keyword, PageRequest.of(0, 20)).isEmpty());
+        verify(products).findByNameContaining(keyword, normalized);
+        verifyNoInteractions(items, movements);
+    }
+
+    @Test
+    void searchRejectsOverlongUnicodeBeforeRepository() {
+        assertThrows(InvalidProductSearchKeywordException.class,
+                () -> service.search("🍎".repeat(101), PageRequest.of(0, 20)));
+        verifyNoInteractions(products, items, movements);
+    }
+
+    @Test
+    void searchPreservesSignificantSpacesAndSpecialCharacters() {
+        var keyword = " %_Apple\\ ";
+        var normalized = PageRequest.of(0, 20, Sort.by("id"));
+        when(products.findByNameContaining(keyword, normalized)).thenReturn(Page.empty(normalized));
+        assertTrue(service.search(keyword, PageRequest.of(0, 20)).isEmpty());
+        verify(products).findByNameContaining(keyword, normalized);
     }
 
     private Page<ProductResponse> query(boolean search, Pageable pageable) {
