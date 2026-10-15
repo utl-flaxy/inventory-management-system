@@ -160,6 +160,23 @@ class ProductPagingControllerTest {
                 .andExpect(jsonPath("$.first").value(true)).andExpect(jsonPath("$.last").value(false));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\t", "\u3000", "\u00a0"})
+    void blankSearchKeywordReturnsProblem400WithoutRepositoryAccess(String keyword) throws Exception {
+        mvc.perform(get("/products/search").param("keyword", keyword))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/search"))
+                .andExpect(jsonPath("$.detail").value(ApiProblemFactory.INVALID_REQUEST_DETAIL));
+        verifyNoInteractions(products, items, movements);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {101, 1000})
+    void overlongSearchKeywordReturns400BeforeQuery(int length) throws Exception {
+        mvc.perform(get("/products/search").param("keyword", "a".repeat(length)))
+                .andExpect(problem(400, "INVALID_REQUEST", "Invalid Request", "/products/search"));
+        verifyNoInteractions(products, items, movements);
+    }
+
     private static Stream<String> paths() { return Stream.of("/products", "/products/search"); }
 
     private MockHttpServletRequestBuilder request(String path) {
