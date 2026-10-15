@@ -139,7 +139,7 @@ class BackupRestoreIT {
                 "--spring.datasource.password=" + TARGET_PASSWORD,
                 "--spring.datasource.driver-class-name=" + target.getDriverClassName(), "--JWT_SECRET=" + JWT,
                 "--spring.jpa.hibernate.ddl-auto=validate", "--spring.jpa.show-sql=false",
-                "--spring.main.banner-mode=off", "--server.port=0")) {
+                "--spring.main.banner-mode=off", "--server.port=0", "--app.login.rate-limit.trusted-proxies=127.0.0.1")) {
             assertTrue(context.getBean(EntityManagerFactory.class).isOpen());
             assertEquals("inventory_app", context.getEnvironment().getProperty("spring.datasource.username"));
             assertEquals("validate", context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"));

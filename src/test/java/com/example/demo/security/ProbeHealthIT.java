@@ -62,6 +62,7 @@ class ProbeHealthIT {
         registry.add("spring.datasource.username", database::getUsername);
         registry.add("spring.datasource.password", database::getPassword);
         registry.add("spring.datasource.driver-class-name", database::getDriverClassName);
+        registry.add("app.login.rate-limit.trusted-proxies", () -> "127.0.0.1");
         registry.add("JWT_SECRET", () -> SECRET);
     }
 

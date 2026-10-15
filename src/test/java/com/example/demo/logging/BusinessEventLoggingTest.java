@@ -82,7 +82,7 @@ class BusinessEventLoggingTest {
         when(users.findByUsername(user.getUsername())).thenReturn(Optional.of(user));
         when(passwords.matches("super-secret-password", "private-test-hash")).thenReturn(true);
         when(jwt.generateToken(user.getUsername())).thenReturn("private-token");
-        assertEvent(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        assertEvent(post("/auth/login").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"private_username\",\"password\":\"super-secret-password\"}"),
                 "auth.login.succeeded", Map.of("userId", 7L, "role", "ROLE_USER"));
         verify(jwt, times(1)).generateToken(user.getUsername());
@@ -93,7 +93,7 @@ class BusinessEventLoggingTest {
     void missingUserAndWrongPasswordProduceIdenticalWarnEvents(boolean exists) throws Exception {
         when(users.findByUsername(user.getUsername())).thenReturn(exists ? Optional.of(user) : Optional.empty());
         try (var logs = new TestApplicationLogs()) {
-            mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+            mvc.perform(post("/auth/login").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"username\":\"private_username\",\"password\":\"super-secret-password\"}"))
                     .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
             assertEquals(1, logs.events("auth.login.failed").size());

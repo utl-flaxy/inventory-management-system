@@ -48,8 +48,7 @@ public class AuthController {
             @ApiResponse(responseCode = "429", description = "LOGIN_RATE_LIMITED; Retry-After seconds")})
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
 
-        try {
-            loginRateLimiter.acquire(LoginClientAddressFilter.source(servletRequest), request.getUsername());
+        try (var permit = loginRateLimiter.acquire(LoginClientAddressFilter.source(servletRequest), request.getUsername())) {
             return authService.login(request);
         } catch (LoginRateLimitExceededException ex) {
             log.atWarn().addKeyValue("event", "auth.login.throttled").log("Login rate limited");

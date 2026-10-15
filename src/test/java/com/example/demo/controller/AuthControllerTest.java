@@ -66,7 +66,7 @@ class AuthControllerTest {
         assertFalse(registered.has("password"));
         assertEquals("alice", registered.path("username").asText());
         when(auth.login(any())).thenReturn(new LoginResponse("test-token"));
-        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/auth/login").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isOk()).andExpect(content().json("{\"token\":\"test-token\"}"));
     }
@@ -78,7 +78,7 @@ class AuthControllerTest {
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("USERNAME_ALREADY_EXISTS"));
         when(auth.login(any())).thenThrow(new InvalidCredentialsException());
-        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/auth/login").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
@@ -89,7 +89,8 @@ class AuthControllerTest {
         RuntimeException failure = new DataIntegrityViolationException("SQL BCrypt hash=" + PASSWORD + " token signing-secret");
         if (endpoint.endsWith("register")) when(auth.register(any())).thenThrow(failure);
         else when(auth.login(any())).thenThrow(failure);
-        mvc.perform(post(endpoint).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post(endpoint).requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"))
@@ -99,7 +100,7 @@ class AuthControllerTest {
     @Test
     void rateLimitIs429WithSafeProblemAndRetryAfterBeforeAuthService() throws Exception {
         doThrow(new LoginRateLimitExceededException(17)).when(limiter).acquire(anyString(), eq("alice"));
-        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/auth/login").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "17"))
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
@@ -108,6 +109,17 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.detail").value(LoginRateLimitExceededException.DETAIL))
                 .andExpect(jsonPath("$.instance").value("/auth/login"));
         verifyNoInteractions(auth, jwt);
+    }
+
+    @Test
+    void missingCaptureReturnsSafe503WithoutAuthenticationOrQuotaAllocation() throws Exception {
+        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(credentials("alice", PASSWORD))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("LOGIN_SOURCE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.instance").value("/auth/login"));
+        verifyNoInteractions(auth, limiter, jwt);
     }
 
     @Test

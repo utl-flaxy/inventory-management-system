@@ -32,6 +32,7 @@ class ProductionConfigurationTest {
         values.put("spring.datasource.username", "inventory_app");
         values.put("spring.datasource.password", PASSWORD);
         values.put("JWT_SECRET", SECRET);
+        values.put("app.login.rate-limit.trusted-proxies", "127.0.0.1");
         return values;
     }
 
@@ -101,6 +102,31 @@ class ProductionConfigurationTest {
             assertNotNull(context.getStartupFailure());
             assertTrue(context.getStartupFailure().getMessage().contains(message));
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "localhost", "172.18.0.0/16", "*", "127.0.0.1,invalid-peer"})
+    void absentOrInvalidProxyTrustFailsBeforeDatabaseInitialization(String peers, CapturedOutput output) {
+        var values = valid();
+        values.put("app.login.rate-limit.trusted-proxies", peers);
+        runner.withPropertyValues(properties(values)).run(context -> assertNotNull(context.getStartupFailure()));
+        assertNoSecrets(output);
+    }
+
+    @Test
+    void productionCannotDisableVerifiedProxyRequirement(CapturedOutput output) {
+        var values = valid();
+        values.put("app.login.rate-limit.require-trusted-proxy", "false");
+        fails(values, "Production login requires a trusted proxy");
+        assertNoSecrets(output);
+    }
+
+    @Test
+    void nativeForwardingCannotRewriteTransportBeforeCapture(CapturedOutput output) {
+        var values = valid();
+        values.put("server.forward-headers-strategy", "native");
+        fails(values, "Production forwarding must use framework");
+        assertNoSecrets(output);
     }
 
     private String[] properties(Map<String, String> values) {

@@ -43,9 +43,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.jpa.open-in-view=false", "app.login.rate-limit.pair-limit=2",
-        "app.login.rate-limit.source-limit=4", "app.login.rate-limit.global-limit=10",
+        "app.login.rate-limit.source-limit=4", "app.login.rate-limit.max-concurrent=4",
         "app.login.rate-limit.max-entries=16", "app.login.rate-limit.trusted-proxies=127.0.0.1"})
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(print = org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE)
 @ActiveProfiles("prod")
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -63,6 +63,7 @@ class LoginSecurityIT {
         registry.add("spring.datasource.username", database::getUsername);
         registry.add("spring.datasource.password", database::getPassword);
         registry.add("spring.datasource.driver-class-name", database::getDriverClassName);
+        registry.add("app.login.rate-limit.trusted-proxies", () -> "127.0.0.1");
         registry.add("JWT_SECRET", () -> SECRET);
     }
 
@@ -90,8 +91,8 @@ class LoginSecurityIT {
     }
 
     private ResultActions login(String source, String username, String password) throws Exception {
-        return mvc.perform(post("/auth/login").with(request -> { request.setRemoteAddr(source); return request; })
-                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("username", username, "password", password))));
+        return mvc.perform(post("/auth/login").with(request -> { request.setRemoteAddr("127.0.0.1"); return request; })
+                .header("X-Forwarded-For", source).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("username", username, "password", password))));
     }
 
     @Test
@@ -186,8 +187,8 @@ class LoginSecurityIT {
                         .header("Forwarded", "for=203.0.113." + (i + 10) + ";proto=https")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(Map.of("username", USERNAME, "password", "wrong-password"))))
-                .andExpect(status().is(i < 2 ? 401 : 429));
-        verify(encoder, times(2)).matches("wrong-password", hash);
+                .andExpect(status().isServiceUnavailable());
+        verifyNoInteractions(encoder);
     }
 
     private HttpResponse<String> httpLogin(String client, boolean forgedForwarded) throws Exception {
@@ -206,12 +207,12 @@ class LoginSecurityIT {
             assertEquals(401, httpLogin(client, false).statusCode());
             assertEquals(429, httpLogin(client, false).statusCode());
         }
-        // Unexpected Forwarded at a trusted peer falls back to the real shared peer, not the forged address.
-        assertEquals(401, httpLogin("203.0.113.3", true).statusCode());
-        assertEquals(401, httpLogin("203.0.113.4", true).statusCode());
-        var limited = httpLogin("203.0.113.5", true);
-        assertEquals(429, limited.statusCode());
-        assertEquals("60", limited.headers().firstValue("Retry-After").orElseThrow());
+        // Reject malformed trusted claims without charging the proxy or another client.
+        for (int i = 3; i <= 5; i++) {
+            var rejected = httpLogin("203.0.113." + i, true);
+            assertEquals(503, rejected.statusCode());
+            assertEquals("LOGIN_SOURCE_UNAVAILABLE", json.readTree(rejected.body()).path("code").asText());
+        }
     }
 
     @Test
@@ -239,6 +240,56 @@ class LoginSecurityIT {
     }
 
     @Test
+    void completedAttackerFailuresCannotSpendAProcessWideMinuteBudgetForAnotherClient() throws Exception {
+        for (int source = 1; source <= 5; source++)
+            for (int attempt = 0; attempt < 2; attempt++)
+                login("198.51.100." + source, USERNAME, "wrong-password").andExpect(status().isUnauthorized());
+        login("203.0.113.80", USERNAME, PASSWORD).andExpect(status().isOk());
+    }
+
+    @Test
+    void malformedTrustedProxyClaimsDoNotAllocateSharedPeerQuota() throws Exception {
+        assertEquals(503, httpLogin("203.0.113.3", true).statusCode());
+        login("203.0.113.80", USERNAME, PASSWORD).andExpect(status().isOk());
+    }
+
+    @Test
+    @Timeout(30)
+    void expensiveAuthenticationIsBoundedAndCompletionImmediatelyReadmitsOtherClients() throws Exception {
+        var started = new CountDownLatch(4);
+        var release = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            started.countDown();
+            assertTrue(release.await(10, TimeUnit.SECONDS));
+            return invocation.callRealMethod();
+        }).when(encoder).matches("wrong-password", hash);
+        var executor = Executors.newFixedThreadPool(4);
+        var requests = new ArrayList<Future<Integer>>();
+        try {
+            for (int i = 1; i <= 4; i++) {
+                String source = "198.51.100." + i;
+                requests.add(executor.submit(() -> login(source, USERNAME, "wrong-password")
+                        .andReturn().getResponse().getStatus()));
+            }
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            assertEquals(4, limiter.inFlightCount());
+            clearInvocations(users);
+            login("203.0.113.80", USERNAME, PASSWORD).andExpect(status().isTooManyRequests())
+                    .andExpect(header().string("Retry-After", "1"))
+                    .andExpect(jsonPath("$.code").value("LOGIN_RATE_LIMITED"));
+            verifyNoInteractions(users);
+            release.countDown();
+            for (var request : requests) assertEquals(401, request.get(10, TimeUnit.SECONDS));
+            assertEquals(0, limiter.inFlightCount());
+            login("203.0.113.80", USERNAME, PASSWORD).andExpect(status().isOk());
+            assertEquals(0, limiter.inFlightCount());
+        } finally {
+            release.countDown(); executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void unexpectedLoginDatabaseFailureKeepsSafe500AndApplicationDiagnostics(CapturedOutput output) throws Exception {
         doThrow(new org.springframework.dao.DataAccessResourceFailureException(
                 "SQL login-user-canary login-password-canary database-exception-canary"))
@@ -247,6 +298,7 @@ class LoginSecurityIT {
                 .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"))
                 .andExpect(jsonPath("$.detail").value("予期しないエラーが発生しました"));
         verifyNoInteractions(encoder, jwt);
+        assertEquals(0, limiter.inFlightCount());
         String console = output.getAll();
         for (String value : List.of(USERNAME, PASSWORD, "database-exception-canary", "198.51.100.123", hash,
                 dummy.encoded(), SECRET)) assertFalse(console.contains(value));

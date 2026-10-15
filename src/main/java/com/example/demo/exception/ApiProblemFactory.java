@@ -40,6 +40,7 @@ public final class ApiProblemFactory {
             case "USERNAME_ALREADY_EXISTS" -> "Username Already Exists";
             case "INVALID_CREDENTIALS" -> "Invalid Credentials";
             case "LOGIN_RATE_LIMITED" -> "Login Rate Limited";
+            case "LOGIN_SOURCE_UNAVAILABLE" -> "Login Source Unavailable";
             case "UNSUPPORTED_MEDIA_TYPE" -> "Unsupported Media Type";
             case "INVALID_REQUEST" -> "Invalid Request";
             case "INVALID_IDEMPOTENCY_KEY" -> "Invalid Idempotency Key";
