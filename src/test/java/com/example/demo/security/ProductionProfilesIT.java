@@ -49,7 +49,7 @@ class ProductionProfilesIT {
     @ValueSource(strings = {"prod", "local", "default"})
     void realProfilesExposeOnlyAllowedEndpointsWithSafeHealthAndHeaders(String profile, CapturedOutput output) throws Exception {
         try (var context = new SpringApplicationBuilder(DemoApplication.class).run(
-                "--server.port=0", "--spring.profiles.active=" + (profile.equals("default") ? "" : profile),
+                "--server.port=0", "--app.login.rate-limit.trusted-proxies=127.0.0.1", "--spring.profiles.active=" + (profile.equals("default") ? "" : profile),
                 "--spring.datasource.url=" + database.getJdbcUrl(),
                 "--spring.datasource.username=inventory_app", "--spring.datasource.password=" + PASSWORD,
                 "--spring.datasource.driver-class-name=" + database.getDriverClassName(),
@@ -208,7 +208,7 @@ class ProductionProfilesIT {
 
     private HttpResponse<String> post(String path, Map<String, Object> body, String token) throws Exception {
         var request = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5))
-                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
+                .header("Content-Type", "application/json").header("X-Forwarded-For", "198.51.100.1").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
         if (token != null) request.header("Authorization", "Bearer " + token);
         if (path.endsWith("/inventory-adjustments")) request.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
