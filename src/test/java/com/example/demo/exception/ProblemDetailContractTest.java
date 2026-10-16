@@ -82,6 +82,25 @@ class ProblemDetailContractTest {
                 .andExpect(jsonPath("$.detail").value("予期しないエラーが発生しました"));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {400, 413, 500})
+    void servletParameterErrorsPreserveStatusAndHideParserMessages(int status) throws Exception {
+        failure = new org.apache.tomcat.util.http.InvalidParameterException("raw-parameter-canary", status);
+        mvc.perform(get("/probe/failure"))
+                .andExpect(problem(status, status < 500 ? "INVALID_REQUEST" : "SYSTEM_ERROR",
+                        status < 500 ? "Invalid Request" : "System Error", "/probe/failure"))
+                .andExpect(jsonPath("$.detail").value(status < 500 ? ApiProblemFactory.INVALID_REQUEST_DETAIL
+                        : ApiProblemFactory.SYSTEM_ERROR_DETAIL));
+    }
+
+    @Test
+    void unrelatedIllegalStateIsStillAnInternalError() throws Exception {
+        failure = new IllegalStateException("raw-parameter-canary");
+        mvc.perform(get("/probe/failure"))
+                .andExpect(problem(500, "SYSTEM_ERROR", "System Error", "/probe/failure"))
+                .andExpect(jsonPath("$.detail").value(ApiProblemFactory.SYSTEM_ERROR_DETAIL));
+    }
+
     @Test
     void productNotFoundFactoryHasStableTitleTypeAndDetail() {
         var problem = ApiProblemFactory.create(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND",
