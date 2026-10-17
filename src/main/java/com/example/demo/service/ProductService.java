@@ -4,6 +4,7 @@ import com.example.demo.dto.ProductRequest;
 import com.example.demo.dto.ProductResponse;
 import com.example.demo.dto.ProductUpdateRequest;
 import com.example.demo.entity.Product;
+import com.example.demo.exception.InvalidProductSearchKeywordException;
 import com.example.demo.exception.InvalidProductUpdateException;
 import com.example.demo.exception.ProductDeleteConflictException;
 import com.example.demo.exception.ProductNotFoundException;
@@ -27,6 +28,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ProductService {
 
+    // Unicode code points, not UTF-16 char units. Search is case/whitespace preserving.
+    private static final int MAX_SEARCH_KEYWORD_CODE_POINTS = 100;
     private static final Set<String> PRODUCT_REFERENCE_CONSTRAINTS =
             Set.of("fk_order_items_product", "fk_inventory_movement_product");
     private static final Pattern FOREIGN_KEY_CONSTRAINT =
@@ -49,6 +52,24 @@ public class ProductService {
     public Page<ProductResponse> search(
             String keyword,
             Pageable pageable) {
+
+        // At most two UTF-16 units per valid scalar. Reject huge inputs without traversing them.
+        if (keyword == null || keyword.isEmpty() || keyword.length() > MAX_SEARCH_KEYWORD_CODE_POINTS * 2) {
+            throw new InvalidProductSearchKeywordException();
+        }
+        boolean nonblank = false;
+        int count = 0;
+        for (int offset = 0; offset < keyword.length();) {
+            int codePoint = keyword.codePointAt(offset);
+            if ((codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE)
+                    || ++count > MAX_SEARCH_KEYWORD_CODE_POINTS) {
+                throw new InvalidProductSearchKeywordException();
+            }
+            // Java whitespace/space characters omit Unicode White_Space U+0085 (NEXT LINE).
+            nonblank |= !(Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) || codePoint == 0x85);
+            offset += Character.charCount(codePoint);
+        }
+        if (!nonblank) throw new InvalidProductSearchKeywordException();
 
         return productRepository
                 .findByNameContaining(keyword, ProductPageableNormalizer.normalize(pageable))
