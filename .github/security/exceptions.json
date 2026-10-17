@@ -31,7 +31,7 @@
       "path": "src/test/java/com/example/demo/config/ProductionConfigurationTest.java",
       "line": 23,
       "rule": "generic-api-key",
-      "sha256_lf": "a6f4956f5c2abe36091af1bca993a00b856d498ed7f954fe2485ec70da7cdd57",
+      "sha256_lf": "d8640deb3240281728dcb98d39047fb477f42aea3bb008c778cefc231658de93",
       "reason": "Synthetic application-context test signing key; configured exclusively by the test, never obtained from production.",
       "owner": "utl-flaxy repository maintainer",
       "expires": "2026-11-11"

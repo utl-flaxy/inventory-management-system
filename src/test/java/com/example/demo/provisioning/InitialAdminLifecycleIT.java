@@ -37,7 +37,8 @@ class InitialAdminLifecycleIT {
                 "spring.datasource.url", database.getJdbcUrl(), "spring.datasource.username", database.getUsername(),
                 "spring.datasource.password", database.getPassword(), "spring.jpa.show-sql", "false",
                 "JWT_SECRET", Base64.getEncoder().encodeToString(Jwts.SIG.HS256.key().build().getEncoded()),
-                "server.port", "0", "spring.main.banner-mode", "off")));
+                "server.port", "0", "spring.main.banner-mode", "off",
+                "app.login.rate-limit.trusted-proxies", "127.0.0.1")));
         return new SpringApplicationBuilder(DemoApplication.class).environment(environment).profiles("prod").run();
     }
 

@@ -2,6 +2,7 @@ package com.example.demo.config;
 
 import com.example.demo.security.LoginClientAddressFilter;
 import com.example.demo.security.LoginRateLimitProperties;
+import com.example.demo.security.SecurityProblemWriter;
 import jakarta.servlet.DispatcherType;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.tomcat.autoconfigure.TomcatServerProperties;
@@ -14,9 +15,10 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 @Configuration(proxyBeanMethods = false)
 public class LoginSecurityConfiguration {
     @Bean
-    public FilterRegistrationBean<LoginClientAddressFilter> loginClientAddressFilter(LoginRateLimitProperties properties) {
-        var registration = new FilterRegistrationBean<>(new LoginClientAddressFilter(properties));
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+    public FilterRegistrationBean<LoginClientAddressFilter> loginClientAddressFilter(LoginRateLimitProperties properties,
+                                                                                   SecurityProblemWriter problems) {
+        var registration = new FilterRegistrationBean<>(new LoginClientAddressFilter(properties, problems));
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
         return registration;
     }
 
@@ -28,7 +30,7 @@ public class LoginSecurityConfiguration {
         var registration = new FilterRegistrationBean<>(filter);
         registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
         // Boot's default has HIGHEST_PRECEDENCE too; explicitly order it after transport peer capture.
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         return registration;
     }
 }

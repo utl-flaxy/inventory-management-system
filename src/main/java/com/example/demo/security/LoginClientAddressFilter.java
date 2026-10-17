@@ -1,10 +1,12 @@
 package com.example.demo.security;
 
+import com.example.demo.exception.LoginSourceUnavailableException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.http.HttpStatus;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -16,8 +18,13 @@ import java.util.Set;
 public class LoginClientAddressFilter extends OncePerRequestFilter {
     private static final String ATTRIBUTE = LoginClientAddressFilter.class.getName() + ".source";
     private final Set<String> trustedPeers = new HashSet<>();
+    private final boolean requireTrustedProxy;
+    private final SecurityProblemWriter problems;
 
-    public LoginClientAddressFilter(LoginRateLimitProperties properties) {
+    public LoginClientAddressFilter(LoginRateLimitProperties properties, SecurityProblemWriter problems) {
+        properties.validate();
+        this.requireTrustedProxy = properties.isRequireTrustedProxy();
+        this.problems = problems;
         for (String peer : properties.getTrustedProxies()) {
             String parsed = literalAddress(peer);
             if (parsed == null) throw new IllegalArgumentException("Trusted login proxies must be literal IP addresses");
@@ -35,12 +42,19 @@ public class LoginClientAddressFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String peer = literalAddress(request.getRemoteAddr());
-        String source = peer == null ? "unknown" : peer;
+        String source = requireTrustedProxy ? null : peer;
         // Caddy replaces XFF with one socket client IP and removes Forwarded. Reject chains/duplicate claims.
         if (trustedPeers.contains(peer) && request.getHeader("Forwarded") == null) {
             var headers = request.getHeaders("X-Forwarded-For");
             String forwarded = headers.hasMoreElements() ? literalAddress(headers.nextElement()) : null;
-            if (forwarded != null && !headers.hasMoreElements()) source = forwarded;
+            source = forwarded != null && !headers.hasMoreElements() ? forwarded : null;
+        } else if (trustedPeers.contains(peer)) {
+            source = null;
+        }
+        if (source == null) {
+            problems.write(request, response, HttpStatus.SERVICE_UNAVAILABLE, "LOGIN_SOURCE_UNAVAILABLE",
+                    LoginSourceUnavailableException.DETAIL);
+            return;
         }
         request.setAttribute(ATTRIBUTE, source);
         chain.doFilter(request, response);
@@ -49,7 +63,8 @@ public class LoginClientAddressFilter extends OncePerRequestFilter {
     public static String source(HttpServletRequest request) {
         Object captured = request.getAttribute(ATTRIBUTE);
         // A missing filter cannot turn a rewritten remoteAddr into a trusted client identity.
-        return captured instanceof String address ? address : "unknown";
+        if (captured instanceof String address && literalAddress(address) != null) return address;
+        throw new LoginSourceUnavailableException();
     }
 
     static String literalAddress(String value) {
