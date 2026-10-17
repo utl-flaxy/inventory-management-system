@@ -1,18 +1,19 @@
 # テスト品質ゲート
 
-## 現行mainの品質ゲート（2026-10-15確認）
+## 現行mainの品質ゲート（2026-10-17確認）
 
-基準main: `78886413894b1211f77cee3ec3b6d7e5045f6534`。実POMは **Spring Boot 4.1.1 / Java 17**。
-mainで確認済みのJava回帰基準は **Surefire 1,080 + Failsafe 756 = 1,836件**（Issue #8 / PR #96、Failures/Errors/Skipped=0）。
-PR #98の1,861件（1,101 + 760）は**未mergeの提案コード**であり、現mainの件数とは区別する。
+基準main: `cf566817c46a94249bc732d7f0d183805b7afa73`。実POMは **Spring Boot 4.1.1 / Java 17**。
+mainで確認済みのJava回帰基準は **Surefire 1,101 + Failsafe 760 = 1,861件**（Failures/Errors/Skipped=0）。
+PR #98・#99はmerge済み。[このmainの実CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39004205548)でJava件数と全5ジョブSUCCESSを確認した。
+以前の1,836件（1,080 + 756）は `78886413894b1211f77cee3ec3b6d7e5045f6534` / PR #96時点の記録として区別する。
 
 CIは `./mvnw verify` に加えてTerraform fmt/init/validateとmock 27件、secret-scan、Java SECURITY静的解析、OSV/SBOM監査、使い捨てDocker検証とTrivy監査を実行する。
-Boot 4移行後のMaven依存OSV検出は0件（PR #98でも169 components / 0 advisory）だが、**TrivyのOS image findingは別の残余**であり、OSV0を全脆弱性の解消と解釈しない。
+このmainのCI時点でMaven依存OSV検出は169 components / 0 advisoryだが、**TrivyのOS image findingは別の残余**であり、OSV0を全脆弱性の解消と解釈しない。
 mainのbranch protection設定・本番Deploy・実AWS適用はこれらのCI成功とは別の運用確認事項。
 実ジョブ定義は [ci.yml](../.github/workflows/ci.yml)、秘密/静的解析の検証は [CI品質ゲート](ci-quality-gates.md)、残余は [Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8) を参照。
 
 **読み方:** 以下にはIssue別に追加した当時の実装・検証記録が時系列で残る。
-古い節の「現行」「baseline」「CI timeout」「Spring Boot 3.5」「Flyway 11」等は**そのIssueを実施した当時の情報**であり、2026-10-15のmainの構成・合格基準を上書きしない。検証時点の一次資料として保持する。
+古い節の「現行」「baseline」「CI timeout」「Spring Boot 3.5」「Flyway 11」等は**そのIssueを実施した当時の情報**であり、2026-10-17のmainの構成・合格基準を上書きしない。検証時点の一次資料として保持する。
 
 ## Java 17・実行コマンド
 
@@ -141,7 +142,7 @@ mvnw.cmd verify
 | Unit / lightweight | `Test*`, `*Test`, `*Tests`, `*TestCase` | Surefire / test | domain、Mockito、JWT、Controller slice、H2 JPA補助 |
 | Integration | `*IT` | Failsafe / integration-test + verify | MariaDB、Flyway、実Security + JWT + DB、実lock/Transaction |
 
-Surefire/Failsafeのversionは実効POMで確認する。2026-10-15のmainのSpring Boot parentは4.1.1（旧Issue作業時は3.5系）。
+Surefire/Failsafeのversionは実効POMで確認する。2026-10-17のmainのSpring Boot parentは4.1.1（旧Issue作業時は3.5系）。
 標準[Failsafeのライフサイクル](https://maven.apache.org/surefire/maven-failsafe-plugin/usage.html)を使用し、
 ITの失敗はverify goalで非zero終了にする。独自runnerやfailure-ignoreは使わない。
 CIはJava 17で `./mvnw verify` を実行する。現mainの `test` job timeoutは20分（[ci.yml](../.github/workflows/ci.yml)）。
