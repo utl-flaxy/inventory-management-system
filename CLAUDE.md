@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 このファイルは、Claude Code 等の開発エージェントがこのリポジトリで安全に作業するためのガイドです。
-記載は **main @ 78886413894b1211f77cee3ec3b6d7e5045f6534（2026-10-15）** を基準とします。古いIssue・過去の監査記録は現在の実装を保証しません。
+記載は **main @ e1155a20ad22c09bd56f0f1c6e8b5e123208280c（2026-10-17確認）** を基準とします。古いIssue・過去の監査記録は現在の実装を保証しません。
 変更前には対象ブランチの実コード・正本文書を再確認してください。
 
 ## 作業原則
@@ -44,7 +44,7 @@ Spring Boot 4移行の履歴と残余課題は [Epic #8](https://github.com/utl-
 - 金額は円の整数 `long/Long`・MariaDB BIGINT。価格・商品名を注文時にsnapshotし、計算overflowは在庫変更前に拒否する。
 - EntityをHTTPへ直接返さない。注文・登録・商品・在庫はResponse DTO。商品・注文・在庫履歴のページング契約を維持する。
 - エラーは [ProblemDetail / `application/problem+json`](docs/api-errors.md)。単純な `{"code","message"}` の旧形式を新しいAPIへ戻さない。
-- JWTとlogin試行制限の現行仕様は [Auth仕様](docs/auth.md) と対象ブランチの実装を照合する。**Issue #97 / PR #98 のlogin改善はこのmainではまだ未merge**。修正済みと誤認して契約変更しない。
+- JWTとlogin試行制限の現行仕様は [Auth仕様](docs/auth.md) と対象ブランチの実装を照合する。**Issue #97 / PR #98 のlogin改善はこのmainへmerge済み**。本番proxy peerの実測・設定と公開経路の確認は未実施として区別する。
 
 主な正本: [注文認可](docs/security/order-authorization.md)、[状態遷移](docs/orders/state-transitions.md)、[冪等性](docs/orders/idempotency.md)、[CSV](docs/order-csv.md)、[売上](docs/sales.md)。
 
