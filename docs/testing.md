@@ -1,8 +1,19 @@
 # テスト品質ゲート
 
-Issue #80の[CI品質ゲート・依存監査・main保護手順](ci-quality-gates.md)を参照。
-現mainのJava基準はSurefire 1014 + Failsafe 737 = 1751件、F/E/S=0。
-Secret/Java SECURITY静的解析の失敗検証と、未解消の依存66アドバイザリを区別して報告する。
+## 現行mainの品質ゲート（2026-10-17確認）
+
+基準main: `cf566817c46a94249bc732d7f0d183805b7afa73`。実POMは **Spring Boot 4.1.1 / Java 17**。
+mainで確認済みのJava回帰基準は **Surefire 1,101 + Failsafe 760 = 1,861件**（Failures/Errors/Skipped=0）。
+PR #98・#99はmerge済み。[このmainの実CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39004205548)でJava件数と全5ジョブSUCCESSを確認した。
+以前の1,836件（1,080 + 756）は `78886413894b1211f77cee3ec3b6d7e5045f6534` / PR #96時点の記録として区別する。
+
+CIは `./mvnw verify` に加えてTerraform fmt/init/validateとmock 27件、secret-scan、Java SECURITY静的解析、OSV/SBOM監査、使い捨てDocker検証とTrivy監査を実行する。
+このmainのCI時点でMaven依存OSV検出は169 components / 0 advisoryだが、**TrivyのOS image findingは別の残余**であり、OSV0を全脆弱性の解消と解釈しない。
+mainのbranch protection設定・本番Deploy・実AWS適用はこれらのCI成功とは別の運用確認事項。
+実ジョブ定義は [ci.yml](../.github/workflows/ci.yml)、秘密/静的解析の検証は [CI品質ゲート](ci-quality-gates.md)、残余は [Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8) を参照。
+
+**読み方:** 以下にはIssue別に追加した当時の実装・検証記録が時系列で残る。
+古い節の「現行」「baseline」「CI timeout」「Spring Boot 3.5」「Flyway 11」等は**そのIssueを実施した当時の情報**であり、2026-10-17のmainの構成・合格基準を上書きしない。検証時点の一次資料として保持する。
 
 ## Java 17・実行コマンド
 
@@ -22,7 +33,9 @@ Windowsでは `mvnw.cmd test` / `mvnw.cmd verify`。Java 17をJAVA_HOMEで選択
 古いレポートを消して件数を比較する場合は `clean test` / `clean verify` を使う。
 `test` の成功だけではmerge可能とは判断しない。
 
-## Flyway / MariaDB互換性（Issue #69）
+## Flyway / MariaDB互換性（Issue #69：当時の検証記録）
+
+この節のcore/mysql 11.7.2・JDBC 3.5.7・warning95件はIssue #69の当時の選定・ベースラインであり、現mainのBoot4管理Flyway12系のversion記述ではない。現mainのFlyway実効version・既存DBリスクは [DB運用手順](db/README.md) を参照。
 
 Issue #74のlogin回帰は[Auth設計とテスト](auth.md#制限と回帰検証)を参照。
 既存1673件を維持し、追加のClock/BCrypt/proxy/429テストをfull verifyへ含める。
@@ -129,10 +142,10 @@ mvnw.cmd verify
 | Unit / lightweight | `Test*`, `*Test`, `*Tests`, `*TestCase` | Surefire / test | domain、Mockito、JWT、Controller slice、H2 JPA補助 |
 | Integration | `*IT` | Failsafe / integration-test + verify | MariaDB、Flyway、実Security + JWT + DB、実lock/Transaction |
 
-Surefire/FailsafeのversionはSpring Boot parent管理（現行3.5.5）を使う。
+Surefire/Failsafeのversionは実効POMで確認する。2026-10-17のmainのSpring Boot parentは4.1.1（旧Issue作業時は3.5系）。
 標準[Failsafeのライフサイクル](https://maven.apache.org/surefire/maven-failsafe-plugin/usage.html)を使用し、
 ITの失敗はverify goalで非zero終了にする。独自runnerやfailure-ignoreは使わない。
-CIはJava 17で `./mvnw verify` を実行し、timeoutは10分を維持する。
+CIはJava 17で `./mvnw verify` を実行する。現mainの `test` job timeoutは20分（[ci.yml](../.github/workflows/ci.yml)）。
 
 Unit tests: Surefire、Integration tests: Failsafe。両方の件数・failure/error/skippedはMavenログに表示される。
 レポートは `target/surefire-reports` / `target/failsafe-reports`（標準配置）。
