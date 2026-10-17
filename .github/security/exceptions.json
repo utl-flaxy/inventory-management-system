@@ -13,7 +13,7 @@
       "path": "README.md",
       "line": 624,
       "rule": "generic-api-key",
-      "sha256_lf": "bd5502e69863afad8c7207d46697925603b6feba9eca7b9f8f9e1d7a9f09df56",
+      "sha256_lf": "7b3293f87083ed2b4eedf435da531452a2094c794d67b6305ae57a88d13afada",
       "reason": "Same public Idempotency-Key HTTP documentation example; not an authentication credential.",
       "owner": "utl-flaxy repository maintainer",
       "expires": "2026-11-11"
@@ -22,7 +22,7 @@
       "path": "README.md",
       "line": 785,
       "rule": "generic-api-key",
-      "sha256_lf": "bd5502e69863afad8c7207d46697925603b6feba9eca7b9f8f9e1d7a9f09df56",
+      "sha256_lf": "7b3293f87083ed2b4eedf435da531452a2094c794d67b6305ae57a88d13afada",
       "reason": "Truncated JWT example with literal ellipsis; not a complete signed token and cannot authenticate.",
       "owner": "utl-flaxy repository maintainer",
       "expires": "2026-11-11"
@@ -31,7 +31,7 @@
       "path": "src/test/java/com/example/demo/config/ProductionConfigurationTest.java",
       "line": 23,
       "rule": "generic-api-key",
-      "sha256_lf": "a6f4956f5c2abe36091af1bca993a00b856d498ed7f954fe2485ec70da7cdd57",
+      "sha256_lf": "d8640deb3240281728dcb98d39047fb477f42aea3bb008c778cefc231658de93",
       "reason": "Synthetic application-context test signing key; configured exclusively by the test, never obtained from production.",
       "owner": "utl-flaxy repository maintainer",
       "expires": "2026-11-11"

@@ -37,6 +37,12 @@ import java.util.TreeMap;
 @Hidden // OpenAPIのerror契約は共通customizerで定義する。
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(LoginSourceUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleLoginSource(LoginSourceUnavailableException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.SERVICE_UNAVAILABLE, "LOGIN_SOURCE_UNAVAILABLE",
+                LoginSourceUnavailableException.DETAIL, request);
+    }
+
     @ExceptionHandler(LoginRateLimitExceededException.class)
     public ResponseEntity<ProblemDetail> handleLoginRateLimit(LoginRateLimitExceededException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)

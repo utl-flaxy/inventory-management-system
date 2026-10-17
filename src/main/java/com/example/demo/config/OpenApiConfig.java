@@ -35,6 +35,8 @@ public class OpenApiConfig {
             api.getPaths().forEach((path, item) -> item.readOperationsMap().forEach((method, operation) -> {
                 var responses = operation.getResponses();
                 if (path.equals("/auth/login") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
+                    responses.addApiResponse("503", new ApiResponse()
+                            .description("LOGIN_SOURCE_UNAVAILABLE: verified client identity unavailable; operator configuration required"));
                     responses.addApiResponse("429", new ApiResponse().description("LOGIN_RATE_LIMITED: admission denied before credential lookup; valid credentials also consume quota")
                             .addHeaderObject("Retry-After", new io.swagger.v3.oas.models.headers.Header()
                                     .description("Minimum wait in whole seconds; another request can consume available quota")

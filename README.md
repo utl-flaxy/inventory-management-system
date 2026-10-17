@@ -68,7 +68,7 @@ ECサイト開発では、
 |分類|技術|
 |---|---|
 |Language|Java17|
-|Framework|Spring Boot 3.5|
+|Framework|Spring Boot 4.1.1|
 |Security|Spring Security + JWT|
 |ORM|Spring Data JPA|
 |Database|MariaDB|

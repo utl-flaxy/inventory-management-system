@@ -99,95 +99,124 @@ barrierで10件同時POSTを開始し、同username1成功/9競合、異なるpa
 OAuth2/OIDC、refresh/reset/verification、MFA、永続的account lockout、CAPTCHA、breach DB、
 メール登録は対象外。ProblemDetail移行はIssue #33で実装済み。
 
-## ログイン試行制限（Issue #74）
+## ログイン試行制限（Issue #74 / A-01・#97）
 
-有効形式の `POST /auth/login` だけを対象に、DB lookupより前で次の3枠を同時に予約する。
-成功も失敗も1回消費し、成功による枠リセットはしない。拒否された要求は枠を消費せず、
-新規key・DB照会・BCrypt照合・JWT生成・DB書き込みも発生させない。
-入力不正は既存の400が優先し、試行枠を消費しない。登録・業務API・JWT検証は対象外。
+有効形式の `POST /auth/login` だけを対象に、DB照会・BCryptより前で接続元と接続元＋usernameの
+枠、および認証処理中の同時実行permitを一括予約する。成功・失敗とも試行を1回消費し、成功で
+枠をリセットしない。拒否時はDB・BCrypt・JWTへ進まず、新しいカウンターも作らない。
+入力不正は、接続元を確認できた通常経路では既存400が優先する。登録・業務API・JWT検証は対象外。
 
 | Spring property (`app.login.rate-limit.` に続ける) | 既定値 | 用途 |
 |---|---|---|
-| `pair-limit` | 5 | 同一接続元＋username（case insensitive） |
+| `pair-limit` | 5 | 同一の確認済み接続元＋username（case insensitive） |
 | `source-limit` | 100 | 同一接続元から全usernameへの試行 |
-| `global-limit` | 1000 | プロセス全体、接続元とusername両方の変更にも対応 |
-| `window` | `PT1M` | 各枠の最初の受付からの固定時間窓 |
-| `max-entries` | 4096 | 接続元counterと接続元＋username counterの合計上限 |
-| `trusted-proxies` | 空 | 転送元IPを採用してよい実際の接続元の完全一致IP一覧 |
+| `max-concurrent` | 4 | DB lookup〜BCrypt〜JWT返却までのプロセス内同時処理数 |
+| `window` | `PT1M` | 接続元の最初の受付からの固定窓。配下のusername枠も同時に期限切れ |
+| `max-entries` | 4096 | 接続元と配下usernameの保存エントリ合計上限 |
+| `trusted-proxies` | 空 | 実際のtransport peerの完全一致IP一覧。本番は設定必須 |
+| `require-trusted-proxy` | false / prodはtrue必須 | 本番は信頼済みpeer＋正しい転送情報だけを受付 |
 
-各上限は正の整数、容量は2〜100000、窓は1秒〜24時間で起動時検証する。
-Spring外部設定（例 `APP_LOGIN_RATE_LIMIT_PAIR_LIMIT=5`、`APP_LOGIN_RATE_LIMIT_WINDOW=PT1M`）で変更可能。
-Composeのthreshold調整は運用者管理のoverrideの `services.app.environment` に設定する。
-最初の受付を基準とする固定窓であり、rolling windowではない。窓の前後では最大2窓分のburstが可能。
-Clockを使用し、時計の後退は最後の受付時刻でclampしてquotaを再開しない。
+上限は正整数、同時処理数は1〜64、保存容量は2〜100000、窓は1秒〜24時間。
+Spring外部設定で調整する（例 `APP_LOGIN_RATE_LIMIT_MAX_CONCURRENT=4`）。
+旧 `global-limit` / `APP_LOGIN_RATE_LIMIT_GLOBAL_LIMIT` は廃止し、残っていれば起動時エラーにする。
+失敗履歴でプロセス全体の1分間の枠を使い切る方式は採用しない。
 
-1つの同期区間内で3枠・必要なkey容量を確認してから加算するので、並列要求で閾値を超えて受付しない。
-mapは常に最大4096エントリ（既定）＋global counter1個。keyはcanonical IP（最大45文字）と
-validation済みusername（最大50文字）だけで、password/body/HTTP requestは保存しない。
-生IP/usernameをプロセスメモリ内のkeyとして使うが、ログ・レスポンス・DBへ出力しない。
-新しい有効形式login時に期限切れを除去し、idle中も保持量は上限以内。
-生きたcounterはLRU evictionで捨てず、容量不足時は429でfail closedするため、キー大量生成で枠をリセットできない。
+同時処理枠は待ち行列なしで予約し、全体が満杯なら429・Retry-After: 1。
+Controllerのtry-with-resourcesで成功・401・例外の全経路から解放し、過去の失敗が別接続元の
+1分間の拒否として残らない。BCrypt処理自体の上限であり、CPU使用率や成功率のSLAではない。
+本番のCPU・DB pool・メモリと実測に合わせて同時数を選ぶ。大きくすればよい設定ではない。
 
-同じusernameでも別の接続元は独立したpair枠を持つ。username単独のロックは行わず、
-外部攻撃者が1つの接続元から他者のアカウントを全面ロックすることを避ける。
-NAT配下のユーザーはsource枠を共有するため、正当な高負荷にも429が起こり得る。
-global枠・容量上限も全利用者へ影響する。負荷実績に応じて閾値を運用調整する。
+接続元・pair枠は固定窓。残り時間を切り上げた正の秒数を429のRetry-Afterに返す。
+窓の前後には2窓分のburstがあり得る。Clock後退では最後の受付時刻にclampする。
+全カウンター確認・容量調整・加算・permit取得は同じ同期区間で行う。
+同一接続元はusernameの変更で自分の枠を捨てられない。
 
-受付できて資格情報不一致なら401。資格情報を検証する前に枠/容量不足なら、正しい資格情報でも429。
-429は共通ProblemDetailの6フィールド、固定code `LOGIN_RATE_LIMITED`、固定detail
-「ログイン試行回数が上限に達しました。時間をおいて再試行してください」。
-`Retry-After` は拒否に関係する窓の残り時間を切り上げた正の整数秒。
-容量不足時は最初のcounter期限も考慮する。再試行時の空きは他の利用者の試行次第であり、成功予約ではない。
+保存容量が足りなければ、現在受付中の接続元以外の最古の接続元窓を、配下usernameと一緒に退避する。
+満杯の履歴だけを理由に新しい接続元をすべて429にしない。自分の窓だけで容量を使い切った場合は、
+その接続元だけを期限まで429にする。保存量は常に上限以内。password・HTTP body・JWTは保存しない。
+IPとusernameはカウンターのメモリ内だけで利用し、ログ・レスポンス・DBに記録しない。
 
-失敗は既存 `auth.login.failed`、制限は `auth.login.throttled`（WARN、安全な固定message/eventだけ）、
-成功は既存userId/role、内部エラーは既存 `system.unhandled_error` のsafe metadataで診断する。
-raw username/password/IP、任意proxy header、JWT/hashをログへ記録しない。
+**退避には限界がある。** 多数の実接続元を持つ攻撃者は他の接続元の履歴を押し出せるため、
+退避された接続元の試行枠も再開し得る。厳密な分散ブルートフォース制御を保証しない。
+同時認証数の上限は退避とは独立して維持する。容量調整、エッジでの送信元別制限・接続制御、
+外部DoS対策は運用側の責務であり、この変更では新サービスやCaddy pluginを導入しない。
+
+同一usernameでも異なる確認済み接続元の枠は独立する。username単独のaccount lockoutは作らない。
+ただし実際に同じpublic IPを使うNAT・企業proxy・IPv6の別アドレス・複数JVM等は別の制約である。
+特に同じNATの攻撃者と正規利用者をIPだけで識別することはできず、pair/source枠は共有される。
+分散攻撃が同時枠を継続占有すれば正規利用者も一時429になり得る。完全な可用性保証ではない。
+
+401・403・通常の400、JWT署名/issuer/期限、USER/ADMIN認可は維持する。
+429は既存の6フィールドProblemDetail、code `LOGIN_RATE_LIMITED`、固定detailを維持。
+接続元を検証できないloginには新たに503の6フィールドProblemDetail、
+code `LOGIN_SOURCE_UNAVAILABLE`、title `Login Source Unavailable`、固定detail
+「ログイン接続元を確認できません。運用者にお問い合わせください」を返す。
+この場合は資格情報と回数の検証を行わず、Retry-Afterを付けない（運用設定の是正が必要）。
+接続元不明の経路では入力不正400より503が先になる。一般的なログイン失敗の401とは区別する。
+
+失敗は `auth.login.failed`、429は `auth.login.throttled`、成功は既存userId/role、
+内部エラーは安全な `system.unhandled_error` で診断する。503はhttp.request.completedのstatusで確認する。
+raw IP/username/password/hash/JWT、転送ヘッダーの値をログに追加しない。
 
 ## 接続元とプロキシの信頼境界
 
-`LoginClientAddressFilter` はlogin要求のsocket peerをSpringのForwardedHeaderFilterより前に捕捉する。
-Boot 3.5.12標準も最優先順で登録するため、本構成では転送filterを明示的に1段後へ登録する。
-転送によるHTTPS/HSTS等の処理自体とprodの `server.forward-headers-strategy=framework` は維持する。
-捕捉が欠けた場合は書き換え済みremoteAddrを信用せず、単一unknown枠へfail closedする。
+現構成は client → host Caddy（TLS終端）→ `127.0.0.1:8080` → Docker port forwarding → app。
+DBのhost portは公開しない。appへの外部直結を許可しない。
+同じhostやDocker networkへ到達できるプロセスは、信頼済みpeerと同じ経路を利用できる場合がある。
+hostとnetworkへの実行権限も信頼境界であり、IP allowlistだけでCaddyプロセスを暗号学的に証明しない。
 
-`trusted-proxies` の完全一致IPから来た要求だけ、単一の数値IPのX-Forwarded-Forを採用する。
-未知peer、複数header/chain、hostname、port、zone、過長/不正IP、予期しないForwardedがあれば
-実際のpeerの共有枠へ戻す。IPv6表記をcanonical化し、IPv4-mapped IPv6はIPv4と同じkeyにする。
-全private CIDRやすべてのloopbackを暗黙に信頼しない。DNS lookupでheaderを解決しない。
+`LoginClientAddressFilter` はRequestCorrelationFilterの後、Spring ForwardedHeaderFilterの前で
+socket peerを捕捉する。prodは `server.forward-headers-strategy=framework` に固定し、
+Tomcat nativeによって捕捉前にpeerが書き換わる設定は起動時に拒否する。
 
-既存Caddyは公開clientのX-Forwarded-For/Proto/Hostを上書きし、Forwarded/Port/Prefix/Sslを除去する。
-`trusted_proxies` の追加やCDN/ALBの追加はこの前提を変えるため、別途設計・検証が必要。
-appは既存 `127.0.0.1:8080:8080`、DBはhost公開なし。外部からappへの直結を許可しない。
-host CaddyからDocker公開portへ入ると、appのsocket peerがloopbackではなくDocker bridge gatewayに
-見えることがある。127.0.0.1と決めつけず、対象hostのnetwork/gatewayを確認する。
+本番では空・不正のtrusted-proxies、require-trusted-proxy=falseをDB初期化前に拒否する。
+runtimeでは信頼済みpeerからの、単一header・単一の数値IPのX-Forwarded-Forだけを採用する。
+未知peer、欠落・不正・chain・重複XFF、予期しないForwarded、無効socket peer、
+捕捉属性の欠落は503にする。peerや `unknown` の共通枠へ戻さない。
+IPv6を正規化し、IPv4-mapped IPv6はIPv4と同じkeyにする。hostname・port・zone・CIDRは受け付けず、
+DNS lookupは行わない。private network全体やloopbackを暗黙には信頼しない。
 
-```bash
-# 実行するのは配備環境の運用者。Config.Envや秘密値を出力しない。
-docker inspect inventory-app --format '{{range .NetworkSettings.Networks}}{{println .Gateway}}{{end}}'
-```
+prod以外の直接接続では、空のtrusted-proxiesで実socket peerを使い、一般クライアントの
+X-Forwarded-For/Forwardedを接続元識別には採用しない。明示的に信頼したpeerの情報が不正なら、
+prod以外でも503にし、誤った共有枠を作らない。
 
-運用者がCaddy接続経路の実際のpeerであることを確認したIPだけを、ローカル `.env` の
-`LOGIN_TRUSTED_PROXIES`（comma separated）に設定する。Composeはappの
-`APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES` へ渡す。hostで直接Java起動する場合は検証済みloopbackを設定する。
-空のままでも保護は働くがproxy背後の全ユーザーがsource枠を共有するので、公開前に確認する。
-このPRではAWS/本番への確認・配備は行っていない。Caddy同一hostのプロセスはこの境界内で信頼される。
+Caddyの公式既定動作は、未信頼clientのX-Forwarded-For/Proto/Hostを無視して再設定する。
+リポジトリのCaddyはForwarded/Port/Prefix/Sslも除去する。
+実Caddy 2.11.7のテストで、異なるsocket clientを分離し、重複した偽装XFFも上書きされることを確認する。
+Caddyにtrusted_proxiesを加える場合やCDN/ALBを前段へ加える場合は、単一XFFの前提が変わるため別設計が必要。
 
-根拠: [Spring Boot 3.5.12の転送filter登録](https://github.com/spring-projects/spring-boot/blob/v3.5.12/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/servlet/ServletWebServerFactoryAutoConfiguration.java)、
-[Springの転送ヘッダーの信頼境界](https://docs.spring.io/spring-framework/reference/web/webmvc/filters.html#filters-forwarded-headers)、
-[Caddy reverse_proxy headerの既定処理](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#defaults)。
+### 運用者の設定・移行・復旧
+
+1. 配備hostのCaddy設定、appのloopback限定publish、Docker network、他の接続可能プロセスを確認する。
+2. gatewayのinspectは候補の確認にすぎない。承認された使い捨てprobe等で、Caddyからと同じ経路を
+   通る接続のapp側socket peerを実測する。Docker Desktop・NAT・network再作成で値が変わり得る。
+   appのログへIPを追加したり、Config.Envやsecretをdumpしたりしない。
+3. 検証した完全一致IPだけをhostローカル `.env` の `LOGIN_TRUSTED_PROXIES` に設定する。
+   comma separated。コードの例示IPをコピーしない。Composeは未設定・空をconfig解決時に拒否する。
+4. 古いglobal-limitのoverrideを削除し、max-concurrentをhost容量と実測から選ぶ。
+   Deployは有効化せず、承認された公開前検証で、異なる実clientの正常login・偽装header拒否を確認する。
+5. 空設定では起動しない。誤った非空peerではreadinessがUPでもloginは503となり得るため、
+   readinessだけで信頼設定の正しさを判定しない。503時は値を公開せず経路と設定を見直す。
+6. 既存Deployの旧image・解決済みCompose・旧environmentによるapp-only rollbackを維持する。
+   DB/volumeの再作成やmigration変更は不要。旧imageへ戻すと旧共有枠のリスクも戻るため暫定措置とする。
+
+この変更でAWS・実本番peer・実利用者・本番設定は検証していない。
+Docker検証では新規networkの使い捨てJDK probeでhost-published経路のpeerを取得し、
+同じ経路のappへ設定する。IP値は成果物に記録しない。この測定は本番の正しい値の根拠にはならない。
+
+根拠: [Caddy reverse_proxyのheader既定処理](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#defaults)、
+[Springの転送ヘッダーの信頼境界](https://docs.spring.io/spring-framework/reference/web/webmvc/filters.html#filters-forwarded-headers)。
 
 ## 制限と回帰検証
 
-stateはsingle EC2の単一JVM内だけ。再起動・deployで枠はresetされ、複数JVMは枠を共有しない。
-Redisは追加しない。複数インスタンス時はshared admission store等が必要で、cluster-wide制限は保証しない。
-分散攻撃や大規模DoSを完全に防ぐ仕組みではなく、ネットワーク側の防御・監視も引き続き運用課題。
-登録APIの既存username重複409契約は維持する。登録経由の存在確認を含めた全APIでの
-user enumeration解消を保証する変更ではなく、loginの失敗本文・BCrypt分岐・試行制限を改善する。
+stateは単一JVM内だけ。再起動/deployで枠はresetされ、複数JVMは枠を共有しない。
+恒久account lockout・MFA・CAPTCHA・ネットワークDoS対策や全APIのuser enumeration解消は今回の範囲外。
 
-LoginRateLimiterTestはClock境界、後退、3枠、並列受付、10000個の新規identityによる容量検証、
-期限切れ削除を行う。LoginClientAddressFilterTestは偽装とIP正規化、LoginDummyPasswordTestは
-encoder cost一致・1回だけencode、AuthServiceTestは失敗時1回matchとJWT未生成を検証する。
-LoginSecurityITは実MariaDB、prod、実embedded HTTPとMockMvcで401/429/Retry-After、
-並列制限、実際のfilter順、proxy利用者の分離、実console全loggerのsecret非露出を確認する。
-AuthApiITの各独立テストは別client peerを使い、同じテスト内の要求は同一peer/default quotaで実行する。
-既存のCaddyProxyIT、Auth/JWT/AuthorizationMatrixIT、注文・売上・CSV・ページング・在庫の全回帰も維持する。
+LoginRateLimiterTestは境界・時計後退・case・source/pair・同時数・permitの重複解放・例外時解放、
+10000の異なる接続元による容量と新規client可用性を検証する。
+LoginClientAddressFilterTestは偽装・欠落・不正・信頼peerとIP正規化・unknown拒否を検証する。
+ProductionConfigurationTestは本番の不足設定と不正設定をDB初期化前に拒否する。
+LoginSecurityITは実MariaDB、prod、実embedded HTTP、MockMvcで攻撃者と正常client、
+401/429/503、Retry-After、BCrypt/DB同時数、JWT、実consoleの非露出を確認する。
+既存のdummy BCryptの1回照合、CaddyProxyIT、JWT/Authorization、ADMIN provisioning、
+注文・在庫・Transaction、migration V1〜V6の回帰を維持する。

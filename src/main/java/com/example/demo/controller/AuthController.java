@@ -45,11 +45,11 @@ public class AuthController {
     @ApiResponses({@ApiResponse(responseCode = "200", description = "JWTを返却"),
             @ApiResponse(responseCode = "400", description = "入力形式が不正"),
             @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS"),
-            @ApiResponse(responseCode = "429", description = "LOGIN_RATE_LIMITED; Retry-After seconds")})
+            @ApiResponse(responseCode = "429", description = "LOGIN_RATE_LIMITED; Retry-After seconds"),
+            @ApiResponse(responseCode = "503", description = "LOGIN_SOURCE_UNAVAILABLE; verify proxy configuration")})
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
 
-        try {
-            loginRateLimiter.acquire(LoginClientAddressFilter.source(servletRequest), request.getUsername());
+        try (var permit = loginRateLimiter.acquire(LoginClientAddressFilter.source(servletRequest), request.getUsername())) {
             return authService.login(request);
         } catch (LoginRateLimitExceededException ex) {
             log.atWarn().addKeyValue("event", "auth.login.throttled").log("Login rate limited");

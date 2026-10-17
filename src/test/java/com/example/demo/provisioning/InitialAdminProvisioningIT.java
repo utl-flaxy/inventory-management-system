@@ -69,6 +69,7 @@ class InitialAdminProvisioningIT {
         registry.add("spring.datasource.url", database::getJdbcUrl);
         registry.add("spring.datasource.username", database::getUsername);
         registry.add("spring.datasource.password", database::getPassword);
+        registry.add("app.login.rate-limit.trusted-proxies", () -> "127.0.0.1");
         registry.add("JWT_SECRET", () -> JWT_SECRET);
     }
 
@@ -300,7 +301,7 @@ class InitialAdminProvisioningIT {
     }
 
     String login(String username) throws Exception {
-        String body = mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        String body = mvc.perform(post("/auth/login").header("X-Forwarded-For", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("username", username, "password", PASSWORD))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return json.readTree(body).get("token").asText();

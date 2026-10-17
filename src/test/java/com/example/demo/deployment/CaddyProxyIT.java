@@ -68,15 +68,19 @@ class CaddyProxyIT {
     }
 
     private Response request(boolean tls, String path, String headers, String body) throws Exception {
+        return request(tls, path, headers, body, "127.0.0.1");
+    }
+
+    private Response request(boolean tls, String path, String headers, String body, String client) throws Exception {
         String wire = (body.isEmpty() ? "GET " : "POST ") + path + " HTTP/1.1\r\nHost: localhost:"
                 + (tls ? 8443 : 8081) + "\r\nConnection: close\r\n" + headers
                 + (body.isEmpty() ? "" : "Content-Length: " + body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length + "\r\n")
                 + "\r\n" + body;
         String encoded = java.util.Base64.getEncoder().encodeToString(wire.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         String command = tls
-                ? "printf '%s' \"$1\" | base64 --decode | timeout 10 openssl s_client -quiet -connect 127.0.0.1:8443 -servername localhost -CAfile /tmp/caddy-state/pki/authorities/local/root.crt -verify_return_error -verify_hostname localhost 2>/tmp/client-diagnostic"
+                ? "printf '%s' \"$1\" | base64 --decode | timeout 10 openssl s_client -quiet -bind \"$2:0\" -connect 127.0.0.1:8443 -servername localhost -CAfile /tmp/caddy-state/pki/authorities/local/root.crt -verify_return_error -verify_hostname localhost 2>/tmp/client-diagnostic"
                 : "exec 3<>/dev/tcp/127.0.0.1/8081; printf '%s' \"$1\" | base64 --decode >&3; timeout 10 cat <&3";
-        var result = proxy.execInContainer("/bin/bash", "-ec", command, "client", encoded);
+        var result = proxy.execInContainer("/bin/bash", "-ec", command, "client", encoded, client);
         assertEquals(0, result.getExitCode(), "Local TLS client must verify certificate and hostname");
         String response = result.getStdout();
         int split = response.indexOf("\r\n\r\n");
@@ -115,6 +119,16 @@ class CaddyProxyIT {
                 + "X-Forwarded-Prefix: /spoofed\r\nX-Forwarded-Ssl: on\r\nX-Forwarded-For: 198.51.100.123\r\n", "");
         assertEquals(200, response.statusCode());
         assertEquals("https|localhost:8443|127.0.0.1||||", response.body());
+    }
+
+    @Test
+    void actualCaddyPreservesDistinctSocketClientsAndOverwritesSpoofedClaims() throws Exception {
+        for (String client : List.of("127.0.0.2", "127.0.0.3")) {
+            var response = request(true, "/forward",
+                    "X-Forwarded-For: 198.51.100.123\r\nX-Forwarded-For: 203.0.113.80\r\n", "", client);
+            assertEquals(200, response.statusCode());
+            assertEquals("https|localhost:8443|" + client + "||||", response.body());
+        }
     }
 
     @Test

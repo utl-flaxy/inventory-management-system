@@ -337,7 +337,11 @@ class AuthApiIT {
         assertEquals(3, schemas.path("RegisterResponse").path("properties").size());
         assertFalse(schemas.path("RegisterResponse").path("properties").has("password"));
         for (String code : List.of("200", "400", "409")) assertTrue(document.path("paths").path("/auth/register").path("post").path("responses").has(code));
-        for (String code : List.of("200", "400", "401", "429")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
+        for (String code : List.of("200", "400", "401", "429", "503")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
+        var unavailable = document.path("paths").path("/auth/login").path("post").path("responses").path("503");
+        assertTrue(unavailable.path("description").asText().contains("LOGIN_SOURCE_UNAVAILABLE"));
+        assertEquals("#/components/schemas/ApiProblem",
+                unavailable.path("content").path("application/problem+json").path("schema").path("$ref").asText());
         var limited = document.path("paths").path("/auth/login").path("post").path("responses").path("429");
         assertTrue(limited.path("content").has("application/problem+json"));
         assertEquals(1, limited.path("headers").path("Retry-After").path("schema").path("minimum").asInt());
