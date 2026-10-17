@@ -8,11 +8,14 @@
 ```http
 POST /api/v1/me/orders
 Authorization: Bearer <JWT>
-Idempotency-Key: 01J9VQW2M7MX7KQ7S2H4F7ABCD
+Idempotency-Key: <client-key>
 Content-Type: application/json
 
 {"items":[{"productId":1,"quantity":2},{"productId":2,"quantity":3}]}
 ```
+
+`<client-key>` は表示用プレースホルダー。実行時はクライアントが操作ごとに生成したUUID/ULID等のkeyに置換し、retryでは同じ値を使う。
+山括弧を含むプレースホルダーをそのまま送信しない。許容文字と長さは下記のとおりで、ULID専用のAPIではない。
 
 ## Keyとscope
 

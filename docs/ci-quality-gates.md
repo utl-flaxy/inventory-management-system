@@ -52,21 +52,21 @@ inline `gitleaks:allow`とrepository `.gitleaksignore`は無効化し、黙っ�
 Gitleaks stdout/stderrを通常のCIログへ出さず、redact=100のraw reportは一時directoryで処理して破棄する。
 保存/表示するreportはpath、line、rule、承認済みfalse-positiveかどうか、件数だけで、Secret/Match/Entropy/Fingerprintを含めない。
 
-今回再確認したfalse-positiveは次の4件。認証情報の値はここへ転載しない。
+AUD-01 / Issue #104で、2026-11-11に失効する4例外は期限延長せず撤廃する。
+公開Idempotency-Key/JWT例を表示用プレースホルダーへ置換し、ProductionConfigurationTestの秘密値はテスト専用の実行時生成値にする。
+APIのkey制約、productionのUTF-8最低32bytes検証、ログ非露出のテスト、scannerの検出ルールは変更しない。
 
-|対象|根拠|
-|---|---|
-|`docs/orders/idempotency.md:11`|公開HTTP例のIdempotency-Key。重複排除用識別子で、認証用secretではない|
-|`README.md:617`|同じ公開Idempotency-Key例|
-|`README.md:778`|末尾がellipsisの不完全なJWT例。署名済みの使用可能なtokenではない|
-|`ProductionConfigurationTest.java:23`|application-context test専用の合成署名key。productionから取得していない|
+原則は**例外0件**。`.github/security/exceptions.json`は `{"secret_false_positives": []}` とし、実スキャンのfindings/未解決ともに0件を要求する。
+Python回帰でもこのrepositoryの空ポリシーと、元の失効日2026-11-11および以後の日付で正常に読めることを検証する。
+README編集ごとの既存例外hash更新や定期的な期限延長は不要になる。
 
-例外は`.github/security/exceptions.json`の**exact path + line + rule + LF正規化したファイル全体SHA256**で限定する。
-責任者はrepository maintainer、期限は2026-11-11（UTC日付で判定）。全例外は最大90日、期限当日から失敗する。
+将来やむを得ず真の誤検知を申請する場合、原因を除去できない根拠とポリシー・回帰テストの変更を同じPRで明示してレビューする。
+例外は**exact path + line + rule + LF正規化したファイル全体SHA256**、reason・owner・expiresを必須として限定する。
+全例外は最大90日、期限当日から失敗する（UTC日付で判定）。
 対象ファイルの変更、期限切れ、欠落、重複、symlink/外部pathは新レビューを要求する。
 新しいcredentialを同じファイルへ加えるとhashが変わるため既存例外で通過しない。
 実secretを発見した場合は値を公開せず、漏洩credentialの失効/rotationと露出範囲の調査を優先する。
-例外の更新時は根拠・対象・所有者・期限をPRレビューし、検出fixtureが引き続き拒否されることを確認する。
+例外の追加・更新を検討する際も根拠・対象・所有者・期限をPRレビューし、実secret-self-testの異常fixtureが引き続き拒否されることを確認する。
 
 ## 依存監査と既知finding
 
