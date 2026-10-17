@@ -33,4 +33,15 @@ class OrderRequestFingerprintTest {
         assertNotEquals(OrderRequestFingerprint.fromValidatedItems(Map.of(1L, 23)),
                 OrderRequestFingerprint.fromValidatedItems(Map.of(12L, 3)));
     }
+
+    @Test
+    void hundredItemBoundaryKeepsOrderIndependentFingerprintAndDetectsLastQuantityChange() {
+        Map<Long, Integer> forward = new LinkedHashMap<>(), reverse = new LinkedHashMap<>();
+        for (long id = 1; id <= 100; id++) forward.put(id, 1);
+        for (long id = 100; id >= 1; id--) reverse.put(id, 1);
+        String original = OrderRequestFingerprint.fromValidatedItems(forward);
+        assertEquals(original, OrderRequestFingerprint.fromValidatedItems(reverse));
+        reverse.put(100L, 2);
+        assertNotEquals(original, OrderRequestFingerprint.fromValidatedItems(reverse));
+    }
 }

@@ -198,6 +198,9 @@ public class OrderService {
         if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
             throw new InvalidOrderRequestException("注文明細は1件以上必要です");
         }
+        if (request.getItems().size() > OrderRequest.MAX_ITEMS) {
+            throw new InvalidOrderRequestException(OrderRequest.ITEMS_LIMIT_MESSAGE);
+        }
         Map<Long, Integer> quantities = new TreeMap<>();
         for (OrderItemRequest item : request.getItems()) {
             if (item == null || item.getProductId() == null || item.getProductId() <= 0) {

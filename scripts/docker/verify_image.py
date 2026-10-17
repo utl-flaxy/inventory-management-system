@@ -270,6 +270,20 @@ def api_regression(port, db, image, network):
     assert order["id"] == repeated["id"] and order["totalPrice"] == 200
     actual, _ = request(port, f"/products/{pid}", token=user)
     assert actual["stock"] == 8
+    order_state_query = ("SELECT (SELECT COUNT(*) FROM orders), (SELECT COUNT(*) FROM order_items), "
+                         "(SELECT COUNT(*) FROM inventory_movements), "
+                         "(SELECT SUM(stock) FROM products), (SELECT SUM(version) FROM products);")
+    before_oversize = db_query(db, order_state_query)
+    oversized, _ = request(port, "/api/v1/me/orders", 400, method="POST", token=user,
+                           data={"items": [{"productId": pid, "quantity": 1}] * 101},
+                           extra={"Idempotency-Key": "docker-order-1"})
+    assert oversized["code"] == "VALIDATION_ERROR" and "items" in oversized["errors"]
+    assert db_query(db, order_state_query) == before_oversize
+    retry, _ = request(port, "/api/v1/me/orders", method="POST", token=user,
+                       data={"items": [{"productId": pid, "quantity": 2}]},
+                       extra={"Idempotency-Key": "docker-order-1"})
+    assert retry["id"] == order["id"] and db_query(db, order_state_query) == before_oversize
+    checks.append("Order item limit: 101 entries rejected with validation ProblemDetail, DB counts/stock/version unchanged, original key retry preserved")
     adjustment, _ = request(port, f"/api/v1/admin/products/{pid}/inventory-adjustments", method="POST", token=admin,
                             data={"delta": 3, "reason": "RECEIPT"},
                             extra={"Idempotency-Key": "docker-inventory-1"})

@@ -16,7 +16,7 @@ OrderにもVersionを持たせ、商品側のVersionと既存の悲観ロック�
 
 ## APIと互換性
 
-`POST /api/v1/me/orders` は必須・非空の `items` 配列と、Issue #29から必須 `Idempotency-Key` headerを受け取る。
+`POST /api/v1/me/orders` は必須・1〜100明細の `items` 配列と、Issue #29から必須 `Idempotency-Key` headerを受け取る。
 keyはASCII `[A-Za-z0-9._:-]{1,128}`、case-sensitive、customer単位。同key/同明細は元のOrder、別明細は409。
 API作成では `Order.create(customer, items, key, fingerprint)` を使い、metadataを生成時に確定する。
 legacy用factoryと両metadata列NULLの既存注文は維持する。[冪等性仕様](idempotency.md)を参照。
@@ -30,6 +30,25 @@ legacy用factoryと両metadata列NULLの既存注文は維持する。[冪等性
 固定の数量上限は追加せず、Longの明細金額・注文合計の表現範囲を超えた場合に400で拒否する。
 旧形式 `{"productId":1,"quantity":2}` はitems未指定として400になるため、クライアント更新が必要。
 明細の商品IDはレスポンスでも昇順。
+
+### 作成の明細数上限（AUD-08 / Issue #112）
+
+上限100は通常の複数商品注文を許容しつつ、1要求で扱う商品種類・作成明細・在庫移動数を最大100に抑えるAPI制約。
+監査の提案100と既存の1〜複数商品ユースケースを基に選定し、実測のlatency/SLAから決めた値ではない。
+`OrderRequest.MAX_ITEMS` をDTOのSize/OpenAPI maxItemsとServiceの共通上限とする。設定変更だけで無制限には戻せない。
+件数は入力配列で数え、重複を統合して回避しない。101以上はDTOで400 VALIDATION_ERROR / errors.items、
+直接Service呼出しでは400 INVALID_ORDER_REQUEST、detail「注文明細は100件以内で入力してください」。
+0件の既存拒否と、上限内の重複・不正数量・在庫/金額検証は維持する。
+
+Serviceでは既存key形式検証の後、明細の走査・TreeMap作成・fingerprint生成・CurrentUser解決・
+customer/商品ロック・保存より前にList.sizeで拒否する。HTTPのJWT認証に必要な既存user lookupは維持し、
+全HTTP処理でDBアクセスがゼロになるとは主張しない。Transaction属性やロック順序は変更しない。
+上限超過は既存keyのretryでも検証前には検索しない。過去の100超の注文はGET/CSV/cancel等で扱え、
+既存のOrder/Response/DB schema・migrationへ上限を追加したり、保存済み明細を切り捨てたりしない。
+
+この制限は注文処理のmap/指紋/Entity/更新の増加を抑える。JSON受信・デシリアライズ・Bean Validationの走査や
+HTTP本文のbyte数、頻度、複数Transactionの総負荷は制限しない。edgeの本文/流量制御とhost/DBの容量設計は別途必要。
+100商品でも競合待ちやDB障害で長時間化し得るため、ロック時間・CPU/メモリ上限の保証ではない。
 
 Issue #5でURLをself/adminへ分離した。旧 `/orders/**` は廃止し、クライアント更新が必要。
 成功HTTP status（200）と状態変更の業務ルールは維持する。
