@@ -470,3 +470,24 @@ secret canaryが実Caddy logへ出ないことを確認する。業務処理の�
 Terraform mock planは14件を維持してdomain拒否13件を追加し27件。
 EIP/association/output、TCP80/443・SSH、8080/2019非公開、render済みuserdataの16KiB上限も検証する。
 詳しくは [HTTPS手順](tls.md) を参照する。
+
+## 商品名の長さ・Unicode境界（AUD-05 / Issue #106）
+
+ProductControllerTestに28件、ProductNameValidationITに18件を追加する。
+既存1954件を保持し、Surefire1197 / Failsafe803 / total2000（F/E/S=0）を確認する。
+
+- ASCII、日本語、絵文字のみ、ASCII＋絵文字、結合文字列の各255/256コードポイントをPOST/PUTで検証する。
+- 255絵文字はUTF-16で510単位だが受け付ける。結合文字は正規化せず保持し、見た目の文字数では数えない。
+- 未対high/low surrogate、逆順のsurrogate、high surrogate＋ASCIIは400 VALIDATION_ERROR / errors.name。
+- Controllerでは不正時のService未呼出しを確認。ITは実Security/JWT・MariaDB12.2.2・Flyway V1〜V6を使い、255コードポイントの保存値とDBのCHAR_LENGTH=255を照合する。
+- 各400の直後にproducts/users/orders/order_items/inventory_movements全行のsnapshotを比較し、name/price/stock/versionを含む不変を確認する。
+- null/blankの既存拒否、PUTのversion増分とstock不変、実OpenAPI両schemaのminLength1/maxLength255と400 ApiProblem参照も確認する。
+- ITのHTTPダンプは無効にし、失敗時もAuthorizationのJWTをテストログへ出さない。
+
+変更前のDTOで追加Controllerテスト18件が失敗し、実MariaDBでも256コードポイント5ケースのPOST/PUT（計10応答）が500になることを確認してから修正する。
+修正後は対象テストに加えて、Java17でfull verifyを実行する。対象テストを選ぶこととfull verifyの証跡を区別し、skipによる成功扱いはしない。
+
+```powershell
+.\mvnw.cmd '-Dtest=ProductControllerTest' '-Dit.test=ProductNameValidationIT' verify
+.\mvnw.cmd verify
+```

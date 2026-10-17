@@ -12,6 +12,8 @@ import com.example.demo.service.ProductService;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -26,12 +28,16 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static com.example.demo.TestApiProblems.problem;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -249,6 +255,64 @@ class ProductControllerTest {
 
         mockMvc.perform(resourceRequest("PUT"))
                 .andExpect(problem(400, "INVALID_PRODUCT_UPDATE", "Invalid Product Update", "/products/999"));
+    }
+
+    @ParameterizedTest(name = "{0} accepts 255 code points, case {index}")
+    @MethodSource("namesAtLimit")
+    void productNameBoundaryIsAcceptedWithoutChangingInput(String method, String name) throws Exception {
+        var response = ProductResponse.builder().id(1L).name(name).price(100L).stock(7).version(0L).build();
+        if (method.equals("POST")) when(productService.save(any(ProductRequest.class))).thenReturn(response);
+        else when(productService.update(eq(1L), any(ProductUpdateRequest.class))).thenReturn(response);
+
+        mockMvc.perform(nameRequest(method, objectMapper.writeValueAsString(name)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value(name));
+        if (method.equals("POST")) verify(productService).save(argThat(request -> request.getName().equals(name)));
+        else verify(productService).update(eq(1L), argThat(request -> request.getName().equals(name)));
+    }
+
+    @ParameterizedTest(name = "{0} rejects 256 code points, case {index}")
+    @MethodSource("oversizedNames")
+    void oversizedProductNameIsRejectedBeforeService(String method, String name) throws Exception {
+        assertInvalidName(method, objectMapper.writeValueAsString(name));
+    }
+
+    @ParameterizedTest(name = "{0} rejects malformed Unicode, case {index}")
+    @MethodSource("malformedNames")
+    void unpairedSurrogateIsRejectedBeforeService(String method, String escapedName) throws Exception {
+        assertInvalidName(method, "\"" + escapedName + "\"");
+    }
+
+    private void assertInvalidName(String method, String nameJson) throws Exception {
+        String path = method.equals("POST") ? "/products" : "/products/1";
+        mockMvc.perform(nameRequest(method, nameJson))
+                .andExpect(problem(400, "VALIDATION_ERROR", "Validation Error", path))
+                .andExpect(jsonPath("$.errors.name").isString());
+        verifyNoInteractions(productService);
+    }
+
+    private MockHttpServletRequestBuilder nameRequest(String method, String nameJson) {
+        return (method.equals("POST") ? post("/products") : put("/products/1"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":" + nameJson + ",\"price\":100,"
+                        + (method.equals("POST") ? "\"stock\":7}" : "\"version\":0}"));
+    }
+
+    static Stream<Arguments> namesAtLimit() {
+        return forBothMethods(Stream.of("a".repeat(255), "あ".repeat(255), "😀".repeat(255),
+                "a".repeat(254) + "😀", "e\u0301".repeat(127) + "e"));
+    }
+
+    static Stream<Arguments> oversizedNames() {
+        return forBothMethods(Stream.of("a".repeat(256), "あ".repeat(256), "😀".repeat(256),
+                "a".repeat(255) + "😀", "e\u0301".repeat(128)));
+    }
+
+    static Stream<Arguments> malformedNames() {
+        return forBothMethods(Stream.of("\\uD83D", "\\uDE00", "\\uDE00\\uD83D", "\\uD83Da"));
+    }
+
+    private static Stream<Arguments> forBothMethods(Stream<String> names) {
+        return names.flatMap(name -> Stream.of("POST", "PUT").map(method -> Arguments.of(method, name)));
     }
 
     private void stubFailure(String method, RuntimeException failure) {

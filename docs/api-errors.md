@@ -78,6 +78,35 @@ nested pathを潰さない。同じfieldに複数違反があるときはconstra
 NotBlankはPattern/Sizeより先になる。field順も安定させるがJSON property順に依存したclient実装は不要。
 errorsはfieldとannotationの安全なmessageのみ。rejectedValue、password/username実値、request bodyを返さない。
 
+### 商品名の入力境界（AUD-05 / Issue #106）
+
+ADMINの `POST /products` と `PUT /products/{id}` のnameは、既存のNotBlankに加えて**最大255 Unicodeコードポイント**を要求する。
+ASCII、日本語のBMP文字、補助平面の絵文字はそれぞれ1として数える。255絵文字も受け付ける（JavaのUTF-16では510単位）。
+結合文字やZWJで連結した絵文字は見た目の1文字ではなく、構成コードポイントごとに数える。trim・Unicode正規化はしない。
+
+Java Bean Validation標準の `@Size` はUTF-16単位で数えるため、ここでは `@CodePointSize(max=255)` を使う。
+これはFlyway V1のutf8mb4 `products.name VARCHAR(255)` と、OpenAPIの両request schemaの `maxLength: 255` に合わせた制約。
+注文時の商品名snapshotも既存のVARCHAR(255)のままで、DB migrationは変更しない。
+数え方の根拠は [MariaDB VARCHAR](https://mariadb.com/docs/server/reference/data-types/string-data-types/varchar)、
+[Java17 String](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html)、
+[JSON Schema maxLength](https://json-schema.org/draft/2020-12/json-schema-validation#name-maxlength) を参照する。
+
+255コードポイントは200で受け付け、256以上・未対サロゲートはService/DBへ渡す前に400 `VALIDATION_ERROR` と `errors.name` を返す。
+null・空文字・空白のみの既存拒否も維持する。nameの入力値はerrorsへ含めない。
+400の際は商品・version・stock・注文・在庫履歴を変更しない。PUTのversion必須・競合409・stock更新禁止、401/403等の契約は維持する。
+
+```json
+{
+  "type": "https://inventory-management-system.example/problems/validation-error",
+  "title": "Validation Error",
+  "status": 400,
+  "detail": "入力内容にエラーがあります",
+  "instance": "/products",
+  "code": "VALIDATION_ERROR",
+  "errors": {"name": "商品名は255コードポイント以内の正しいUnicodeで入力してください"}
+}
+```
+
 ## Auth / Security
 
 ```json
