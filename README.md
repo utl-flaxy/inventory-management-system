@@ -753,6 +753,14 @@ null/blank・形式不正は400、trimしません。usernameの照合は現行D
 登録はROLE_USER固定で200を返し、重複usernameは409 `USERNAME_ALREADY_EXISTS`。
 password/hashは返さず、保存はBCryptです。詳細は[Auth契約](docs/auth.md)を参照してください。
 
+公開登録には接続元ごとに既定5回/60秒・同時2件・状態保持4096接続元の制限があります。
+ログインとは独立した枠で、成功・重複・内部エラーも受付回数に含めます。超過は429
+`REGISTRATION_RATE_LIMITED` と `Retry-After`（秒）。本番で接続元を検証できなければ503
+`REGISTRATION_SOURCE_UNAVAILABLE`となり、共通IPへフォールバックしません。
+信頼proxy設定はログインと共通で、未信頼の転送ヘッダーを識別に使いません。
+単一JVM内の制限で、NAT共有・再起動・複数JVM・分散攻撃や長期の不要アカウント増加には限界があります。
+設定・edgeの責務・移行手順は[登録の負荷制限](docs/auth.md#登録の負荷制限aud-07--issue-110)を参照してください。
+
 ```http
 POST /auth/register
 ```

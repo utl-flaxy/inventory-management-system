@@ -8,6 +8,8 @@ import com.example.demo.exception.InvalidCredentialsException;
 import com.example.demo.exception.LoginRateLimitExceededException;
 import com.example.demo.security.LoginClientAddressFilter;
 import com.example.demo.security.LoginRateLimiter;
+import com.example.demo.security.RegistrationRateLimiter;
+import com.example.demo.exception.RegistrationRateLimitExceededException;
 import jakarta.servlet.http.HttpServletRequest;
 import com.example.demo.service.AuthService;
 import jakarta.validation.Valid;
@@ -25,19 +27,27 @@ public class AuthController {
 
     private final AuthService authService;
     private final LoginRateLimiter loginRateLimiter;
+    private final RegistrationRateLimiter registrationRateLimiter;
 
     // ユーザー登録
     @PostMapping("/register")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "ROLE_USERで登録"),
             @ApiResponse(responseCode = "400", description = "入力形式が不正"),
-            @ApiResponse(responseCode = "409", description = "USERNAME_ALREADY_EXISTS")})
-    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
+            @ApiResponse(responseCode = "409", description = "USERNAME_ALREADY_EXISTS"),
+            @ApiResponse(responseCode = "429", description = "REGISTRATION_RATE_LIMITED; Retry-After seconds"),
+            @ApiResponse(responseCode = "503", description = "REGISTRATION_SOURCE_UNAVAILABLE; verify proxy configuration")})
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
 
-        RegisterResponse response = RegisterResponse.from(authService.register(request));
-        log.atInfo().addKeyValue("event", "auth.register.succeeded")
-                .addKeyValue("userId", response.id()).addKeyValue("role", response.role())
-                .log("Registration succeeded");
-        return response;
+        try (var permit = registrationRateLimiter.acquire(LoginClientAddressFilter.source(servletRequest))) {
+            RegisterResponse response = RegisterResponse.from(authService.register(request));
+            log.atInfo().addKeyValue("event", "auth.register.succeeded")
+                    .addKeyValue("userId", response.id()).addKeyValue("role", response.role())
+                    .log("Registration succeeded");
+            return response;
+        } catch (RegistrationRateLimitExceededException ex) {
+            log.atWarn().addKeyValue("event", "auth.register.throttled").log("Registration rate limited");
+            throw ex;
+        }
     }
 
     // ログイン

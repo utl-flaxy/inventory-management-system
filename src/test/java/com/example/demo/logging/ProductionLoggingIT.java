@@ -78,9 +78,11 @@ class ProductionLoggingIT {
     private String userToken;
     private String adminToken;
     private long adminId;
+    private String registrationSource;
 
     @BeforeEach
     void fixtures() throws Exception {
+        registrationSource = com.example.demo.TestAuthRequests.nextClientAddress();
         for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users")) {
             jdbc.update("DELETE FROM " + table);
         }
@@ -237,7 +239,7 @@ class ProductionLoggingIT {
     }
     private HttpResponse<String> post(String path, Map<String, ?> body, String token, String key) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).timeout(Duration.ofSeconds(15))
-                .header("Content-Type", "application/json").header("X-Forwarded-For", "198.51.100.1").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
+                .header("Content-Type", "application/json").header("X-Forwarded-For", path.equals("/auth/register") ? registrationSource : "198.51.100.1").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
         if (token != null) request.header("Authorization", "Bearer " + token);
         if (key != null) request.header("Idempotency-Key", key);
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());

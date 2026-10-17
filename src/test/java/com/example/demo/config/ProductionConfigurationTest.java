@@ -135,6 +135,17 @@ class ProductionConfigurationTest {
         return values.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.getValue()).toArray(String[]::new);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"source-limit=0", "max-concurrent=0", "max-concurrent=65", "max-entries=0",
+            "max-entries=100001", "window=PT0.5S", "window=PT25H"})
+    void invalidRegistrationSettingsFailBeforeDatabaseInitialization(String setting, CapturedOutput output) {
+        var values = valid();
+        var parts = setting.split("=", 2);
+        values.put("app.registration.rate-limit." + parts[0], parts[1]);
+        fails(values, "Invalid registration rate limit configuration");
+        assertNoSecrets(output);
+    }
+
     private void assertNoSecrets(CapturedOutput output) {
         assertFalse(output.getAll().contains(PASSWORD));
         assertFalse(output.getAll().contains(SECRET));

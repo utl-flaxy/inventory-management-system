@@ -336,7 +336,13 @@ class AuthApiIT {
         }
         assertEquals(3, schemas.path("RegisterResponse").path("properties").size());
         assertFalse(schemas.path("RegisterResponse").path("properties").has("password"));
-        for (String code : List.of("200", "400", "409")) assertTrue(document.path("paths").path("/auth/register").path("post").path("responses").has(code));
+        for (String code : List.of("200", "400", "409", "429", "503")) assertTrue(document.path("paths").path("/auth/register").path("post").path("responses").has(code));
+        var registration = document.path("paths").path("/auth/register").path("post");
+        assertTrue(registration.path("description").asText().contains("5 admitted attempts"));
+        assertTrue(registration.path("responses").path("503").path("description").asText().contains("REGISTRATION_SOURCE_UNAVAILABLE"));
+        assertEquals("#/components/schemas/ApiProblem", registration.path("responses").path("429")
+                .path("content").path("application/problem+json").path("schema").path("$ref").asText());
+        assertEquals(1, registration.path("responses").path("429").path("headers").path("Retry-After").path("schema").path("minimum").asInt());
         for (String code : List.of("200", "400", "401", "429", "503")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
         var unavailable = document.path("paths").path("/auth/login").path("post").path("responses").path("503");
         assertTrue(unavailable.path("description").asText().contains("LOGIN_SOURCE_UNAVAILABLE"));
@@ -393,12 +399,18 @@ class AuthApiIT {
         CountDownLatch ready = new CountDownLatch(requests.size()), start = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(requests.size());
         List<Future<Outcome>> futures = new ArrayList<>();
+        // Ten callers still start together; exercise DB uniqueness within the unchanged default work bound.
+        // HTTP overload rejection itself is tested with simultaneous requests in RegistrationSecurityIT.
+        var admission = new Semaphore(2);
         try {
             for (var request : requests) futures.add(executor.submit(() -> {
                 ready.countDown();
                 assertTrue(start.await(10, TimeUnit.SECONDS));
-                var response = register(request.username, request.password).andReturn().getResponse();
-                return new Outcome(response.getStatus(), response.getContentAsString());
+                assertTrue(admission.tryAcquire(10, TimeUnit.SECONDS));
+                try {
+                    var response = register(request.username, request.password).andReturn().getResponse();
+                    return new Outcome(response.getStatus(), response.getContentAsString());
+                } finally { admission.release(); }
             }));
             assertTrue(ready.await(10, TimeUnit.SECONDS));
             start.countDown();
@@ -461,8 +473,10 @@ class AuthApiIT {
     }
 
     private ResultActions auth(String endpoint, Map<String, ?> body) throws Exception {
+        String source = endpoint.equals("/auth/register") ? com.example.demo.TestAuthRequests.nextClientAddress()
+                : "198.51.100." + clientSequence;
         return mvc.perform(post(endpoint).contentType(MediaType.APPLICATION_JSON)
-                .with(request -> { request.setRemoteAddr("198.51.100." + clientSequence); return request; })
+                .with(request -> { request.setRemoteAddr(source); return request; })
                 .content(json.writeValueAsString(body)));
     }
 

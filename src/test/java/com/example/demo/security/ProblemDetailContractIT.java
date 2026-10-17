@@ -63,9 +63,11 @@ class ProblemDetailContractIT {
     @Autowired private UserRepository users;
     private String userToken, adminToken;
     private long productId;
+    private String registrationSource;
 
     @BeforeEach
     void fixtures() throws Exception {
+        registrationSource = com.example.demo.TestAuthRequests.nextClientAddress();
         SecurityContextHolder.clearContext();
         jdbc.update("DELETE FROM inventory_movements");
         jdbc.update("DELETE FROM order_items"); jdbc.update("DELETE FROM orders");
@@ -248,6 +250,7 @@ class ProblemDetailContractIT {
 
     private ResultActions register(String username) throws Exception {
         return mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+                .with(request -> { request.setRemoteAddr(registrationSource); return request; })
                 .content(json.writeValueAsString(java.util.Map.of("username", username, "password", PASSWORD))));
     }
     private MockHttpServletRequestBuilder as(String token, MockHttpServletRequestBuilder request) {
