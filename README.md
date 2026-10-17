@@ -504,9 +504,14 @@ POST /products
 
 登録項目
 
-- 商品名
+- 商品名（必須・空白のみ不可、最大255 Unicodeコードポイント）
 - 価格
 - 在庫数
+
+POST/PUTのnameはDBのutf8mb4 VARCHAR(255)と同じコードポイント単位で制限します。
+ASCII・日本語・絵文字は各1として255まで受け付け、256以上・未対サロゲートは400 `VALIDATION_ERROR` と `errors.name` を返します。
+UTF-16の長さではなく、255絵文字（UTF-16で510単位）も保存できます。結合文字・ZWJ列は構成コードポイントごとに数え、trimやUnicode正規化は行いません。
+詳細は[商品名の入力境界](docs/api-errors.md#商品名の入力境界aud-05--issue-106)を参照してください。
 
 ---
 
@@ -565,6 +570,7 @@ PUT /products/{id}
 
 Issue #39から更新bodyはname・price・versionだけです。stockを含むJSONは400で拒否し、
 商品名・価格の更新では在庫を変えません。Product POSTのinitial stockは従来通り指定できます。
+nameの必須・255コードポイント上限はPOSTと同じで、不正なnameはDB更新前に400で拒否します。
 以降の在庫変更は注文作成・cancel・ADMIN手動調整だけで履歴を残します。
 
 ADMIN手動調整（Issue #43からIdempotency-Key必須）:
