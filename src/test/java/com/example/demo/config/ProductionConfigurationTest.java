@@ -20,7 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(OutputCaptureExtension.class)
 class ProductionConfigurationTest {
     private static final String PASSWORD = "private-db-password-for-tests";
-    private static final String SECRET = "private-jwt-secret-for-tests-0123456789";
+    // Test-only runtime marker: 48 UTF-8 bytes; never deployment credentials.
+    private static final String SECRET = "test-jwt-secret-".repeat(3);
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withInitializer(new ConfigDataApplicationContextInitializer())
             .withUserConfiguration(ProductionConfiguration.class)

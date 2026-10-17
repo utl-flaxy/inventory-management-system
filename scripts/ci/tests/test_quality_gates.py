@@ -110,6 +110,14 @@ class QualityGatePolicyTest(unittest.TestCase):
             with self.assertRaises(gates.OperationalError):
                 gates.exceptions(policy, root, today)
 
+    def test_repository_exceptions_are_empty_and_survive_former_expiry(self):
+        root = Path(__file__).resolve().parents[3]
+        policy = root / ".github/security/exceptions.json"
+        self.assertEqual({"secret_false_positives": []}, gates.read_json(policy))
+        for today in (date(2026, 11, 10), date(2026, 11, 11), date(2026, 11, 13), date(2027, 11, 11)):
+            with self.subTest(today=today):
+                self.assertEqual({}, gates.exceptions(policy, root, today))
+
     def test_empty_static_input_is_not_a_pass(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

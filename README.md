@@ -621,8 +621,10 @@ ADMINも自分用APIを利用できますが、その入口では自分の注文
 
 ```http
 POST /api/v1/me/orders
-Idempotency-Key: 01J9VQW2M7MX7KQ7S2H4F7ABCD
+Idempotency-Key: <client-key>
 ```
+
+`<client-key>` は説明用です。実行時はクライアントが操作ごとに生成したUUID/ULID等のkeyに置換し、通信retryでは同じ値を使ってください。山括弧を含むプレースホルダーはそのまま送信できません。
 
 注文時に必須・非空の `items` 配列（商品IDと正の数量）を受け取り、認証済みUserを注文者として保存します。
 同一商品IDの重複は400です。旧単一商品形式は `items` に変更してください。
@@ -782,9 +784,11 @@ POST /auth/login
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9..."
+  "token": "<JWT>"
 }
 ```
+
+`<JWT>` は表示用プレースホルダーであり、実際のJWTではありません。実行時はこのAPIが返したtokenの値を使い、プレースホルダーをそのままAuthorizationに設定しないでください。
 
 ---
 
