@@ -16,6 +16,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -52,6 +53,8 @@ import java.util.concurrent.*;
 import java.util.function.Supplier;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashSet;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -215,6 +218,7 @@ class InventoryConcurrencyMariaDbIT {
 
     @ParameterizedTest
     @CsvSource({"1,20,1", "10,20,10", "100,100,100"})
+    @DisplayName("同一customer行ロックによる直列化で在庫を保護する既存回帰")
     void concurrentOrdersNeverOversellOrLoseUpdates(int initialStock, int workers, int expectedSuccesses) throws Exception {
         product(1L, initialStock);
 
@@ -228,6 +232,129 @@ class InventoryConcurrencyMariaDbIT {
         assertEquals(expectedSuccesses, count("order_items"));
         assertEquals(expectedSuccesses, jdbc.queryForObject("SELECT SUM(quantity) FROM order_items", Integer.class));
         assertEquals(expectedSuccesses, jdbc.queryForObject("SELECT version FROM products WHERE id = 1", Long.class));
+    }
+
+    @RepeatedTest(3)
+    void twentyDistinctCustomersCompeteForTenUnitsWithoutOverselling() throws Exception {
+        product(1L, 10);
+        for (int id = 2; id <= 20; id++)
+            jdbc.update("INSERT INTO users (id,username,password,role) VALUES (?,?,'test-hash','ROLE_USER')",
+                    id, "aud06-customer-" + id);
+        assertEquals(20, count("users"));
+
+        List<String> keys = IntStream.range(0, 20).mapToObj(i -> com.example.demo.TestOrders.key()).toList();
+        assertEquals(20, new HashSet<>(keys).size());
+        CountDownLatch snapshotsLoaded = new CountDownLatch(20);
+        Set<Long> buyerConnections = ConcurrentHashMap.newKeySet();
+        Set<Long> activeBuyerTransactions = ConcurrentHashMap.newKeySet();
+        List<Supplier<?>> operations = IntStream.range(0, 20).<Supplier<?>>mapToObj(index -> () -> {
+            authenticateBuyer(index + 1L);
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            // Observe the same initial DB state without seeding Hibernate's first-level cache.
+            // The service must load the product through its real production locking path.
+            var initial = jdbc.queryForMap("SELECT stock,version FROM products WHERE id=1");
+            assertEquals(10, ((Number) initial.get("stock")).intValue());
+            assertEquals(0L, ((Number) initial.get("version")).longValue());
+            assertEquals(1, jdbc.queryForObject("SELECT @@in_transaction", Integer.class));
+            long connection = jdbc.queryForObject("SELECT CONNECTION_ID()", Long.class);
+            assertTrue(buyerConnections.add(connection), "buyer connections must be distinct");
+            activeBuyerTransactions.add(index + 1L);
+            snapshotsLoaded.countDown();
+            await(snapshotsLoaded);
+            return orderService.createOrder(com.example.demo.TestOrders.request(1L, 1), keys.get(index));
+        }).toList();
+
+        long started = System.nanoTime();
+        List<Outcome> outcomes = concurrently(operations);
+        long successful = outcomes.stream().filter(Outcome::succeeded).count();
+        long shortages = outcomes.stream().filter(outcome -> outcome.failure() instanceof OutOfStockException).count();
+        System.out.printf("AUD06 buyers=20 connections=%d active-transactions=%d success=%d out-of-stock=%d unexpected=%d elapsed-ms=%d%n",
+                buyerConnections.size(), activeBuyerTransactions.size(), successful, shortages,
+                20 - successful - shortages, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
+        assertEquals(20, buyerConnections.size());
+        assertEquals(20, activeBuyerTransactions.size());
+        assertEquals(10, successful, () -> safeWorkerFailures(outcomes));
+        assertEquals(10, shortages, () -> safeWorkerFailures(outcomes));
+        Set<Long> successfulCustomers = new HashSet<>();
+        for (int index = 0; index < outcomes.size(); index++) {
+            Outcome outcome = outcomes.get(index);
+            if (outcome.succeeded()) {
+                Order saved = (Order) outcome.value();
+                assertEquals(index + 1L, saved.getCustomer().getId());
+                assertTrue(successfulCustomers.add(saved.getCustomer().getId()));
+                assertTrue(keys.get(index).equals(jdbc.queryForObject(
+                        "SELECT idempotency_key FROM orders WHERE id=?", String.class, saved.getId())),
+                        "each successful customer retains its own key");
+            } else {
+                assertInstanceOf(OutOfStockException.class, outcome.failure(), safeWorkerFailures(outcomes));
+            }
+        }
+        assertEquals(10, successfulCustomers.size());
+        assertEquals(successfulCustomers, new HashSet<>(jdbc.queryForList("SELECT customer_id FROM orders", Long.class)));
+        assertEquals(0, stock(1L));
+        assertEquals(10L, jdbc.queryForObject("SELECT version FROM products WHERE id=1", Long.class));
+        assertEquals(10, count("orders"));
+        assertEquals(10, count("order_items"));
+        assertEquals(10, jdbc.queryForObject("SELECT SUM(quantity) FROM order_items", Integer.class));
+        assertEquals(1000L, jdbc.queryForObject("SELECT SUM(total_price) FROM orders", Long.class));
+        assertEquals(0, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM orders o JOIN order_items i ON i.order_id=o.id
+                WHERE o.total_price<>100 OR o.status<>'PENDING' OR o.version<>0
+                   OR o.ordered_at IS NULL OR o.updated_at IS NULL OR o.request_fingerprint IS NULL
+                   OR i.product_id<>1 OR i.quantity<>1 OR i.price<>100 OR i.product_name_snapshot<>'apple'
+                """, Integer.class));
+        var movements = jdbc.queryForList("SELECT * FROM inventory_movements ORDER BY id");
+        assertEquals(10, movements.size());
+        for (int index = 0; index < movements.size(); index++) {
+            var movement = movements.get(index);
+            assertEquals(1L, ((Number) movement.get("product_id")).longValue());
+            assertEquals(-1, ((Number) movement.get("delta")).intValue());
+            assertEquals(10 - index, ((Number) movement.get("stock_before")).intValue());
+            assertEquals(9 - index, ((Number) movement.get("stock_after")).intValue());
+            assertEquals("ORDER_CREATED", movement.get("reason"));
+            assertEquals("ORDER", movement.get("source_type"));
+            assertEquals(jdbc.queryForObject("SELECT customer_id FROM orders WHERE id=?", Long.class, movement.get("source_id")),
+                    ((Number) movement.get("actor_user_id")).longValue());
+            assertNotNull(movement.get("created_at"));
+        }
+        assertEquals(10, jdbc.queryForObject("SELECT COUNT(DISTINCT source_id) FROM inventory_movements", Integer.class));
+
+        var beforeRetry = orderInventorySnapshot();
+        for (int index = 0; index < outcomes.size(); index++) if (outcomes.get(index).succeeded()) {
+            authenticateBuyer(index + 1L);
+            assertEquals(((Order) outcomes.get(index).value()).getId(),
+                    orderService.createOrder(com.example.demo.TestOrders.request(1L, 1), keys.get(index)).getId());
+        }
+        assertTrue(beforeRetry.equals(orderInventorySnapshot()), "customer-specific retries must leave every row unchanged");
+        System.out.println("AUD06 verified stock=0 product-version=10 orders=10 items=10 quantity=10 movements=10 distinct-success-customers=10 retries-unchanged=true");
+    }
+
+    private void authenticateBuyer(long id) {
+        String username = id == 1 ? "alice" : "aud06-customer-" + id;
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(username, null, List.of()));
+    }
+
+    private List<List<Map<String, Object>>> orderInventorySnapshot() {
+        return List.of("products", "orders", "order_items", "inventory_movements", "users").stream()
+                .map(table -> jdbc.queryForList("SELECT * FROM " + table + " ORDER BY id")).toList();
+    }
+
+    private String safeWorkerFailures(List<Outcome> outcomes) {
+        // Preserve per-worker cause types and JDBC diagnostics, never exception messages or credential values.
+        StringBuilder diagnostic = new StringBuilder();
+        for (int index = 0; index < outcomes.size(); index++) {
+            Throwable cause = outcomes.get(index).failure();
+            if (cause == null) continue;
+            diagnostic.append("worker#").append(index).append(':');
+            for (int depth = 0; cause != null && depth < 10; depth++, cause = cause.getCause()) {
+                diagnostic.append(cause.getClass().getSimpleName()).append(' ');
+                if (cause instanceof java.sql.SQLException sql)
+                    diagnostic.append("SQLState=").append(sql.getSQLState()).append(" code=").append(sql.getErrorCode()).append(' ');
+            }
+            diagnostic.append(';');
+        }
+        return diagnostic.toString();
     }
 
     @Test

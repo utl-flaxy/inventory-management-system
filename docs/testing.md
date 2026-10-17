@@ -491,3 +491,28 @@ ProductControllerTestに28件、ProductNameValidationITに18件を追加する�
 .\mvnw.cmd '-Dtest=ProductControllerTest' '-Dit.test=ProductNameValidationIT' verify
 .\mvnw.cmd verify
 ```
+
+## 異なる20顧客の在庫枯渇競合（AUD-06 / Issue #108）
+
+InventoryConcurrencyMariaDbITの `twentyDistinctCustomersCompeteForTenUnitsWithoutOverselling` を3回反復する。
+既存の同一customer 100 workerと、IdempotentOrderITの2顧客同時注文は保持する。
+新規3件を加え、Surefire1197 / Failsafe806 / total2003（F/E/S=0）を確認する。
+
+- 実DB ROLE_USERを20人、商品1個の在庫10・単価100・数量1、顧客ごとの固有keyを用意する。
+- 既存ヘルパーのREQUIRES_NEW / READ_COMMITTED・接続保持・同時開始latchを再利用し、各workerを自分の顧客として認証する。
+- 20の異なるCONNECTION_ID、Spring transaction active、MariaDBのin_transaction=1を確認。JDBCで全員の初期在庫/versionを読んでから第2latchを開く。JPA管理状態への先読みはせず、商品取得は実Serviceのロック経路に任せる。
+- 成功10、OutOfStockException10のみを許可。workerの原因class/SQLState/codeを診断し、例外message・認証情報・JWT・keyをログへ出さない。sleep・pool/timeoutの緩和は使わない。
+- 在庫0、商品version10、注文10、明細10、販売数量10、合計金額1000、成功顧客ID10種類、商品名/単価snapshot・status/version・日時を照合する。
+- ORDER_CREATED履歴10件のstock_before=10〜1 / stock_after=9〜0、source order・actor customerの対応を確認。
+- 成功顧客の同key retryで同一注文を返し、products/orders/order_items/inventory_movements/users全行が変化しないことを確認する。
+
+直接Serviceを実DBで競合させるテストであり、新たなHTTP/JWT経路の試験ではない。既存HTTPの冪等性・認可回帰はfull verifyで維持する。
+
+```powershell
+.\mvnw.cmd test-compile failsafe:integration-test failsafe:verify '-Dit.test=InventoryConcurrencyMariaDbIT#twentyDistinctCustomersCompeteForTenUnitsWithoutOverselling'
+.\mvnw.cmd verify
+```
+
+ロック除去検証はGit archiveから作る破棄可能な隔離コピーだけで行う。
+ProductRepository.findByIdForUpdateの@Lockと、OrderService.createOrderの商品refreshをそのコピー内でのみ除去し、同じ新規テストのFAILを確認する。
+本番ソース・共有branchにmutationを残さず、コピーのsourceも原状へ戻す。通常版の反復結果とmutationの失敗原因をPRへ記録する。
