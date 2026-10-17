@@ -76,6 +76,45 @@ class OrderControllerTest {
     }
 
     @Test
+    void oneHundredItemsReachServiceWithoutChangingTheRequest() throws Exception {
+        var request = new OrderRequest();
+        request.setItems(java.util.stream.LongStream.rangeClosed(1, 100)
+                .mapToObj(id -> new com.example.demo.dto.OrderItemRequest(id, 1)).toList());
+        var response = OrderResponse.from(order(1L, OrderStatus.PENDING,
+                OrderItem.create(new Product(1L, "apple", 100L, 10), 1)));
+        when(orderService.createOrderResponse(any(), anyString())).thenReturn(response);
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+        verify(orderService).createOrderResponse(eq(request), anyString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 101})
+    void itemCountOutsideBoundsReturnsValidationProblemBeforeService(int count) throws Exception {
+        var request = new OrderRequest();
+        request.setItems(java.util.stream.LongStream.rangeClosed(1, count)
+                .mapToObj(id -> new com.example.demo.dto.OrderItemRequest(id, 1)).toList());
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(com.example.demo.TestApiProblems.problem(400, "VALIDATION_ERROR", "Validation Error", "/api/v1/me/orders"))
+                .andExpect(jsonPath("$.errors.items").value(count == 0
+                        ? "注文明細は1件以上必要です" : "注文明細は100件以内で入力してください"));
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    void oversizedDuplicateItemsCannotBypassArrayCountLimit() throws Exception {
+        var request = new OrderRequest();
+        request.setItems(java.util.Collections.nCopies(101, new com.example.demo.dto.OrderItemRequest(1L, 1)));
+        mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors.items").value("注文明細は100件以内で入力してください"));
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
     void missingIdempotencyHeaderIs400BeforeService() throws Exception {
         mvc.perform(post("/api/v1/me/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":1,\"quantity\":1}]}"))

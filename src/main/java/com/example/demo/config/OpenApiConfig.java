@@ -32,6 +32,12 @@ public class OpenApiConfig {
                     .addProperty("errors", new ObjectSchema().additionalProperties(new StringSchema())
                             .description("Validation時のみ。nested field pathと安全なmessage。入力値は含まない"))
                     .required(java.util.List.of("type", "title", "status", "detail", "instance", "code")));
+            // @Size defaults min=0; retain @NotEmpty's lower bound when generating the array schema.
+            var orderRequest = api.getComponents().getSchemas().get("OrderRequest");
+            if (orderRequest != null && orderRequest.getProperties() != null) {
+                Schema<?> items = (Schema<?>) orderRequest.getProperties().get("items");
+                if (items != null) items.setMinItems(1);
+            }
             api.getPaths().forEach((path, item) -> item.readOperationsMap().forEach((method, operation) -> {
                 var responses = operation.getResponses();
                 if (path.equals("/auth/login") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {

@@ -28,7 +28,9 @@ USER/ADMINともself APIを利用でき、customerは現在のDBユーザーか�
 
 ## Canonical fingerprint
 
-DTOおよびServiceでproductId/quantityの正数・明細非空・商品ID重複なしを先に検証する。
+DTOおよびServiceで明細数1〜100、productId/quantityの正数・商品ID重複なしを先に検証する。
+101以上は指紋生成・customer/key検索より前に400で拒否する。100超の過去の注文と同じkeyであっても、
+上限超過の本文はreplay対象にせず、既存注文のGET等を使う。上限以内の指紋・replay/conflict契約は変わらない。
 重複明細は400のままで、数量を統合しない。検証済み明細をproductId昇順に並べ、
 `productId:quantity` をLFで連結する（末尾LFなし）。例のcanonical文字列は `1:2\n2:3`。
 UTF-8固定、Java標準MessageDigest SHA-256、lowercaseの64文字hexで保存する。

@@ -61,6 +61,17 @@ malformed JSON/missing/null body、parameter type mismatch、firewall拒否は40
 Idempotency-Key missingだけINVALID_IDEMPOTENCY_KEY。他required headerのmissingはINVALID_REQUEST。
 その他Spring MVC標準4xxは元のHTTP statusを維持しINVALID_REQUESTと固定detailで返す。
 
+## 注文作成の明細数（AUD-08 / Issue #112）
+
+`POST /api/v1/me/orders` のitemsは1〜100件。0件は既存400 VALIDATION_ERROR / errors.itemsを維持し、
+101件以上も400 VALIDATION_ERROR、errors.items「注文明細は100件以内で入力してください」を返す。
+明細の内容が正しくても上限を超えれば拒否し、重複IDを合算して件数を減らさない。
+Serviceを直接呼ぶ経路は同じ上限を、既存400 INVALID_ORDER_REQUESTと同じ固定detailで拒否する（errorsなし）。
+既存の6フィールドProblemDetail、Validation時だけのerrors、JWTの401/403、keyの400、内容競合の409は維持する。
+指紋計算・業務Repository照会/商品ロック/更新より前の検証で、失敗した要求は冪等keyを予約しない。
+上限超過は既存keyでも400が先になり、過去の100超の注文の参照/CSV/状態変更は影響を受けない。
+HTTP認証のuser lookupやJSON受信のコストまでなくなる制限ではない。詳細は[注文仕様](orders/order-aggregate.md#作成の明細数上限aud-08--issue-112)。
+
 Issue #2: GET `/products` と `/products/search` のsortはid/name/price/stock/versionだけを許可する。
 未知の項目はRepositoryアクセス前に400 INVALID_REQUESTで拒否し、detailは固定の
 `リクエストの形式が不正です`。入力sort・内部クラス名は返さない。

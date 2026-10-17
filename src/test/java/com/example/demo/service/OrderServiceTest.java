@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -256,6 +257,53 @@ class OrderServiceTest {
         OrderRequest request = com.example.demo.TestOrders.request(new OrderItemRequest(1L, 2), new OrderItemRequest(1L, 3));
         assertThrows(InvalidOrderRequestException.class, () -> orderService.createOrder(request, com.example.demo.TestOrders.key()));
         verifyNoInteractions(productRepository, orderRepository, orderItemRepository, currentUser, entityManager);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,101", "true,101", "false,2147483647", "true,2147483647"})
+    void oversizedRequestIsRejectedBeforeIterationFingerprintOrAnyBusinessDependency(boolean responseEntry, int size) {
+        var request = new OrderRequest();
+        request.setItems(new java.util.AbstractList<>() {
+            @Override public OrderItemRequest get(int index) { throw new AssertionError("Oversized items must not be traversed"); }
+            @Override public int size() { return size; }
+        });
+        var error = assertThrows(InvalidOrderRequestException.class, () -> {
+            if (responseEntry) orderService.createOrderResponse(request, "oversized-request");
+            else orderService.createOrder(request, "oversized-request");
+        });
+        assertEquals("注文明細は100件以内で入力してください", error.getMessage());
+        verifyNoInteractions(currentUser, userRepository, productRepository, orderRepository,
+                orderItemRepository, entityManager, inventoryService);
+    }
+
+    @Test
+    void oneHundredReversedItemsKeepAscendingLocksTotalsAndCanonicalFingerprint() {
+        var items = new java.util.ArrayList<OrderItemRequest>();
+        var products = new java.util.TreeMap<Long, Product>();
+        var quantities = new java.util.TreeMap<Long, Integer>();
+        for (long id = 100; id >= 1; id--) {
+            items.add(new OrderItemRequest(id, 1));
+            var product = new Product(id, "product-" + id, id * 10, 3);
+            products.put(id, product); quantities.put(id, 1);
+            when(productRepository.findByIdForUpdate(id)).thenReturn(Optional.of(product));
+        }
+        var request = new OrderRequest(); request.setItems(items);
+        when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var result = orderService.createOrder(request, "hundred-items");
+        var sequence = inOrder(productRepository, entityManager, orderRepository);
+        for (var entry : products.entrySet()) {
+            sequence.verify(productRepository).findByIdForUpdate(entry.getKey());
+            sequence.verify(entityManager).refresh(entry.getValue(), LockModeType.PESSIMISTIC_WRITE);
+        }
+        for (var product : products.values()) sequence.verify(productRepository).save(product);
+        sequence.verify(orderRepository).save(result);
+        assertEquals(100, result.getOrderItems().size());
+        assertEquals(50_500L, result.getTotalPrice());
+        assertEquals(new java.util.ArrayList<>(products.keySet()), result.getOrderItems().stream()
+                .map(item -> item.getProduct().getId()).toList());
+        assertEquals(OrderRequestFingerprint.fromValidatedItems(quantities), result.getRequestFingerprint());
+        assertTrue(products.values().stream().allMatch(product -> product.getStock() == 2));
+        verifyNoInteractions(orderItemRepository);
     }
 
     @Test

@@ -540,3 +540,26 @@ clockとlatchで窓・並行処理を制御し、長時間sleepを使わない�
 ```
 
 実本番peer・edge設定・分散DoS耐性の検証とは区別し、GitHub CIのDocker evidenceと全5ジョブをPRへ記録する。
+
+## 注文作成の明細数上限（AUD-08 / Issue #112）
+
+OrderControllerTest / OrderServiceTest / OrderRequestFingerprintTestを補強し、OrderItemLimitITを追加する。
+既存テストは保持し、実MariaDB12.2.2とJWT/認可を有効にしたHTTP、実TransactionのService両入口を検証する。
+
+- 0/100/101明細。入力配列が101なら重複商品であっても400 VALIDATION_ERROR / errors.itemsとなりServiceへ進まない。
+- 直接Serviceは101/Integer.MAX_VALUEを表すListをsizeだけで拒否し、get/iterator・指紋生成・CurrentUser・業務Repository/EntityManagerへ進まない。
+- 100商品の逆順入力でも商品ID昇順のPESSIMISTIC_WRITE取得/refreshを全件完了してから在庫更新する。
+- 100明細の保存、金額/商品snapshot、stock/version、100在庫移動を照合。明細順を逆転した同key retryで5表の全行が不変。
+- 101の商品はすべて実在させ、商品不存在による見せかけの400を避ける。HTTP/直接Serviceの超過、重複、最終明細の不正数量でproducts/orders/order_items/inventory_movements/users全行が不変。
+- 拒否時にkeyを予約せず、既存keyへ過大な本文を送っても元注文は不変。その後の有効なretryが成功する。
+- OpenAPIのOrderRequest.items minItems=1 / maxItems=100と400 ApiProblem参照を確認。保存済みOrderResponse配列へ上限を付けない。
+- Dockerの実JRE/non-rootイメージでも101明細のValidation拒否と注文/在庫/履歴の不変、既存key retryを検証する。
+
+```powershell
+.\mvnw.cmd '-Dtest=OrderControllerTest,OrderServiceTest,OrderRequestFingerprintTest,OrderIdempotencyServiceTest' test
+.\mvnw.cmd test-compile failsafe:integration-test failsafe:verify '-Dit.test=OrderItemLimitIT,IdempotentOrderIT'
+.\mvnw.cmd verify
+```
+
+HTTPダンプを無効化し、DB snapshotはboolean比較でcredentialやkeyを失敗ログに載せない。
+JSON本文サイズ/受信速度/頻度の上限や本番負荷試験とは区別して結果を記録する。
