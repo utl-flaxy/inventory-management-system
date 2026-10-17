@@ -44,7 +44,9 @@ Issue #74のlogin制限は[接続元の信頼境界](auth.md#接続元とプロ�
 公開前に運用者がCaddy→appの実際のsocket peerを確認し、hostローカル `.env` の
 `LOGIN_TRUSTED_PROXIES` に完全一致IPだけを設定する（環境/secretのdumpは不要）。
 Docker bridge gatewayを含む可能性があり、loopbackやprivate CIDR全体を自動許可しない。
-未設定でも制限は有効だがproxy背後でsource枠を共有する。閾値/windowはSpring外部設定で調整できる。
+未設定・空はCompose解決とprod起動で拒否する（A-01/#97）。誤った非空peerや不正な転送情報はloginを503にする。
+readinessがUPでも信頼設定の正しさは証明しないため、公開前に異なる実clientのloginを確認する。
+旧global-limit overrideは起動時エラーとなるので除去し、max-concurrentとsource/pair/windowを実測に基づき調整する。
 Deploy workflowの有効化や本番設定変更はこのPRでは行わない。
 
 runnerはSSH前に9項目の非空とSHA形式、JWT鍵長、DB名/userの英字開始の英数字・underscore、root禁止、memory予算形式を検証する。

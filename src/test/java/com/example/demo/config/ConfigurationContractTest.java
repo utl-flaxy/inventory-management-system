@@ -141,7 +141,7 @@ class ConfigurationContractTest {
         var services = (java.util.Map<String, java.util.Map<String, Object>>) compose.get("services");
         var app = services.get("app");
         var environment = (java.util.Map<String, String>) app.get("environment");
-        assertEquals("${LOGIN_TRUSTED_PROXIES:-}", environment.get("APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES"));
+        assertEquals("${LOGIN_TRUSTED_PROXIES:?LOGIN_TRUSTED_PROXIES must contain verified Caddy transport peers}", environment.get("APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES"));
         assertEquals(java.util.List.of("127.0.0.1:8080:8080"), app.get("ports"));
         assertFalse(services.get("db").containsKey("ports"));
         assertTrue(Files.readString(Path.of(".env.example")).contains("LOGIN_TRUSTED_PROXIES=\n")

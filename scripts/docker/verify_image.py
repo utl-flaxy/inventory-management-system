@@ -59,7 +59,8 @@ def wait_db(name):
 
 
 def request(port, path, expected=200, *, method="GET", data=None, token=None, extra=None):
-    headers = {"Content-Type": "application/json", **(extra or {})}
+    # This fixture acts as a trusted edge; production Caddy overwrites client claims.
+    headers = {"Content-Type": "application/json", "X-Forwarded-For": "198.51.100.10", **(extra or {})}
     if token:
         headers["Authorization"] = "Bearer " + token
     payload = json.dumps(data).encode() if data is not None else None
@@ -72,6 +73,41 @@ def request(port, path, expected=200, *, method="GET", data=None, token=None, ex
         status, response_headers, body = response.status, response.headers, response.read()
     assert status == expected, f"HTTP contract failed: {method} {path}; expected={expected}, actual={status}"
     return json.loads(body) if body else None, response_headers
+
+
+def discover_transport_peer(root, temp, network, nonce, created):
+    """Observe this disposable host-published path, including Docker Desktop NAT, without app IP logging."""
+    source = temp / "PeerProbe.java"
+    source.write_text(
+        'import com.sun.net.httpserver.HttpServer; import java.net.InetSocketAddress;\n'
+        'class PeerProbe { public static void main(String[] args) throws Exception {\n'
+        ' var server = HttpServer.create(new InetSocketAddress(8080), 0);\n'
+        ' server.createContext("/", exchange -> {\n'
+        '  byte[] peer = exchange.getRemoteAddress().getAddress().getHostAddress().getBytes(java.nio.charset.StandardCharsets.US_ASCII);\n'
+        '  exchange.sendResponseHeaders(200, peer.length);\n'
+        '  try (var out = exchange.getResponseBody()) { out.write(peer); }\n'
+        ' }); server.start(); } }\n', encoding="utf-8")
+    build_image = re.search(r"^FROM (\S+) AS build$", (root / "Dockerfile").read_text(encoding="utf-8"), re.M).group(1)
+    name = "inventory76-peer-" + nonce
+    created.append(("container", name))
+    docker("run", "-d", "--name", name, "--network", network,
+           "--label", f"inventory.issue76={nonce}", "--publish", "127.0.0.1::8080",
+           "--read-only", "--user", "10001:10001", "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
+           "--pids-limit=64", "--memory=256m", "--memory-swap=256m",
+           "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m,mode=1777", "--no-healthcheck",
+           "--mount", f"type=bind,source={source},target=/probe/PeerProbe.java,readonly",
+           "--entrypoint", "java", build_image, "-Xmx96m", "--add-modules", "jdk.httpserver", "/probe/PeerProbe.java")
+    port = int(inspect(name)["NetworkSettings"]["Ports"]["8080/tcp"][0]["HostPort"])
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2) as response:
+                peer = response.read(64).decode("ascii")
+            import ipaddress
+            return str(ipaddress.ip_address(peer))
+        except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError):
+            time.sleep(1)
+    raise RuntimeError("Disposable transport peer observation failed")
 
 
 def memory(name):
@@ -182,6 +218,22 @@ def api_regression(port, db, image, network):
         tokens["docker_admin" if username == administrator else username] = body["token"]
         private_values.append(body["token"])
     user, admin = tokens["docker_user"], tokens["docker_admin"]
+    for _ in range(5):
+        request(port, "/auth/login", 401, method="POST",
+                data={"username": "docker_user", "password": "wrong-disposable-password"},
+                extra={"X-Forwarded-For": "198.51.100.66"})
+    limited, retry = request(port, "/auth/login", 429, method="POST",
+                             data={"username": "docker_user", "password": password},
+                             extra={"X-Forwarded-For": "198.51.100.66"})
+    assert limited["code"] == "LOGIN_RATE_LIMITED" and int(retry["Retry-After"]) >= 1
+    other, _ = request(port, "/auth/login", method="POST", data={"username": "docker_user", "password": password},
+                       extra={"X-Forwarded-For": "198.51.100.67"})
+    private_values.append(other["token"])
+    unavailable, _ = request(port, "/auth/login", 503, method="POST",
+                              data={"username": "docker_user", "password": password},
+                              extra={"Forwarded": "for=198.51.100.68"})
+    assert unavailable["code"] == "LOGIN_SOURCE_UNAVAILABLE"
+    checks.append("Verified disposable transport peer, distinct forwarded clients, attacker 401/429 Retry-After, victim 200, malformed proxy 503")
     request(port, "/products", 401)
     request(port, "/products", 401, token="invalid-docker-test-token")
     request(port, "/api/v1/admin/orders", 403, token=user)
@@ -301,6 +353,11 @@ def main():
                                 SPRING_DATASOURCE_USERNAME="inventory_app",
                                 SPRING_DATASOURCE_PASSWORD=database_env["MARIADB_PASSWORD"],
                                 JWT_SECRET=secrets.token_hex(32))
+            app_settings["APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES"] = discover_transport_peer(
+                root, temp, network, nonce, created)
+            private_values.append(app_settings["APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES"])
+            report["login_client_identity"] = {"observed_disposable_peer": True, "trusted_peer_count": 1,
+                                               "production_peer_verified": False}
             private_values.append(app_settings["JWT_SECRET"])
             app_env.write_text("".join(f"{k}={v}\n" for k, v in app_settings.items()), encoding="utf-8")
             app_env.chmod(0o600)
