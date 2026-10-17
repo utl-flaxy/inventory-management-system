@@ -284,7 +284,7 @@ class InitialAdminProvisioningIT {
 
     @Test
     void publicAdminUsernameAndRoleInputStayUserWhileProvisionedAdminUsesNormalJwtAuthorization() throws Exception {
-        String registration = mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+        String registration = mvc.perform(post("/auth/register").header("X-Forwarded-For", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("username", "admin", "password", PASSWORD, "role", "ROLE_ADMIN"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("ROLE_USER"))
                 .andReturn().getResponse().getContentAsString();

@@ -42,6 +42,16 @@ public class OpenApiConfig {
                                     .description("Minimum wait in whole seconds; another request can consume available quota")
                                     .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
                 }
+                if (path.equals("/auth/register") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
+                    operation.setDescription("Public ROLE_USER registration. Defaults per JVM: 5 admitted attempts per verified source per fixed 60-second window, 2 concurrent registrations, 4096 source windows. Success, duplicate and internal failure consume admission. Login counters/permits are independent. Shared NAT, restart, eviction and multiple JVMs limit protection; edge abuse controls are required.");
+                    responses.addApiResponse("503", new ApiResponse()
+                            .description("REGISTRATION_SOURCE_UNAVAILABLE: verified client identity unavailable; operator configuration required"));
+                    responses.addApiResponse("429", new ApiResponse()
+                            .description("REGISTRATION_RATE_LIMITED: source quota or registration concurrency exhausted before DB/BCrypt")
+                            .addHeaderObject("Retry-After", new io.swagger.v3.oas.models.headers.Header()
+                                    .description("Positive whole seconds until source window expires; 1 second for concurrent saturation. Availability is not guaranteed after waiting.")
+                                    .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
+                }
                 responses.addApiResponse("500", new ApiResponse().description("SYSTEM_ERROR"));
                 if (!path.startsWith("/auth/")) {
                     responses.addApiResponse("401", new ApiResponse().description("UNAUTHENTICATED"));

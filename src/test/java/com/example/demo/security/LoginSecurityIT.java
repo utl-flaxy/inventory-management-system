@@ -126,7 +126,7 @@ class LoginSecurityIT {
     }
 
     @Test
-    void thresholdRecoveryAndValidationPreserve401429400AndRegistrationHasNoQuota() throws Exception {
+    void thresholdRecoveryAndValidationPreserve401429400AndRegistrationHasIndependentQuota() throws Exception {
         for (int i = 0; i < 2; i++) login("198.51.100.1", USERNAME, "wrong-password").andExpect(status().isUnauthorized());
         clearInvocations(users, encoder, jwt);
         var response = login("198.51.100.1", USERNAME, PASSWORD).andExpect(status().isTooManyRequests())
@@ -142,7 +142,7 @@ class LoginSecurityIT {
         login("198.51.100.1", USERNAME, PASSWORD).andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "1"));
         when(clock.instant()).thenReturn(start.plusSeconds(60));
         login("198.51.100.1", USERNAME, PASSWORD).andExpect(status().isOk());
-        mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/auth/register").header("X-Forwarded-For", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(Map.of("username", "another-user", "password", PASSWORD))))
                 .andExpect(status().isOk());
         assertEquals(2, users.count());

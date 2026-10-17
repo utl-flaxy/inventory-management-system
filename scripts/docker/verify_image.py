@@ -234,6 +234,24 @@ def api_regression(port, db, image, network):
                               extra={"Forwarded": "for=198.51.100.68"})
     assert unavailable["code"] == "LOGIN_SOURCE_UNAVAILABLE"
     checks.append("Verified disposable transport peer, distinct forwarded clients, attacker 401/429 Retry-After, victim 200, malformed proxy 503")
+    registration_source = {"X-Forwarded-For": "198.51.100.70"}
+    for _ in range(5):
+        request(port, "/auth/register", 409, method="POST",
+                data={"username": "docker_user", "password": password}, extra=registration_source)
+    denied, retry = request(port, "/auth/register", 429, method="POST",
+                            data={"username": "should_not_exist", "password": password}, extra=registration_source)
+    assert denied["code"] == "REGISTRATION_RATE_LIMITED" and int(retry["Retry-After"]) >= 1
+    assert db_query(db, "SELECT COUNT(*) FROM users WHERE username='should_not_exist';") == "0"
+    request(port, "/auth/register", 409, method="POST", data={"username": "docker_user", "password": password},
+            extra={"X-Forwarded-For": "198.51.100.71"})
+    independent, _ = request(port, "/auth/login", method="POST", data={"username": "docker_user", "password": password},
+                             extra=registration_source)
+    private_values.append(independent["token"])
+    unavailable, _ = request(port, "/auth/register", 503, method="POST",
+                              data={"username": "should_not_exist", "password": password},
+                              extra={"Forwarded": "for=198.51.100.72"})
+    assert unavailable["code"] == "REGISTRATION_SOURCE_UNAVAILABLE"
+    checks.append("Registration: five admitted duplicate failures, 429 Retry-After before insert, independent client and login, malformed proxy 503")
     request(port, "/products", 401)
     request(port, "/products", 401, token="invalid-docker-test-token")
     request(port, "/api/v1/admin/orders", 403, token=user)

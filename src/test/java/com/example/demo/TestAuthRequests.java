@@ -9,6 +9,13 @@ public final class TestAuthRequests {
     public static final String PASSWORD = "safe-auth-password-31";
     private TestAuthRequests() { }
 
+    private static final java.util.concurrent.atomic.AtomicInteger CLIENTS = new java.util.concurrent.atomic.AtomicInteger();
+
+    /** Distinct test callers without changing real admission limits or trusting request headers. */
+    public static String nextClientAddress() {
+        return "2001:db8::" + Integer.toHexString(CLIENTS.incrementAndGet());
+    }
+
     public static Map<String, Object> credentials(String username, String password) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("username", username);

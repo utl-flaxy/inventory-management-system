@@ -7,6 +7,8 @@ import com.example.demo.exception.UsernameAlreadyExistsException;
 import com.example.demo.security.JwtAuthenticationFilter;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.security.LoginRateLimiter;
+import com.example.demo.security.RegistrationRateLimiter;
+import com.example.demo.exception.RegistrationRateLimitExceededException;
 import com.example.demo.exception.LoginRateLimitExceededException;
 import com.example.demo.service.AuthService;
 import tools.jackson.databind.ObjectMapper;
@@ -38,6 +40,7 @@ class AuthControllerTest {
     @Autowired private ObjectMapper json;
     @MockitoBean private AuthService auth;
     @MockitoBean private LoginRateLimiter limiter;
+    @MockitoBean private RegistrationRateLimiter registrationLimiter;
     @MockitoBean private JwtAuthenticationFilter filter;
     @MockitoBean private JwtUtil jwt;
     @MockitoBean private UserDetailsService details;
@@ -53,13 +56,13 @@ class AuthControllerTest {
         assertFalse(response.contains(PASSWORD));
         assertFalse(response.contains("rawPassword"));
         assertFalse(response.contains("token"));
-        verifyNoInteractions(auth, jwt, limiter);
+        verifyNoInteractions(auth, jwt, limiter, registrationLimiter);
     }
 
     @Test
     void successKeeps200AndReturnsOnlyTheRegisterDtoOrLoginToken() throws Exception {
         when(auth.register(any())).thenReturn(new User(1L, "alice", "stored-hash", "ROLE_USER"));
-        var registered = json.readTree(mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+        var registered = json.readTree(mvc.perform(post("/auth/register").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertEquals(3, registered.size());
@@ -74,7 +77,7 @@ class AuthControllerTest {
     @Test
     void dedicatedExceptionsProduce409Or401WithStableCodes() throws Exception {
         when(auth.register(any())).thenThrow(new UsernameAlreadyExistsException());
-        mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/auth/register").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD))))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("USERNAME_ALREADY_EXISTS"));
         when(auth.login(any())).thenThrow(new InvalidCredentialsException());
@@ -125,8 +128,29 @@ class AuthControllerTest {
     @Test
     void registrationDoesNotConsultLoginLimiter() throws Exception {
         when(auth.register(any())).thenReturn(new User(1L, "alice", "stored-hash", "ROLE_USER"));
-        mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/auth/register").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(credentials("alice", PASSWORD)))).andExpect(status().isOk());
         verifyNoInteractions(limiter);
+        verify(registrationLimiter).acquire("198.51.100.1");
+    }
+
+    @Test
+    void registrationRateLimitHasItsOwnSafe429AndRetryAfterWithoutCallingAuthOrLoginLimiter() throws Exception {
+        doThrow(new RegistrationRateLimitExceededException(17)).when(registrationLimiter).acquire(anyString());
+        mvc.perform(post("/auth/register").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1")
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(credentials("alice", PASSWORD))))
+                .andExpect(com.example.demo.TestApiProblems.problem(429, "REGISTRATION_RATE_LIMITED", "Registration Rate Limited", "/auth/register"))
+                .andExpect(header().string("Retry-After", "17"))
+                .andExpect(jsonPath("$.detail").value(RegistrationRateLimitExceededException.DETAIL));
+        verifyNoInteractions(auth, jwt, limiter);
+    }
+
+    @Test
+    void missingRegistrationCaptureHasSafe503WithoutServiceOrEitherLimiter() throws Exception {
+        mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(credentials("alice", PASSWORD))))
+                .andExpect(com.example.demo.TestApiProblems.problem(503, "REGISTRATION_SOURCE_UNAVAILABLE", "Registration Source Unavailable", "/auth/register"))
+                .andExpect(header().doesNotExist("Retry-After"));
+        verifyNoInteractions(auth, jwt, limiter, registrationLimiter);
     }
 }

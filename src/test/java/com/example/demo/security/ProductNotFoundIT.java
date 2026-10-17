@@ -65,6 +65,7 @@ class ProductNotFoundIT {
 
     @BeforeEach
     void fixtures() throws Exception {
+        String registrationSource = com.example.demo.TestAuthRequests.nextClientAddress();
         SecurityContextHolder.clearContext();
         jdbc.update("DELETE FROM inventory_movements");
         jdbc.update("DELETE FROM order_items");
@@ -73,6 +74,7 @@ class ProductNotFoundIT {
         jdbc.update("DELETE FROM users");
         for (String username : List.of("alice", "admin")) {
             mvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+                            .with(request -> { request.setRemoteAddr(registrationSource); return request; })
                             .content(json.writeValueAsString(Map.of("username", username, "password", "test-password"))))
                     .andExpect(status().isOk());
         }

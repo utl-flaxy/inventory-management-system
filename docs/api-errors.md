@@ -48,7 +48,14 @@ JSON propertyの順序は契約にしない。
 | 409 | ILLEGAL_ORDER_STATE_TRANSITION | Illegal Order State Transition |
 | 409 | ORDER_INVENTORY_RESTORATION_FAILED | Order Inventory Restoration Failed |
 | 415 | UNSUPPORTED_MEDIA_TYPE | Unsupported Media Type |
+| 429 | LOGIN_RATE_LIMITED | Login Rate Limited |
+| 429 | REGISTRATION_RATE_LIMITED | Registration Rate Limited |
+| 503 | LOGIN_SOURCE_UNAVAILABLE | Login Source Unavailable |
+| 503 | REGISTRATION_SOURCE_UNAVAILABLE | Registration Source Unavailable |
 | 500 | SYSTEM_ERROR | System Error |
+
+登録・ログインの429には正の秒数の `Retry-After` を付ける。接続元不明503には付けず、運用設定の確認を求める。
+両APIの制限・接続元検証・受付順序は[Auth仕様](auth.md)を参照する。
 
 malformed JSON/missing/null body、parameter type mismatch、firewall拒否は400 INVALID_REQUEST。
 Idempotency-Key missingだけINVALID_IDEMPOTENCY_KEY。他required headerのmissingはINVALID_REQUEST。

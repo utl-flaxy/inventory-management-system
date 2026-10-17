@@ -47,7 +47,58 @@ flush/commitの失敗をrollback完了後に捕捉でき、rollback-only Transac
 {"type":"https://inventory-management-system.example/problems/username-already-exists","title":"Username Already Exists","status":409,"detail":"ユーザー名は既に使用されています","instance":"/auth/register","code":"USERNAME_ALREADY_EXISTS"}
 ```
 
-## Login
+## 登録の負荷制限（AUD-07 / Issue #110）
+
+公開入口は `POST /auth/register`（`/register`単独ではない）。有効な入力の受付前に、ログインと同じ
+transport peer捕捉・信頼proxy検証を使う。信頼設定は既存の `app.login.rate-limit.trusted-proxies` と
+`require-trusted-proxy` を共用する。登録専用の別allowlistを作らず、本番は両APIで同じ確認済み経路を要求する。
+未信頼XFFを接続元に採用せず、prodで未確認peer・不正/欠落/chain/重複XFF・Forwarded競合なら503。
+`unknown` やDocker peerの共通枠には戻さない。Caddy/host/Dockerの信頼境界・運用者のpeer実測手順は下記と同じ。
+
+| Spring property (`app.registration.rate-limit.` に続ける) | 既定値 | 用途 |
+|---|---|---|
+| `source-limit` | 5 | 確認済み接続元ごとの受付回数。usernameを変えても同じ枠 |
+| `window` | `PT1M` | 最初の受付から60秒の固定窓 |
+| `max-concurrent` | 2 | DB lookup〜BCrypt encode〜保存〜DTO返却の同時処理上限。待ち行列なし |
+| `max-entries` | 4096 | 保存する接続元窓の上限。username/password/body/JWTは保持しない |
+
+source-limitは正整数、同時数1〜64、保存数1〜100000、窓1秒〜24時間。不正設定では起動失敗し、
+prodではDB初期化前に拒否する。外部設定例: `APP_REGISTRATION_RATE_LIMIT_MAX_CONCURRENT=2`。
+上限の引き上げを推奨する値ではない。CPU・DB・host余力を実測して決定する。
+
+接続元を確認できれば、400 Validation/不正JSON・415は従来どおり受付枠を消費しない。
+接続元を確認できない経路は入力不正より503を優先し、DB/BCryptへ進めない。
+受付した登録は成功200・username重複409・内部エラー500も1回消費する。失敗/成功で回数をresetせず、
+try-with-resourcesでpermitを必ず解放する。登録回数とpermitはログインから独立しており、登録が満杯でも
+ログインの枠を消費しない。既定の最大認証処理数はログイン4＋登録2。CPU/DB自体は共用なので遅延の完全隔離は保証しない。
+
+429は6フィールドProblemDetail、code `REGISTRATION_RATE_LIMITED`、title `Registration Rate Limited`、
+固定detail「登録試行回数が上限に達しました。時間をおいて再試行してください」。
+`Retry-After` は接続元窓の残り時間の切上げ秒（正数）、同時枠満杯なら1秒。待てば必ず成功する保証ではない。
+source不明は503 `REGISTRATION_SOURCE_UNAVAILABLE`、title `Registration Source Unavailable`、
+固定detail「登録接続元を確認できません。運用者にお問い合わせください」。設定是正が必要なためRetry-Afterは付けない。
+200のROLE_USER/DTO、409、JWT/認可は維持する。IP・username・秘密値を新しいログや拒否レスポンスへ追加しない。
+429は値なしイベント `auth.register.throttled`、503は既存HTTP完了statusで診断する。
+
+窓・permit・容量の確認と加算は同じ同期区間で行う。時計後退は最後の観測時刻へclampする。
+期限切れ窓は受付時に破棄し、容量に達すれば最古の接続元窓を退避して新規clientを受付する。
+固定長の数値IPだけをkeyにするため、保存量はO(max-entries)、同時permitはO(max-concurrent)。バックグラウンドthreadや待ち行列は作らない。
+拒否された要求は新しいstate/permitを作らない。送信元を変えない攻撃者はusername変更で自分の窓を退避できない。
+
+**運用上の限界:** NAT共有の利用者は5回/分を共有する。固定窓境界で2窓分のburstがあり、IPv6アドレス変更・
+多数の実接続元による履歴退避で旧sourceが再受付され得る。stateは単一JVM内だけで再起動時にresetし、複数JVMでは共有しない。
+全体の1分枠を失敗履歴で使い切らせる設計は採用しないが、分散攻撃が同時2枠を継続占有すれば正規登録も一時429になり得る。
+長期の不要アカウント増加、HTTP parsing/不正入力の大量送信、ネットワークDoSを完全には防がない。
+edgeでの送信元別流量/接続/本文サイズ制御、監視・容量計画、必要なら登録verification等は別の運用/設計事項。
+CAPTCHAや分散storeをこの変更で追加しない。公開前に実peerと複数clientの疎通を確認する。本番検証は未実施。
+rollbackは旧app imageへ戻す既存手順で、DB/migrationの変更は不要。ただし旧imageでは登録の保護も失われる。
+
+RegistrationRateLimiterTestは時間/容量/同時境界と解放、RegistrationClientAddressFilterTestは偽装/不正sourceを検証する。
+RegistrationSecurityITは実MariaDB・prod・実HTTPで正常/409/429/503/500、JWT/role、ログ非露出、
+20並列中2受付/18拒否とlogin独立性を検証する。既存の10顧客DB一意制約テストは実際の既定同時上限2を
+テスト送信側で守り、別々の接続元で実施する（本体の設定・pool・timeoutを緩和しない）。
+
+## Login（認証処理）
 
 入力形式が有効で試行枠があればfindByUsernameを1回、PasswordEncoder.matchesを1回実行する。
 ユーザー不在時は起動時に一度だけ同じPasswordEncoderで生成したランダムなdummy BCrypt hashへ照合する。
@@ -74,6 +125,8 @@ CPU負荷等による実時間差の完全な解消やconstant-time認証は保�
 | duplicate username | 409 USERNAME_ALREADY_EXISTS |
 | 形式は有効だが認証情報が一致しない | 401 INVALID_CREDENTIALS |
 | 有効形式のloginが試行枠・状態保持容量を超過 | 429 LOGIN_RATE_LIMITED + Retry-After（秒） |
+| 登録の接続元枠または同時処理数を超過 | 429 REGISTRATION_RATE_LIMITED + Retry-After（秒） |
+| 登録の接続元を安全に確認できない | 503 REGISTRATION_SOURCE_UNAVAILABLE、Retry-Afterなし |
 | 予期しない内部エラー | 500 SYSTEM_ERROR、全API共通の「予期しないエラーが発生しました」 |
 
 Validation responseの`password`はfield名であり、実password値を返さない。
@@ -81,7 +134,7 @@ SQL/constraint名、rawPassword cannot be null等の内部例外、hash/token/�
 Authの汎用RuntimeExceptionとSystem.out.printlnを削除し、同内容のloggingへの置換も行わない。
 他の既存例外handlerとOrderのIDEMPOTENCY_KEY_CONFLICTを維持する。
 OpenAPIのRegister/Login requestへminLength/maxLength/pattern、password writeOnlyとUTF-8 byte制限を表示し、
-register200/400/409、login200/400/401/429とRetry-Afterを明示する。
+register200/400/409/429/503、login200/400/401/429/503とRetry-Afterを明示する。
 4xx/5xxはapplication/problem+jsonと共通ApiProblem schemaを参照する。
 
 ## 検証

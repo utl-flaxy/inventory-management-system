@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.boot.context.properties.bind.Binder;
 import com.example.demo.security.LoginRateLimitProperties;
+import com.example.demo.security.RegistrationRateLimitProperties;
 
 import java.nio.charset.StandardCharsets;
 import java.net.URLDecoder;
@@ -40,6 +41,8 @@ public class ProductionConfiguration {
             }
             Binder.get(environment).bind("app.login.rate-limit", LoginRateLimitProperties.class)
                     .orElseGet(LoginRateLimitProperties::new).validateProduction();
+            Binder.get(environment).bind("app.registration.rate-limit", RegistrationRateLimitProperties.class)
+                    .orElseGet(RegistrationRateLimitProperties::new).validate();
             if (!"framework".equalsIgnoreCase(environment.getProperty("server.forward-headers-strategy")))
                 throw new IllegalStateException("Production forwarding must use framework after transport capture");
         };

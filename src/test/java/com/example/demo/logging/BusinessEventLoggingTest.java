@@ -47,7 +47,8 @@ class BusinessEventLoggingTest {
     @BeforeEach
     void setup() {
         mvc = MockMvcBuilders.standaloneSetup(new AuthController(
-                        new AuthService(users, passwords, jwt, mock(LoginDummyPassword.class)), mock(LoginRateLimiter.class)),
+                        new AuthService(users, passwords, jwt, mock(LoginDummyPassword.class)), mock(LoginRateLimiter.class),
+                        mock(com.example.demo.security.RegistrationRateLimiter.class)),
                         new SelfOrderController(orders), new AdminOrderController(orders), new InventoryController(inventory))
                 .setControllerAdvice(new GlobalExceptionHandler()).addFilters(new RequestCorrelationFilter()).build();
     }
@@ -72,7 +73,7 @@ class BusinessEventLoggingTest {
         when(users.findByUsername(user.getUsername())).thenReturn(Optional.empty());
         when(passwords.encode("super-secret-password")).thenReturn("private-test-hash");
         when(users.saveAndFlush(any())).thenReturn(user);
-        assertEvent(post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+        assertEvent(post("/auth/register").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"private_username\",\"password\":\"super-secret-password\"}"),
                 "auth.register.succeeded", Map.of("userId", 7L, "role", "ROLE_USER"));
     }
@@ -176,7 +177,7 @@ class BusinessEventLoggingTest {
             case "register" -> {
                 when(users.findByUsername(user.getUsername())).thenReturn(Optional.empty());
                 when(users.saveAndFlush(any())).thenThrow(failure);
-                yield post("/auth/register").contentType(MediaType.APPLICATION_JSON)
+                yield post("/auth/register").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"private_username\",\"password\":\"super-secret-password\"}");
             }
             case "create" -> {

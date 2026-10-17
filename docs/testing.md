@@ -516,3 +516,27 @@ InventoryConcurrencyMariaDbITの `twentyDistinctCustomersCompeteForTenUnitsWitho
 ロック除去検証はGit archiveから作る破棄可能な隔離コピーだけで行う。
 ProductRepository.findByIdForUpdateの@Lockと、OrderService.createOrderの商品refreshをそのコピー内でのみ除去し、同じ新規テストのFAILを確認する。
 本番ソース・共有branchにmutationを残さず、コピーのsourceも原状へ戻す。通常版の反復結果とmutationの失敗原因をPRへ記録する。
+
+## 公開登録の負荷制限（AUD-07 / Issue #110）
+
+RegistrationRateLimiterTest / RegistrationClientAddressFilterTest / RegistrationSecurityITを追加する。
+実MariaDB・prod・実embedded HTTP・実Securityで、既定5回/分・同時2件を変更せず検証する。
+clockとlatchで窓・並行処理を制御し、長時間sleepを使わない。
+
+- 正常登録のROLE_USER/BCrypt/DTO、JWT、401/403、重複409と元hash保持。
+- 窓の直前/直後・Retry-After切上げ、source分離、IP正規化、state上限と退避/期限切れ、時計後退。
+- 20並列中2受付/18拒否。拒否側のDB/BCrypt未実行、待ち行列なし、完了直後の再受付。
+- lookup/encode/saveの各失敗も枠を消費し、permit解放・安全な500・元DB状態を維持する。
+- trusted peerの単一XFF、未信頼偽装・chain・重複・欠落・Forwarded競合・source不明503、ログ/拒否本文の非露出。
+- 登録とloginの回数・permitの独立性。LoginSecurityITを含む既存回帰をfull verifyで実行する。
+- 既存10顧客のUNIQUE競合テストは、送信側Semaphore(2)と別clientで新しい受付契約を守る。
+  実装の上限、DB pool、timeoutは変更しない。HTTP超過は新規20並列テストで直接検証する。
+- Docker検証scriptも登録5回/429・別source・login独立・proxy不正503と未挿入を確認する。
+
+```powershell
+.\mvnw.cmd '-Dtest=RegistrationRateLimiterTest,RegistrationClientAddressFilterTest,AuthControllerTest,ProductionConfigurationTest' test
+.\mvnw.cmd test-compile failsafe:integration-test failsafe:verify '-Dit.test=RegistrationSecurityIT,LoginSecurityIT,AuthApiIT'
+.\mvnw.cmd verify
+```
+
+実本番peer・edge設定・分散DoS耐性の検証とは区別し、GitHub CIのDocker evidenceと全5ジョブをPRへ記録する。
