@@ -3,10 +3,13 @@ package com.example.demo.security;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
@@ -65,6 +68,16 @@ class JwtUtilTest {
         String token = issuer.generateToken("alice");
 
         assertThrows(JwtException.class, () -> verifier.extractUsername(token));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = JwtNegativeTokens.Case.class, names = {"UNSIGNED", "PAYLOAD_TAMPERED", "WRONG_SIGNATURE"})
+    void unsignedOrCryptographicallyModifiedTokenIsRejected(JwtNegativeTokens.Case scenario) {
+        JwtUtil verifier = new JwtUtil(SECRET_A, "inventory-management-system", 3_600_000L);
+        String token = JwtNegativeTokens.invalid(scenario, SECRET_A, SECRET_B, "alice", "target_admin");
+        Class<? extends JwtException> expected = scenario == JwtNegativeTokens.Case.UNSIGNED
+                ? UnsupportedJwtException.class : SignatureException.class;
+        assertThrows(expected, () -> verifier.extractUsername(token));
     }
 
     @ParameterizedTest
