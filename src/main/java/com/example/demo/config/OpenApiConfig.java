@@ -42,7 +42,7 @@ public class OpenApiConfig {
                 var responses = operation.getResponses();
                 if (path.equals("/auth/login") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
                     responses.addApiResponse("503", new ApiResponse()
-                            .description("LOGIN_SOURCE_UNAVAILABLE: verified client identity unavailable; operator configuration required"));
+                            .description("LOGIN_SOURCE_UNAVAILABLE: verified client identity unavailable; operator configuration required. SERVICE_UNAVAILABLE: temporary database connection/timeout failure; credentials were not rejected."));
                     responses.addApiResponse("429", new ApiResponse().description("LOGIN_RATE_LIMITED: admission denied before credential lookup; valid credentials also consume quota")
                             .addHeaderObject("Retry-After", new io.swagger.v3.oas.models.headers.Header()
                                     .description("Minimum wait in whole seconds; another request can consume available quota")
@@ -51,7 +51,7 @@ public class OpenApiConfig {
                 if (path.equals("/auth/register") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
                     operation.setDescription("Public ROLE_USER registration. Defaults per JVM: 5 admitted attempts per verified source per fixed 60-second window, 2 concurrent registrations, 4096 source windows. Success, duplicate and internal failure consume admission. Login counters/permits are independent. Shared NAT, restart, eviction and multiple JVMs limit protection; edge abuse controls are required.");
                     responses.addApiResponse("503", new ApiResponse()
-                            .description("REGISTRATION_SOURCE_UNAVAILABLE: verified client identity unavailable; operator configuration required"));
+                            .description("REGISTRATION_SOURCE_UNAVAILABLE: verified client identity unavailable; operator configuration required. SERVICE_UNAVAILABLE: temporary database connection/timeout failure."));
                     responses.addApiResponse("429", new ApiResponse()
                             .description("REGISTRATION_RATE_LIMITED: source quota or registration concurrency exhausted before DB/BCrypt")
                             .addHeaderObject("Retry-After", new io.swagger.v3.oas.models.headers.Header()
@@ -59,6 +59,7 @@ public class OpenApiConfig {
                                     .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
                 }
                 responses.addApiResponse("500", new ApiResponse().description("SYSTEM_ERROR"));
+                responses.putIfAbsent("503", new ApiResponse().description("SERVICE_UNAVAILABLE: temporary database connection/timeout failure; keep a valid JWT. Recovery time is unknown; no Retry-After. Do not blindly replay writes."));
                 if (!path.startsWith("/auth/")) {
                     responses.addApiResponse("401", new ApiResponse().description("UNAUTHENTICATED"));
                     responses.addApiResponse("403", new ApiResponse().description("ACCESS_DENIED"));

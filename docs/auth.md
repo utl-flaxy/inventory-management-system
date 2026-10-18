@@ -262,6 +262,21 @@ Docker検証では新規networkの使い捨てJDK probeでhost-published経路�
 
 ## 制限と回帰検証
 
+### 認証拒否とDB障害（AUD-10 / Issue #114）
+
+ログインのパスワード不一致は401 INVALID_CREDENTIALS、有効JWTのユーザーが存在しない場合や
+JWTの署名・issuer・期限が不正な場合は401 UNAUTHENTICATEDを維持する。
+ユーザー確認時のDB接続不能/切断・取得/クエリtimeoutは認証拒否ではなく503 SERVICE_UNAVAILABLE。
+同じ分類をMVCにも適用し、登録や認証後の業務処理で検出した該当障害も固定の安全なProblemDetailにする。
+503でJWTを破棄したり、ログインを無条件に繰り返したりしない。復旧後は未失効の同じJWTが使える。
+DB認証設定・SQL/schema不備、原因不明のDB障害、プログラム例外は500 SYSTEM_ERRORで、すべてを503へは変換しない。
+分類条件・書込み再送の注意は[エラー仕様](api-errors.md#db障害の分類aud-10--issue-114)を参照する。
+
+DB障害の503にRetry-Afterは付けない。接続元を確認できない専用503、受付制限429/Retry-After、
+BCrypt、role判定、JWT発行/検証、login/registerの独立カウンター/permitは変更しない。
+故障注入用ITの接続取得/validation/socket timeoutは試験を有界にする設定であり、
+本番のpool・timeoutや#81のフィルタ登録経路・除外パスはこの変更の対象外。
+
 stateは単一JVM内だけ。再起動/deployで枠はresetされ、複数JVMは枠を共有しない。
 恒久account lockout・MFA・CAPTCHA・ネットワークDoS対策や全APIのuser enumeration解消は今回の範囲外。
 

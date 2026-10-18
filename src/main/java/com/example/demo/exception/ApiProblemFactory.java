@@ -16,6 +16,7 @@ public final class ApiProblemFactory {
     public static final String ACCESS_DENIED_DETAIL = "この操作を実行する権限がありません";
     public static final String INVALID_REQUEST_DETAIL = "リクエストの形式が不正です";
     public static final String SYSTEM_ERROR_DETAIL = "予期しないエラーが発生しました";
+    public static final String SERVICE_UNAVAILABLE_DETAIL = "一時的にサービスを利用できません。時間をおいて再試行してください";
 
     private ApiProblemFactory() { }
 
@@ -62,6 +63,7 @@ public final class ApiProblemFactory {
             case "OUT_OF_STOCK" -> "Out of Stock";
             case "VALIDATION_ERROR" -> "Validation Error";
             case "SYSTEM_ERROR" -> "System Error";
+            case "SERVICE_UNAVAILABLE" -> "Service Unavailable";
             default -> throw new IllegalArgumentException("Unknown API problem code");
         };
     }

@@ -52,10 +52,29 @@ JSON propertyの順序は契約にしない。
 | 429 | REGISTRATION_RATE_LIMITED | Registration Rate Limited |
 | 503 | LOGIN_SOURCE_UNAVAILABLE | Login Source Unavailable |
 | 503 | REGISTRATION_SOURCE_UNAVAILABLE | Registration Source Unavailable |
+| 503 | SERVICE_UNAVAILABLE | Service Unavailable |
 | 500 | SYSTEM_ERROR | System Error |
 
 登録・ログインの429には正の秒数の `Retry-After` を付ける。接続元不明503には付けず、運用設定の確認を求める。
 両APIの制限・接続元検証・受付順序は[Auth仕様](auth.md)を参照する。
+
+### DB障害の分類（AUD-10 / Issue #114）
+
+有効なJWTでもユーザーの照会にはDBが必要。DB接続不能・切断（JDBC SQLState class 08）、
+`SQLTransientConnectionException`、`SQLRecoverableException`、接続取得/クエリのtimeout
+（`SQLTimeoutException` / Spring `QueryTimeoutException`）、Spring `TransientDataAccessResourceException`
+は、MVCとJWTフィルタで共通の **503 SERVICE_UNAVAILABLE** とする。
+detailは「一時的にサービスを利用できません。時間をおいて再試行してください」で固定し、6フィールド形式を維持する。
+復旧時刻は不明なためRetry-Afterは付けない。503はJWTやパスワードの不正を意味せず、有効JWTを破棄する理由にしない。
+
+一律にDataAccessExceptionやCannotCreateTransactionExceptionを503にしない。原因の型/SQLStateが上記に合致しない障害、
+SQLState class 28（DB認証設定）/42（SQL・schema）の原因がある障害、プログラム例外は **500 SYSTEM_ERROR**。
+これらは運用者による調査・修正が必要。既存の業務例外、排他競合409とMVCの4xxを優先する。
+SQLStateや例外message/stack trace、接続URL、ユーザー名、認証情報は応答・application eventに含めない。
+診断は`system.database_unavailable`（WARN）または`system.unhandled_error`（ERROR）の型情報とrequestIdを使う。
+
+503は処理未実行や自動復旧の保証ではない。書込みは結果を確認し、冪等性対応APIでは同じkey/内容の再送契約に従う。
+JWT不正・期限/issuer不正・削除ユーザー・未認証は401、認可不足403、受付制限429、接続元不明の専用503は従来どおり。
 
 malformed JSON/missing/null body、parameter type mismatch、firewall拒否は400 INVALID_REQUEST。
 Idempotency-Key missingだけINVALID_IDEMPOTENCY_KEY。他required headerのmissingはINVALID_REQUEST。

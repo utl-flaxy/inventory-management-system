@@ -346,6 +346,14 @@ class AuthApiIT {
         for (String code : List.of("200", "400", "401", "429", "503")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
         var unavailable = document.path("paths").path("/auth/login").path("post").path("responses").path("503");
         assertTrue(unavailable.path("description").asText().contains("LOGIN_SOURCE_UNAVAILABLE"));
+        for (String path : List.of("/auth/register", "/auth/login", "/api/v1/me/orders")) {
+            String method = path.startsWith("/auth/") ? "post" : "get";
+            var serverFailure = document.path("paths").path(path).path(method).path("responses").path("503");
+            assertTrue(serverFailure.path("description").asText().contains("SERVICE_UNAVAILABLE"));
+            assertEquals("#/components/schemas/ApiProblem", serverFailure.path("content")
+                    .path("application/problem+json").path("schema").path("$ref").asText());
+            assertFalse(serverFailure.path("headers").has("Retry-After"));
+        }
         assertEquals("#/components/schemas/ApiProblem",
                 unavailable.path("content").path("application/problem+json").path("schema").path("$ref").asText());
         var limited = document.path("paths").path("/auth/login").path("post").path("responses").path("429");

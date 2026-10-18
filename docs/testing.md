@@ -563,3 +563,23 @@ OrderControllerTest / OrderServiceTest / OrderRequestFingerprintTestを補強し
 
 HTTPダンプを無効化し、DB snapshotはboolean比較でcredentialやkeyを失敗ログに載せない。
 JSON本文サイズ/受信速度/頻度の上限や本番負荷試験とは区別して結果を記録する。
+
+## DB障害と認証エラーの分類（AUD-10 / Issue #114）
+
+- JwtDatabaseFailureTest / ServerFailureResponseTestは同じ14種の障害をフィルタとMVCへ注入する。
+  接続不能/切断、接続取得/クエリtimeoutは503、DB認証設定・SQL/schema不備・未知の例外は500。
+  有効JWTからの500/503が401に変わらず、業務Serviceへ進まないこと、6フィールド・固定detail・安全な型診断/requestIdを確認する。
+- ユーザー削除は401、parser内部の予期しない例外は500。既存の署名/issuer/期限、未認証・認可・login/register制限のテストも保持する。
+- AuthDatabaseFailureITは新規Testcontainers MariaDBだけをpauseし、実HTTPの注文一覧とログインを呼ぶ。
+  readiness503/liveness200、匿名/不正JWT401、permit解放を確認し、finallyでunpauseする。
+  再開後に同じJWTとログインが200へ戻り、ユーザーとpassword hashが不変で、応答/production consoleに秘密値が出ないことを確認する。
+  試験専用の取得1000ms/validation500ms/connect/socket1000msは有界な障害再現用。本番設定は緩めない。
+
+```powershell
+.\mvnw.cmd '-Dtest=JwtDatabaseFailureTest,ServerFailureResponseTest,JwtAuthenticationTest,SafeExceptionLoggingTest,ProblemDetailContractTest' test
+.\mvnw.cmd test-compile failsafe:integration-test failsafe:verify '-Dit.test=AuthDatabaseFailureIT,LoginSecurityIT,RegistrationSecurityIT,AuthorizationMatrixIT'
+.\mvnw.cmd verify
+```
+
+故障試験の503は想定結果であり、JUnitのfailure/error/skipを許容するものではない。
+本番のネットワーク・DB failover・接続プール枯渇への性能保証は未検証と区別する。
