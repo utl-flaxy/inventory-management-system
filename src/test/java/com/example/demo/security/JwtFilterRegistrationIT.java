@@ -1,6 +1,8 @@
 package com.example.demo.security;
 
 import com.example.demo.TestApplicationLogs;
+import com.example.demo.service.OrderService;
+import com.example.demo.service.ProductService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -84,6 +87,8 @@ class JwtFilterRegistrationIT {
     @MockitoSpyBean JwtAuthenticationFilter filter;
     @MockitoSpyBean JwtUtil jwt;
     @MockitoSpyBean UserDetailsService users;
+    @MockitoSpyBean OrderService orders;
+    @MockitoSpyBean ProductService products;
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
     private final List<String> secrets=new ArrayList<>();
     private String userToken,adminToken;
@@ -117,7 +122,7 @@ class JwtFilterRegistrationIT {
         userToken=jwt.generateToken("routing_user");adminToken=jwt.generateToken("routing_admin");
         secrets.addAll(List.of(userToken,adminToken));
         recorder.trace.clear();
-        clearInvocations(filter,jwt,users);
+        clearInvocations(filter,jwt,users,orders,products);
         doAnswer(call -> {
             recorder.trace.add("jwt-entry:"+call.<FilterChain>getArgument(2).getClass().getSimpleName());
             assertNotNull(MDC.get("requestId"),"Correlation must precede JWT");
@@ -234,6 +239,48 @@ class JwtFilterRegistrationIT {
         assertEquals(1,lastRejectedEvents);assertFalse(recorder.trace.contains("controller"));
     }
 
+    @ParameterizedTest
+    @EnumSource(JwtNegativeTokens.Case.class)
+    void invalidJwtCannotCreateOrdersOrEscalateToAdmin(JwtNegativeTokens.Case scenario) throws Exception {
+        jdbc.update("INSERT INTO products(id,name,price,stock,version) VALUES(1,'jwt-negative-product',100,10,0)");
+        String otherSecret = randomValue();
+        String token = JwtNegativeTokens.invalid(scenario, SECRET, otherSecret, "routing_user", "routing_admin");
+        secrets.addAll(List.of(otherSecret, token));
+        var before = businessSnapshot();
+        try {
+            problem(send("POST", "/api/v1/me/orders", token,
+                    Map.of("items", List.of(Map.of("productId", 1, "quantity", 1))), UUID.randomUUID().toString()),
+                    401, "UNAUTHENTICATED");
+            assertEquals(1, lastRejectedEvents);
+            assertEquals(0, lastServerFailureEvents);
+            assertTrue(before.equals(businessSnapshot()), "Rejected order must leave every business row unchanged");
+            problem(send("POST", "/products", token, Map.of("name", "forbidden-product", "price", 200, "stock", 5)),
+                    401, "UNAUTHENTICATED");
+            assertEquals(1, lastRejectedEvents);
+            assertEquals(0, lastServerFailureEvents);
+            assertTrue(before.equals(businessSnapshot()), "Rejected ADMIN command must leave every business row unchanged");
+            assertEquals(2, calls(jwt, "extractUsername"));
+            assertEquals(0, calls(users, "loadUserByUsername"));
+            verifyNoInteractions(orders, products);
+            // Rejection must not leave a privileged SecurityContext or break legitimate subsequent requests.
+            assertEquals(200, send("GET", "/api/v1/me/filter-probe", userToken, null).statusCode());
+            problem(send("GET", "/api/v1/admin/filter-probe", userToken, null), 403, "ACCESS_DENIED");
+            assertEquals(200, send("GET", "/api/v1/admin/filter-probe", adminToken, null).statusCode());
+            assertTrue(before.equals(businessSnapshot()), "Authorization controls must not change business rows");
+            System.out.printf("ISSUE-123 JWT negative: case=%s rejectedCommands=2 status=401 dbUnchanged=true rejectedLookup=0 rejectedBusinessCalls=0%n", scenario);
+        } finally {
+            for (String table : List.of("inventory_movements", "order_items", "orders", "products"))
+                jdbc.update("DELETE FROM " + table);
+        }
+    }
+
+    private Map<String, List<Map<String, Object>>> businessSnapshot() {
+        var snapshot = new LinkedHashMap<String, List<Map<String, Object>>>();
+        for (String table : List.of("users", "products", "orders", "order_items", "inventory_movements"))
+            snapshot.put(table, jdbc.queryForList("SELECT * FROM " + table + " ORDER BY id"));
+        return snapshot;
+    }
+
     @Test
     void roleBoundariesAndSecurityContextCleanupSurviveRealRequests() throws Exception {
         problem(send("GET","/api/v1/admin/filter-probe",userToken,null),403,"ACCESS_DENIED");
@@ -267,11 +314,15 @@ class JwtFilterRegistrationIT {
     }
 
     private HttpResponse<String> send(String method,String path,String token,Object data) throws Exception {
+        return send(method, path, token, data, null);
+    }
+    private HttpResponse<String> send(String method,String path,String token,Object data,String key) throws Exception {
         try(var logs=new TestApplicationLogs()) {
             var builder=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path)).timeout(Duration.ofSeconds(8))
                     .header("Content-Type","application/json").header("X-Request-Id","spoofed-routing-probe")
                     .header("X-Forwarded-For",clientAddress);
             if(token!=null)builder.header("Authorization","Bearer "+token);
+            if(key!=null)builder.header("Idempotency-Key",key);
             builder.method(method,data==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(json.writeValueAsString(data)));
             var response=http.send(builder.build(),HttpResponse.BodyHandlers.ofString());
             long deadline=System.nanoTime()+Duration.ofSeconds(2).toNanos();

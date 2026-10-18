@@ -643,3 +643,34 @@ JwtPublicEndpointMatcherTestはmethod・context path・canonical URI・類似/�
 およびmvnw test-compile failsafe:integration-test failsafe:verifyの-Dit.test=JwtFilterRegistrationIT。
 最終検証はJava17 full verify、実Docker/Trivy、Secret正常/異常、SpotBugs正常/異常、OSV、
 PythonとTerraform mockおよび当HEADのGitHub CI全5ジョブで行う。詳細は[認証仕様](auth.md)を参照。
+
+## JWT否定系の受入条件（Issue #123 第一PR / AUD-23）
+
+監査のAUD-23はSHOULD、v1.0 DoDは明示テストを要求していた。
+本項では未署名・改ざんを含む次の拒否条件をv1.0の回帰条件として明文化する。
+Issue #123のREADME/文書同期・通しデモは別PRであり、この検証だけで同Issue全体の完了とはしない。
+
+| 入力 | 作り方・受入条件 |
+|---|---|
+| 未署名JWT | `alg=none`、有効なissuer/expと既存ADMINのsub、空署名。署名付きJWT専用parserが拒否 |
+| payload改ざん | 正常USER JWTのheader/署名を維持し、payloadのsubを既存ADMINへ変更。再署名しない。署名検証で拒否 |
+| 署名だけが異なるJWT | 正常header/payloadのまま、MACの有効bitを変更して再エンコード。署名検証で拒否 |
+| 別鍵 | 実行時に生成した別の鍵で署名した有効形式のJWTを拒否 |
+| issuer不一致 | 正しい鍵・未来の期限でも別issuerを拒否 |
+| 期限切れ | 正しい鍵・issuerでも過去のexpを拒否。sleepや時刻依存の短い待機を使わない |
+
+[JwtUtilTest](../src/test/java/com/example/demo/security/JwtUtilTest.java)は、既存の別鍵/issuer/期限等の検証を保持し、
+未署名のUnsupportedJwtExceptionと、payload/MAC改ざんのSignatureExceptionを明示確認する。
+[JwtNegativeTokens](../src/test/java/com/example/demo/security/JwtNegativeTokens.java)はtest専用の実行時生成器で、
+source/公開fixtureに再利用可能なsecretやcompact JWTを追加しない。
+
+[JwtFilterRegistrationIT](../src/test/java/com/example/demo/security/JwtFilterRegistrationIT.java)は、
+実Servlet/SecurityFilterChainと使い捨てMariaDBで6入力を検証する。
+有効な注文POSTとADMIN商品作成POSTを各401 UNAUTHENTICATED・既存ProblemDetailで拒否し、
+DBユーザー認証照会0、業務Service呼出0、users/products/orders/order_items/inventory_movements全行不変を要求する。
+続く正常USER要求200、USERのADMIN要求403、正常ADMIN要求200、requestIdと安全なログも確認する。
+JWT・鍵・password/hash・DB認証情報をresponse/application event/consoleへ出さない。
+
+これはJWT失効、refresh、アルゴリズムallowlistの新設ではない。
+`signWith(key)`の鍵長に応じた正規のHMAC方式を維持し、HS512という名前だけで拒否する契約は追加しない。
+署名/issuer/期限の検証、DB role認可、公開auth除外、503/500/429等は既存契約を維持する。
