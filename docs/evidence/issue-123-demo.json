@@ -1,0 +1,165 @@
+{
+  "issue": 123,
+  "scope": "Second PR: documentation and disposable demo; not production acceptance",
+  "environment": "Windows host / Docker Engine 29.8.1 / linux/amd64",
+  "recorded_date": "2026-10-18",
+  "invocation": "python scripts/docker/verify_image.py --scan --output <private-evidence-directory>/local-demo",
+  "note": "Local run is at the source revision below. Subsequent commits change only docs/evidence; final PR HEAD reruns the same demo in GitHub CI.",
+  "source_revision": "f2da455d996065e476cf2129610ddd003f7ad755",
+  "source_dirty": false,
+  "clean_archive_build": true,
+  "platform": "linux/amd64",
+  "production_operations": false,
+  "existing_volumes_used": false,
+  "result": "PASS",
+  "image_id": "sha256:6406eda016efdf6ecdbacfba085aae6181540b7e4ead3e84db71862d2501766d",
+  "image_bytes": 509128647,
+  "revision_label": "f2da455d996065e476cf2129610ddd003f7ad755",
+  "runtime_user": "10001:10001",
+  "identity": {
+    "uid": 10001,
+    "gid": 10001,
+    "app_and_jar_not_writable": true,
+    "jdk_maven_jcmd_absent": true
+  },
+  "migrations": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+  ],
+  "demo_steps": [
+    {
+      "step": "register",
+      "http_status": 200,
+      "users": 2,
+      "role": "ROLE_USER",
+      "admins": 0
+    },
+    {
+      "step": "offline_admin",
+      "concurrent_processes": 3,
+      "created_admins": 1,
+      "rerun_unchanged": true
+    },
+    {
+      "step": "authenticate",
+      "http_status": 200,
+      "user_and_admin": true
+    },
+    {
+      "step": "authorization",
+      "anonymous_status": 401,
+      "invalid_jwt_status": 401,
+      "user_admin_status": 403
+    },
+    {
+      "step": "admin_create_product",
+      "http_status": 200,
+      "unit_price": 100,
+      "stock": 10
+    },
+    {
+      "step": "order_and_retry",
+      "http_status": 200,
+      "quantity": 2,
+      "total_price": 200,
+      "stock": 8,
+      "same_order": true
+    },
+    {
+      "step": "admin_inventory_adjustment",
+      "http_status": 200,
+      "delta": 3,
+      "stock": 11
+    },
+    {
+      "step": "cancel",
+      "http_status": 200,
+      "status": "CANCELLED",
+      "stock": 13
+    },
+    {
+      "step": "admin_view_orders",
+      "http_status": 200,
+      "orders": 1,
+      "status": "CANCELLED"
+    }
+  ],
+  "database_lifecycle": [
+    {
+      "mode": "commit",
+      "new_work_stopped": true,
+      "existing_was_in_flight": true,
+      "http_status": 200,
+      "configured_stop_timeout_seconds": 35,
+      "problem_code": null,
+      "exit_code": 143,
+      "oom": false,
+      "forced_kill": false,
+      "stop_seconds": 0.938,
+      "pool_shutdown_completed": true,
+      "app_db_connections_after_stop": 0,
+      "business_state": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "db_lock_waits_after_stop": 0,
+      "same_key_retry_and_replay_after_restart": true
+    },
+    {
+      "mode": "deadline",
+      "new_work_stopped": true,
+      "existing_was_in_flight": true,
+      "http_status": 409,
+      "configured_stop_timeout_seconds": 35,
+      "problem_code": "CONCURRENT_UPDATE",
+      "exit_code": 143,
+      "oom": false,
+      "forced_kill": false,
+      "stop_seconds": 4.75,
+      "pool_shutdown_completed": true,
+      "app_db_connections_after_stop": 0,
+      "business_state": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "db_lock_waits_after_stop": 0,
+      "same_key_retry_and_replay_after_restart": true
+    }
+  ],
+  "rollback": {
+    "actual_app_only_cutover": true,
+    "failed_readiness_then_old_image_restored": true,
+    "failure_target": "container loopback 127.0.0.1:1",
+    "db_id_and_start_time_unchanged": true,
+    "order_and_stock_data_unchanged": true,
+    "previous_image_id": "sha256:6406eda016efdf6ecdbacfba085aae6181540b7e4ead3e84db71862d2501766d",
+    "legacy_jdk_root_image": false,
+    "same_image_id": true
+  },
+  "image_scan": {
+    "mode": "AUDIT_ONLY_NOT_A_SECURITY_PASS",
+    "scanner_image": "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa",
+    "scanner_exit": 0,
+    "findings": 49,
+    "severity": {
+      "LOW": 22,
+      "MEDIUM": 27
+    },
+    "os_findings": 49,
+    "library_findings": 0
+  },
+  "not_validated": [
+    "Public DNS/CA/TLS or real EC2 proxy peer",
+    "Different historical binary rollback or schema downgrade",
+    "Real AWS, production DB, existing volumes, real secrets",
+    "Production capacity, sustained load, SLA, RPO/RTO"
+  ]
+}

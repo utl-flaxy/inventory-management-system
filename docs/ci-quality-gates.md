@@ -60,7 +60,7 @@ Gitleaks stdout/stderrを通常のCIログへ出さず、redact=100のraw report
 保存/表示するreportはpath、line、rule、承認済みfalse-positiveかどうか、件数だけで、Secret/Match/Entropy/Fingerprintを含めない。
 
 AUD-01 / Issue #104 / PR #105で、2026-11-11に失効する4例外を期限延長せず撤廃済み。
-公開Idempotency-Key/JWT例を表示用プレースホルダーへ置換し、ProductionConfigurationTestの秘密値はテスト専用の実行時生成値にする。
+公開Idempotency-Key/JWT例は表示用プレースホルダーへ置換済みで、ProductionConfigurationTestの秘密値もテスト専用の実行時生成値へ変更済み。
 APIのkey制約、productionのUTF-8最低32bytes検証、ログ非露出のテスト、scannerの検出ルールは変更しない。
 
 原則は**例外0件**。`.github/security/exceptions.json`は `{"secret_false_positives": []}` とし、実スキャンのfindings/未解決ともに0件を要求する。

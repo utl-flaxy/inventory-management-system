@@ -1,5 +1,8 @@
 # Issue #80 — 依存アドバイザリ是正台帳（2026-10-12）
 
+> **履歴snapshot:** 以下の137 components / 66 advisoryは導入時の値と根拠を保持した台帳。
+> 現行Boot4 mainのOSV169/0、Trivy OS49とは対象・時点が異なる。[現在値と是正PR](../release-status.md)を参照し、旧JSON/識別子/根拠は書き換えない。
+
 調査main: `8ba4e9a9e833565edef8daa379c9f843fe2161f7`。OSV Scanner 2.6.0 / CycloneDX Maven Plugin 2.9.3。
 解決済み137コンポーネント、影響ライブラリ17、重複除去済み66アドバイザリ（Critical 8 / High 22 / Moderate 28 / Low 8）。
 全17ライブラリのproduction JAR格納を確認。66件は17ライブラリへのfindingであり、66ライブラリではない。直接依存はMariaDB JDBC、他16は推移的依存。
