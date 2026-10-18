@@ -112,6 +112,8 @@ role変更は現在公開APIがないため新設しない。将来の正規変�
 
 全APIはBearer headerのみで認証し、body/queryのtoken/username/roleを認証主体として使わない。
 公開除外2パスは維持し、新APIは保護する。JWTをCookieへ移す設計変更は含めない。
+[LoginClientAddressFilter](../../src/main/java/com/example/demo/security/LoginClientAddressFilter.java)の接続元捕捉と、
+Securityの公開除外は別責務。新APIの正規POST経路へsource捕捉を追加するが、permitAll/shouldNotFilterは拡大しない。
 
 | API・段階 | 成功・作用 | 認証/失敗/再送 |
 |---|---|---|
@@ -174,7 +176,7 @@ username fallbackや期限内のdual acceptance期間は作らない。既存の
 
 | 段階 | 同じPRで閉じる実装と試験 | 完了条件 |
 |---|---|---|
-| B1: identity/世代/全端末logout | User/Repository、追加migrationと監査、register/ADMIN CLI、JwtUtil/Clock、filter/principal/CurrentUser、login競合対策、logout-all、移行runbook | 新claim発行/照合と旧JWT拒否を一体で有効化。schemaだけ/検証だけの不完全な稼働版を出さない |
+| B1: identity/世代/全端末logout | User/Repository、追加migrationと監査、register/ADMIN CLI、JwtUtil/Clock、filter/principal/CurrentUser、login競合対策、logout-all/専用受付枠/source捕捉、移行runbook | 新claim発行/照合と旧JWT拒否を一体で有効化。schemaだけ/検証だけの不完全な稼働版を出さない |
 | B2: password変更 | 専用DTO/Service/API、入力・認証管理用受付枠、hash+version+監査の原子更新、OpenAPI | 正しい現passwordのみ成功、旧JWT全拒否、新passwordの再ログイン、競合/例外時DB不変 |
 | B3: ADMIN強制失効 | ADMIN認可/対象解決/認証管理用受付枠/監査、自己失効・権限変更競合、運用手順 | 他人操作はADMINのみ、昇格/降格時の世代更新方針、秘密非露出。role変更APIやreset APIは追加しない |
 | C: 個別JWT | Issue #134でjti denylistを設計・実装するか判断 | 期限cleanup/容量/索引/障害時/個別と全端末の区別。B1完了を個別失効完了と呼ばない |
