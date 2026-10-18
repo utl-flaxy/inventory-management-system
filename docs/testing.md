@@ -583,3 +583,25 @@ JSON本文サイズ/受信速度/頻度の上限や本番負荷試験とは区�
 
 故障試験の503は想定結果であり、JUnitのfailure/error/skipを許容するものではない。
 本番のネットワーク・DB failover・接続プール枯渇への性能保証は未検証と区別する。
+
+## DB待機予算とgraceful shutdown（AUD-11 / Issue #116）
+
+DatabaseTimeoutITはprodの設定値を上書きせず、pool10の枯渇、独立Txのproduct row lock、
+更新後の長いSQLとTx/query deadline、接続KILL後のrollback失敗、DB pause中の借用済みsocket待ちと新規handshakeを分けて検証する。
+診断用SQL/HTTPはtest sources限定。既存100workerのpool110/取得30秒等は変更しない。
+409/503と未分類rollback失敗500、全Tx rollback、接続/ロック解放、同JWT復旧、同key retryの二重処理なしを確認する。
+
+DockerRuntimeContractTestではvalidation/取得/driver接続/Tx/socket/HTTP drain/Composeの予算関係を検査。
+scripts/docker/verify_image.pyは新規tmpfs DBと実JRE imageで、進行中注文を保持してSIGTERMを送り、
+新規受付停止→既存注文200 commit、またはrow wait409 rollback、pool shutdown/DB接続0、
+正常exit・SIGKILL/OOMなし、再起動後の同key replayとDB不変を検証する。
+既存のDocker hardening/API/ADMIN/rollback/Trivyも実行する。停止猶予を外す変更前probeではexit137とHTTP切断を観測した。
+
+```powershell
+.\mvnw.cmd '-Dtest=DockerRuntimeContractTest' test
+.\mvnw.cmd test-compile failsafe:integration-test failsafe:verify '-Dit.test=DatabaseTimeoutIT,AuthDatabaseFailureIT'
+.\mvnw.cmd verify
+python scripts/docker/verify_image.py --scan
+```
+
+各deadlineはHTTP全体のSLAではない。計測条件・既定値・運用判断・非保証は[DB lifecycle](db-lifecycle.md)を参照。
