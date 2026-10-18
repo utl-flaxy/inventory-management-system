@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -24,9 +25,19 @@ import java.io.IOException;
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    // Shared with authorization: only the two canonical public POST endpoints skip JWT processing.
+    static final RequestMatcher PUBLIC_AUTH_REQUESTS = request -> "POST".equals(request.getMethod())
+            && ((request.getContextPath() + "/auth/login").equals(request.getRequestURI())
+            || (request.getContextPath() + "/auth/register").equals(request.getRequestURI()));
+
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
     private final SecurityProblemWriter problemWriter;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return PUBLIC_AUTH_REQUESTS.matches(request);
+    }
 
     @Override
     protected void doFilterInternal(
@@ -34,11 +45,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain)
             throws ServletException, IOException {
-
-        if (request.getServletPath().startsWith("/auth")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
 
         String authHeader = request.getHeader("Authorization");
 

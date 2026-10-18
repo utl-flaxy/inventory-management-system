@@ -605,3 +605,21 @@ python scripts/docker/verify_image.py --scan
 ```
 
 各deadlineはHTTP全体のSLAではない。計測条件・既定値・運用判断・非保証は[DB lifecycle](db-lifecycle.md)を参照。
+
+## JWTフィルタ経路とauth境界（Issue #81）
+
+JwtFilterRegistrationITはMockMvcだけでなく実Tomcat・ServletContext・SecurityFilterChainを用い、
+使い捨てMariaDBと実JWTで登録数、入口/内部/解析/照会回数と順序を別々に測る。
+変更前は通常の認証成功要求で入口2回/内部1回/解析1回、変更後はServlet登録0・Security内1・入口1回。
+テスト専用のprefix類似ルートと/auth配下ルートで、過剰な除外/匿名許可を検出する。
+これらはproduction APIへのルート追加ではない。診断時もJWT/password/hash/DB接続値は出力しない。
+
+実HTTPの公開POST、署名/issuer/期限の不正、401/403/429とRetry-After、503/500の安全な故障注入、
+SecurityContextのrequest間分離、server生成requestIdと安全eventを検証する。
+JwtPublicEndpointMatcherTestはmethod・context path・canonical URI・類似/末尾/encoded pathの境界を検証。
+両テストは既存JWT/障害分類/同時注文/DB待機テストを削除・skipせず追加する。
+
+対象実行: mvnw testの-Dtest=JwtPublicEndpointMatcherTest,JwtAuthenticationTest,JwtDatabaseFailureTest、
+およびmvnw test-compile failsafe:integration-test failsafe:verifyの-Dit.test=JwtFilterRegistrationIT。
+最終検証はJava17 full verify、実Docker/Trivy、Secret正常/異常、SpotBugs正常/異常、OSV、
+PythonとTerraform mockおよび当HEADのGitHub CI全5ジョブで行う。詳細は[認証仕様](auth.md)を参照。
