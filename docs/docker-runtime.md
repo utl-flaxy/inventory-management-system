@@ -1,9 +1,10 @@
 # Docker runtime・再現性・メモリ設計 — Issue #76
 
-現行確認: main **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**、Java17 / **Spring Boot4.1.1**。
-[main CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859): Java2,176、必須5ジョブSUCCESS。
+Issue #128時点の監査snapshot: main **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**、Java17 / **Spring Boot4.1.1**。
+[当時のmain CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859): Java2,176、必須5ジョブSUCCESS。
 OSV169 components/0 advisory、Trivy **OS49（MEDIUM27/LOW22）/ library0**。
-現在値と実証限界は[現行証跡](release-status.md)、再現コマンドは[隔離デモ](demo.md)を参照。
+現在のmain CIは[live確認先](release-status.md#現在のmain-cilive)で確認し、上の固定記録と区別する。
+監査時点の値と実証限界は[監査証跡](release-status.md)、再現コマンドは[隔離デモ](demo.md)を参照。
 
 **履歴:** Issue76導入時はmain `74e8d953f8c132c5c0ebf79accc0f784cd75af1e`、Boot3.5.16だった。
 [当時のimage/容量/旧JDK対照/Boot4 PoC](audits/issue-76-validation.json)はそのSHAの記録として保存し、現行Boot4正式採用後の結果と混同しない。

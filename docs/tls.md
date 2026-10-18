@@ -1,9 +1,10 @@
 # Single EC2 HTTPS (Issue #61)
 
-現行確認: main `186aad8cb41fa7d7227304aeed4a4c3d6436ad69` / **Java17・Boot4.1.1**、
-[main CI 39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)で必須5ジョブSUCCESS。
+Issue #128時点の監査snapshot: main `186aad8cb41fa7d7227304aeed4a4c3d6436ad69` / **Java17・Boot4.1.1**、
+[当時のmain CI 39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)で必須5ジョブSUCCESS。
 以下は本番想定の定義と運用者向け手順。現行構成はAWS未配備として扱い、公的TLS稼働を主張しない。
-[現行証跡](release-status.md)と[loopback HTTPの隔離デモ](demo.md)を参照。
+現在のmain CIは[live確認先](release-status.md#現在のmain-cilive)で確認し、上の固定記録と区別する。
+[監査証跡](release-status.md)と[loopback HTTPの隔離デモ](demo.md)を参照。
 
 Internet TCP80/443 → host Caddy → `127.0.0.1:8080` → Compose app。
 Terraformは必須FQDN `app_domain`、専用EIP/association、public TCP80/443を定義する。

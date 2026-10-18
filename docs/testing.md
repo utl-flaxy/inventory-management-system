@@ -1,9 +1,14 @@
 # テスト品質ゲート
 
-## 現行mainの品質ゲート（2026-10-18確認）
+## 品質ゲートの参照方針（snapshot / live）
 
-基準main: **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**（PR #127 merge後）。
-[main CI 39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)は同SHAでcompleted/success、必須5ジョブSUCCESS。
+現在の結果は[main push CIのlive一覧](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)を開き、
+先頭runのhead SHAと[main HEAD](https://github.com/utl-flaxy/inventory-management-system/commits/main/)の一致、必須5ジョブのstatus/conclusionを確認する。
+未完了・失敗を過去の成功で置き換えず、PR CIはPR HEADの別の証拠として扱う。
+
+以下は**2026-10-18 UTC確認の監査snapshot**。基準main **`0614d7d306fed5a3ec43ba7a7502b8bf7e65f3ed`**（PR #131 merge後）、
+[main push CI 39136004541](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39136004541)は同SHAでcompleted/success、必須5ジョブSUCCESS。
+main更新だけを理由にsnapshotを追従更新せず、現在の成否はliveで確認する。
 **Java17 / Boot4.1.1、Surefire1,314 + Failsafe862 = 2,176、Failures/Errors/Skipped=0**。
 Python29、Terraform mock27、Secret例外0/未解決0、SpotBugs SECURITY違反0、OSV169 components/0 advisory。
 Trivyは別対象で**OS49件（MEDIUM27/LOW22）、library0**。audit-onlyの正常実行は脆弱性ゼロを意味しない。
@@ -12,7 +17,9 @@ main保護はstrictな必須5 checks、enforce_admins/linear_history有効、for
 必須review数は0で、独立レビューは人手の運用。Deployはdisabled_manually、実AWS適用・本番TLSは未実施。
 詳細な対象・保証限界・監査史は[現行証跡](release-status.md)、再現可能な[隔離Dockerデモ](demo.md)を参照。
 後続PRは自分のHEADでfull verifyと全5ジョブを実行し、基準mainの結果の使い回しだけで合格としない。
-旧基準[main5f0fae4 / CI39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)も同2,176件で、当時のsnapshotとして区別する。
+旧基準[main186aad8 / CI39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)、
+[mainf154801 / CI39127003622](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39127003622)、
+[main5f0fae4 / CI39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)も同2,176件で、当時のsnapshotとして区別する。
 [設計とテストの対応表](design/transactions-and-locking.md#6-検証できていることとテストへの入口)から各競合・rollbackテストへ進める。
 Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定であり、[最終監査の失敗記録](audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持する。
 単独再実行やLinux CI成功をWindows full verify成功へ読み替えず、pool/timeout緩和やskipで解消扱いにしない。
