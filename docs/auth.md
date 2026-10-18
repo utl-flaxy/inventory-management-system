@@ -39,6 +39,96 @@ ProblemDetail・安全なevent/requestId、AUD-11の待機・shutdown契約を�
 根拠: [Spring SecurityのFilter登録](https://docs.spring.io/spring-security/reference/servlet/architecture.html)、
 [OncePerRequestFilter](https://docs.spring.io/spring-framework/docs/7.0.0/javadoc-api/org/springframework/web/filter/OncePerRequestFilter.html)。
 
+## JWTライフサイクルと失効制約
+
+v1.0は現在のJWT契約を文書化する。JWT失効の新機能は導入していない。
+文書化は[Issue #119](https://github.com/utl-flaxy/inventory-management-system/issues/119)、
+失効機能の未実装課題は[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)で追跡する。
+#119の文書化によって#79の失効実装が完了したことにはしない。
+
+### 発行・検証・設定
+
+[JwtUtil](../src/main/java/com/example/demo/security/JwtUtil.java)は外部設定の共有秘密鍵でHMAC署名する。
+鍵は設定文字列のUTF-8 bytesで、Base64デコードしない。`signWith(key)`が鍵に応じて署名アルゴリズムを選ぶため、
+常にHS256固定とは扱わない。署名・issuer・期限を1回のparseで検証し、別鍵・issuer不一致・期限切れ・期限欠落を拒否する。
+
+| claim | 現行の発行内容・用途 |
+|---|---|
+| `sub` | DBに保存済みのusername。数値ユーザーIDではない |
+| `iss` | 設定したissuer。検証時も一致を要求する |
+| `iat` | 発行時刻。失効時刻やpassword変更時刻との照合には使わない |
+| `exp` | 発行時刻に設定TTLを加えた期限。検証時に必須とする |
+
+`uid` claim、`jti`、`tokenVersion`/`ver` claimは発行せず、Userの失効番号・失効台帳も存在しない。
+role claimも発行せず、roleは保護APIのDB照会で決める。refresh tokenも発行しない。
+
+| Spring property | 環境変数 | 既定値 |
+|---|---|---|
+| `app.jwt.secret` | `JWT_SECRET` | なし。必須、空不可、32 UTF-8 bytes以上 |
+| `app.jwt.issuer` | `JWT_ISSUER` | `inventory-management-system`。空不可 |
+| `app.jwt.expiration-ms` | `JWT_EXPIRATION_MS` | `3600000` ms（1時間）。正の値が必要 |
+
+これはコード上の既定値であり、実稼働環境の設定値・注入状態は未確認。
+アプリプロセスへ渡す環境変数等のSpring外部設定で上書きできるが、既発行JWTの`exp`は設定変更では短縮されない。
+現在のComposeは`JWT_SECRET`だけをJWT用環境変数として明示注入する。
+hostや`.env`に`JWT_ISSUER`/`JWT_EXPIRATION_MS`を置くだけではappコンテナへ渡らない。
+詳細は[JWT設定](security/jwt-configuration.md)と[共通設定](configuration.md#docker-compose-startup)を参照。
+
+### logout・資格情報変更・DB照会
+
+クライアントでJWTを破棄しても、サーバーに失効状態は保存されない。
+別の場所へコピーされたJWTは、署名・issuer・期限と現在のDBユーザー確認を満たせば、期限まで利用できる可能性がある。
+再起動だけでも、同じ鍵とユーザーが残る未期限切れJWTは失効しない。
+
+SecurityConfigはSpring Security標準logoutを無効化しておらず、実Web contextで取得したSecurity chainにも
+`LogoutFilter`が存在する。標準のSecurityContext等の消去と、Bearer JWTを次回から拒否する失効機能は異なる。
+JWT失効handlerや専用APIは実装していない。`/logout`のHTTPステータス・body・redirectは実HTTPで未実測であり、
+JWT失効APIとしての応答契約を約束しない。
+標準機構の説明は[Spring Security公式logout文書](https://docs.spring.io/spring-security/reference/servlet/authentication/logout.html)を参照。
+
+password変更API、管理者の強制失効API、ユーザー単位・個別JWTの失効APIはいずれも未実装。
+Bearer認証ではpasswordを再照合しないため、DBのpassword hashだけを変更しても既発行JWTは失効しない。
+既存の初期ADMIN provisioning CLIも失効ツールではない。
+
+[JwtAuthenticationFilter](../src/main/java/com/example/demo/security/JwtAuthenticationFilter.java)と
+[CustomUserDetailsService](../src/main/java/com/example/demo/security/CustomUserDetailsService.java)は、
+有効Bearerの通常の保護API要求ごとにusernameでDBユーザーを照会し、現在のDB roleを認可に使う。
+ユーザー不在は401 `UNAUTHENTICATED`。role変更は次回のDB認証照会から反映され、権限不足は403になる。
+role降格はJWTそのものの失効ではなく、既に認証済みの進行中リクエストを取り消す保証もない。
+
+DB確認不能をJWT不正401として扱わない。既知の一時的なDB接続障害・timeoutは503 `SERVICE_UNAVAILABLE`、
+DB認証設定・SQL/schema不備や原因不明の内部障害は500 `SYSTEM_ERROR`とする。
+503時にJWTを破棄してloginを繰り返さず、復旧後に未失効JWTを再利用できることを確認する。
+詳細は[DB障害の分類](api-errors.md#db障害の分類aud-10--issue-114)を参照。
+
+### username再利用・鍵変更・rollback
+
+ユーザーが不在の間は旧JWTが401になっても、同じusernameで別アカウントを再作成すると、
+usernameだけの`sub`が新しいユーザーを指し、旧JWTが再受理され得る。
+ユーザー削除・改名の公開APIは現在存在せず、実本番で再作成事故を確認した報告ではない。
+DB保守や将来機能も含め、**少なくとも有効な旧JWTが残る間はusernameを別主体へ再割当てしない**。
+上書き可能な実際のTTLと既発行JWTの期限を考慮し、既定1時間だけを根拠に再利用可能と判断しない。
+
+署名鍵を変更し、すべての検証プロセスを新しい鍵へ切り替えると、旧鍵で発行された全JWTが拒否される。
+特定ユーザー・特定JWTだけの失効ではなく、再ログインが必要。複数鍵の同時検証や無停止rotation機構はない。
+旧鍵を使うプロセスが残る間や、旧imageと一緒に旧鍵・旧環境へrollbackした場合は、
+期限内の旧JWTが再受理される可能性がある。imageだけの変更が必ず鍵を変更するわけではないため、
+運用者はrollback先の認証コード・設定・鍵の世代を確認する。公開済み・漏洩した旧鍵は再利用しない。
+将来失効機能を導入した後も、失効確認を行わない旧imageや古い失効状態への復帰には同じ再受理リスクがある。
+本書は実secretの取得・変更や本番rollbackを実施した証跡ではない。
+
+### v1.1候補
+
+v1.0ポートフォリオでは上記制約を明示し、失効機能を実装済み・本番安全性を保証済みとは表現しない。
+実利用者を伴う公開運用では、盗まれたJWTを期限前に選択的に止められないリスクを運用者が評価し、
+受容できなければ失効機能を公開前の条件にする。ポートフォリオv1.0の判断を、そのまま本番運用の承認に使わない。
+
+[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPENを維持する。
+v1.1候補はユーザー単位の`tokenVersion`と安定したユーザーIDの`uid`をDB・署名済みclaimで照合する方式。
+既存のユーザー照会で取得できれば認証のSQL往復を増やさずに済むが、列・更新競合・移行・rollbackのコストはある。
+ユーザー全JWTの失効と、単一JWTだけの失効は区別し、`jti`と失効台帳は別段階で検討する。
+refresh tokenは必要性が確認された場合だけrotation・再利用検出を別設計とし、Redis・OAuth2全面移行を必須にしない。
+いずれも未実装の候補であり、migration・API・TTLはこの文書化では変更しない。
 
 ## Usernameとpassword
 

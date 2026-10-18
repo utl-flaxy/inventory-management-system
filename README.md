@@ -751,6 +751,13 @@ CSV引用処理とspreadsheet式対策を行います。[CSV仕様・取得と�
 # 🔐 JWT認証
 
 Spring Security + JWT によりステートレス認証を実装しています。
+セッションは保持しませんが、保護APIでは毎回DBユーザーとroleを確認します。
+JWTの既定TTLは`3600000` ms（1時間、外部設定で変更可能・実稼働値は未確認）です。
+クライアントでのtoken破棄や標準LogoutFilterではコピー済みJWTをサーバー側で失効できず、
+password変更・強制失効・個別失効のAPIも未実装です。
+username再利用・鍵変更・rollback・公開運用上の制約は[JWTライフサイクルと失効制約](docs/auth.md#jwtライフサイクルと失効制約)、
+設定の注入方法は[JWT設定](docs/security/jwt-configuration.md)を参照してください。
+v1.0はこの現行契約を文書化し、[Issue #79のv1.1候補](docs/auth.md#v11候補)は未実装課題として残します。
 
 ---
 

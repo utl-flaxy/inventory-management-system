@@ -16,11 +16,28 @@ JWT_EXPIRATION_MS=3600000
 issuerは空にできず、有効期間は正の値が必要。JWTの署名・issuer・期限を1回のparseで検証し、
 期限切れと期限なしのJWTを拒否する。未認証・別鍵・issuer不一致の保護APIアクセスは401になる。
 
-デプロイ前に実行環境へ `JWT_SECRET` を設定する。Dockerの場合は、ホストに設定するだけでなく
-アプリコンテナへ明示的に渡す必要がある。現在のComposeはJWT環境変数を転送しないため、
-本番の秘密情報の注入方法を整えてからデプロイする。このPRでは本番設定を変更しない。
-公開済みの旧鍵は再利用しない。鍵を変更してアプリを再起動すると、旧鍵で発行されたJWTは無効になる。
-本対応は設定による鍵の差し替えであり、複数鍵を同時に扱う仕組みは導入しない。
+設定の対応は`app.jwt.secret` / `app.jwt.issuer` / `app.jwt.expiration-ms`。
+アプリプロセスへ渡す環境変数等のSpring外部設定で上書きできる。TTLの変更は新規発行分に適用され、
+既発行JWTの`exp`は変更されない。実稼働環境の設定値・注入状態は未確認であり、既定値から推測しない。
+
+現在の[docker-compose.yml](../../docker-compose.yml)はappのenvironmentに
+`JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}`を明示し、未設定・空ならCompose解決時に拒否する。
+privateな`.env`またはComposeへ渡すhost環境から解決する。hostにある任意の環境変数が
+自動でコンテナへ引き継がれるわけではない。
+`JWT_ISSUER` / `JWT_EXPIRATION_MS`は現行Composeのenvironmentに指定がないため、
+hostや`.env`に置くだけではappに渡らない。Compose以外の起動でアプリへ直接渡すか、
+別途レビュー済みの注入設定が必要。この文書化ではCompose・本番設定を変更しない。
+[設定・secretの取り扱い](../configuration.md#docker-compose-startup)に従い、秘密値や解決済みComposeをログ・PR・artifactへ出力しない。
+
+公開済み・漏洩した旧鍵は再利用しない。すべての検証プロセスを新鍵へ切り替えると、旧鍵で発行された全JWTが拒否される。
+複数鍵の同時検証はなく、特定JWTだけの失効でもない。再ログインが必要になり得る。
+旧imageへのrollbackで旧鍵・旧環境も復元すると、期限内の旧JWTが再受理され得る。
+imageだけで鍵の世代は決まらないため、rollback先のコードと設定を一緒に評価する。
+本書は実secretの変更や本番rotationを実施したものではない。
+
+クライアントlogout、DB password hash変更、ユーザー不在・role変更の効果、username再利用、
+未実装の失効APIは[JWTライフサイクルと失効制約](../auth.md#jwtライフサイクルと失効制約)を正本とする。
+v1.1候補のtokenVersion＋uidと別段階のjti台帳は[後続方針](../auth.md#v11候補)を参照。
 
 Java 17とDockerで `./mvnw clean verify`（Windows: `mvnw.cmd clean verify`）を実行する。
 JWTテストには本番の秘密値・DBを使わず、署名検証と実SecurityFilterChainの401/200応答、
