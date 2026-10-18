@@ -5,6 +5,41 @@
 Issue #33でエラーbodyをSpring ProblemDetail、application/problem+jsonへ変更する。
 status/code・入力・JWT仕様は維持する。[APIエラー契約](api-errors.md)を参照。
 
+## JWTフィルタの実行経路と公開auth境界（Issue #81）
+
+Spring Boot 4.1.1 / Java17で、JwtAuthenticationFilterはDI対象のbeanを維持し、
+FilterRegistrationBeanのenabled=falseによりServlet自動登録を無効にする。
+同じinstanceをSecurityFilterChainへ1か所だけ登録し、SecurityContextHolderFilterの後、
+AnonymousAuthenticationFilter / AuthorizationFilterの前で認証する。
+RequestCorrelationFilterはServlet側でSecurityより先にrequestIdを設定する。
+
+JWT処理の除外とpermitAllは同一のRequestMatcherを共有する。対象はcanonicalな
+POST /auth/login と POST /auth/registerだけ。context pathを含むrequest URIの完全一致で判定し、
+query stringは判定に含めない。公開POSTはBearer headerがあってもJWT処理に依存しない。
+署名・issuer・期限を検証するJwtUtil、UserDetails照会、role認可は変更しない。
+
+/authority・/authentication・/authzなどのprefix類似パス、/auth配下の別ルート、
+別HTTP method、末尾slash・case違い・encoded aliasはこの公開例外に含めない。
+未認証の場合はSecurityで401となり得る。従来の/auth/** namespace全体の匿名許可を撤廃する変更であり、
+未対応method/未定義pathへの匿名アクセスの互換性は保証しない。実在する公開APIのPOST 2件は維持する。
+将来ルートを追加するときは認可とOpenAPIを個別にレビューする。
+
+main 2e10f1698e40c068233413aa950c59a84a11c32fの実Tomcatでは、通常の認証成功要求で
+Security内とServlet側のフィルタ入口が計2回、内部処理・JWT解析・user照会は各1回だった。
+OncePerRequestFilterが内部処理の重複を防いでおり、二重認証や現在の保護APIの権限迂回を確認した事実とは区別する。
+一方、prefix類似のテスト専用ルートは有効JWTでも解析0回/401、/auth配下のテスト専用ルートは匿名200だった。
+これらのルートはtest sourcesにだけ存在し、現在の本番APIに同ルートが存在するという報告ではない。
+
+修正後はServlet登録0、Security内1、成功要求の入口/内部処理/解析/照会が各1回。
+公開POSTの内部JWT処理は0回。テスト専用の/auth配下ルートも匿名401・有効JWT200となる。
+JWT不正401・認可403・login429/Retry-After・既知DB一時障害503・未知障害500、
+ProblemDetail・安全なevent/requestId、AUD-11の待機・shutdown契約を維持する。
+検証は使い捨てMariaDB/実HTTPとCIで行い、本番ネットワークを検証したものではない。
+
+根拠: [Spring SecurityのFilter登録](https://docs.spring.io/spring-security/reference/servlet/architecture.html)、
+[OncePerRequestFilter](https://docs.spring.io/spring-framework/docs/7.0.0/javadoc-api/org/springframework/web/filter/OncePerRequestFilter.html)。
+
+
 ## Usernameとpassword
 
 両APIでusernameは `[A-Za-z0-9._-]{3,50}`。null、空、空白、2文字以下、51文字以上、

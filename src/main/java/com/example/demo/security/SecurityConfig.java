@@ -4,6 +4,7 @@ import com.example.demo.exception.ApiProblemFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -25,6 +26,13 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SecurityProblemWriter problemWriter;
     private final Environment environment;
+
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtServletRegistration() {
+        var registration = new FilterRegistrationBean<>(jwtAuthenticationFilter);
+        registration.setEnabled(false); // The same bean runs only inside SecurityFilterChain.
+        return registration;
+    }
 
     @Bean
     public WebSecurityCustomizer problemRequestRejectedHandler() {
@@ -49,7 +57,8 @@ public class SecurityConfig {
                                 problemWriter.write(request, response, HttpStatus.FORBIDDEN, "ACCESS_DENIED",
                                         ApiProblemFactory.ACCESS_DENIED_DETAIL)))
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers("/auth/**", "/actuator/health").permitAll();
+                    auth.requestMatchers(JwtAuthenticationFilter.PUBLIC_AUTH_REQUESTS).permitAll();
+                    auth.requestMatchers("/actuator/health").permitAll();
                     if (environment.matchesProfiles("prod")) {
                         auth.requestMatchers("/livez", "/readyz").permitAll();
                     }
