@@ -1,7 +1,7 @@
 # Docker runtime・再現性・メモリ設計 — Issue #76
 
-現行確認: main **`5f0fae4ebd89754e23538cb09f97a1ff037255ed`**、Java17 / **Spring Boot4.1.1**。
-[main CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086): Java2,176、必須5ジョブSUCCESS。
+現行確認: main **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**、Java17 / **Spring Boot4.1.1**。
+[main CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859): Java2,176、必須5ジョブSUCCESS。
 OSV169 components/0 advisory、Trivy **OS49（MEDIUM27/LOW22）/ library0**。
 現在値と実証限界は[現行証跡](release-status.md)、再現コマンドは[隔離デモ](demo.md)を参照。
 

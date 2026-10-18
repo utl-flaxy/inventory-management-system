@@ -1,7 +1,7 @@
 # Single EC2 HTTPS (Issue #61)
 
-現行確認: main `5f0fae4ebd89754e23538cb09f97a1ff037255ed` / **Java17・Boot4.1.1**、
-[main CI 39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)で必須5ジョブSUCCESS。
+現行確認: main `186aad8cb41fa7d7227304aeed4a4c3d6436ad69` / **Java17・Boot4.1.1**、
+[main CI 39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)で必須5ジョブSUCCESS。
 以下は本番想定の定義と運用者向け手順。現行構成はAWS未配備として扱い、公的TLS稼働を主張しない。
 [現行証跡](release-status.md)と[loopback HTTPの隔離デモ](demo.md)を参照。
 

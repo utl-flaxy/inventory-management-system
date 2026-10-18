@@ -13,16 +13,17 @@ TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`di
 - [現行の構成・監査証跡](docs/release-status.md): 対象SHA、CI、テスト数、既知のリスクと保証範囲
 - [テスト手順](docs/testing.md) / [認証・JWT制約](docs/auth.md) / [APIエラー](docs/api-errors.md)
 - [注文設計](docs/orders/order-aggregate.md) / [在庫設計](docs/inventory.md) / [配備手順](docs/deployment.md)
+- [Transaction・ロック設計](docs/design/transactions-and-locking.md) / [主要な設計判断と代替案](docs/design/decisions.md)
 
 ## 設計で重視したこと
 
 | 課題 | 実装上の判断 | 回帰の根拠 |
 |---|---|---|
-| 同時注文による販売超過・更新消失 | 商品の悲観ロック、商品ID昇順取得、Transaction、version管理 | `InventoryConcurrencyMariaDbIT`。異なる実DB顧客20人、在庫10で成功10・不足10、履歴・金額も検証 |
-| 通信再送による二重処理 | 注文・在庫調整のIdempotency-Keyを利用者単位で管理 | 同key/同内容は初回結果、別内容は409。`IdempotentOrderIT`ほか |
-| 途中失敗と過去注文の書換え | 注文・在庫・履歴を一括commit/rollback。注文時の商品名・価格をsnapshot | 実MariaDBの失敗注入・rollback・スナップショット回帰 |
-| 認証と権限の混同 | 署名/issuer/期限を検証し、現在のDBユーザー・roleで認可 | 実HTTPのUSER/ADMIN/所有者境界、JWT未署名・改ざん等の否定系 |
-| 障害時の誤った成功判定 | 401/403/409/429と一時DB障害503・予期しない500を区別 | ProblemDetail、DB待機・切断、graceful shutdown、復旧後retryのIT |
+| 同時注文による販売超過・更新消失 | 商品の悲観ロック、商品ID昇順取得、Transaction、version管理。[OrderService](src/main/java/com/example/demo/service/OrderService.java) / [Product](src/main/java/com/example/demo/entity/Product.java) | [InventoryConcurrencyMariaDbIT](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java)。異なる実DB顧客20人、在庫10で成功10・不足10、履歴・金額も検証 |
+| 通信再送による二重処理 | 利用者単位のkey/指紋。[OrderService](src/main/java/com/example/demo/service/OrderService.java) / [InventoryService](src/main/java/com/example/demo/service/InventoryService.java) | 同key/同内容は初回結果、別内容は409。[IdempotentOrderIT](src/test/java/com/example/demo/controller/IdempotentOrderIT.java) / [在庫調整IT](src/test/java/com/example/demo/controller/InventoryAdjustmentIdempotencyIT.java) |
+| 途中失敗と過去注文の書換え | 注文・在庫・履歴を一括commit/rollback、注文時snapshot。[OrderService](src/main/java/com/example/demo/service/OrderService.java) / [OrderItem](src/main/java/com/example/demo/entity/OrderItem.java) | [実MariaDBの途中失敗・snapshot回帰](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java) / [金額境界IT](src/test/java/com/example/demo/controller/MoneyApiIT.java) |
+| 認証と権限の混同 | 署名/issuer/期限を検証しDBの現在roleで認可。[JwtUtil](src/main/java/com/example/demo/security/JwtUtil.java) / [JwtAuthenticationFilter](src/main/java/com/example/demo/security/JwtAuthenticationFilter.java) | 実HTTPの[JWT否定系・USER/ADMIN境界](src/test/java/com/example/demo/security/JwtFilterRegistrationIT.java) / [所有者認可IT](src/test/java/com/example/demo/security/AuthorizationMatrixIT.java) |
+| 障害時の誤った成功判定 | 401/403/409/429、一時DB障害503・予期しない500を区別。[ServerFailureResponse](src/main/java/com/example/demo/exception/ServerFailureResponse.java) / [prod設定](src/main/resources/application-prod.properties) | [DB切断と回復IT](src/test/java/com/example/demo/security/AuthDatabaseFailureIT.java) / [待機・rollback・再試行IT](src/test/java/com/example/demo/security/DatabaseTimeoutIT.java)。shutdownは[Docker検証](scripts/docker/verify_image.py) |
 
 [異なる顧客の競合条件と過去のロック除去対照実験](docs/orders/inventory-concurrency.md)を参照してください。
 その対照実験の結果は当時のSHAに対する証拠であり、今のmainからロックを除去しているわけではありません。
@@ -40,7 +41,8 @@ TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`di
 | Infra / CI | Terraform 1.15.6 / AWS provider 6.68.0、Caddy 2.11.7の定義、GitHub Actions必須5ジョブ |
 
 バージョンの正本は[pom.xml](pom.xml)、Dockerfile、workflow、解決済みSBOMです。
-通常ComposeのDBは`mariadb:12.2`の可変tag、検証fixtureは12.2.2のdigest固定であり、両者を同じ再現性とは扱いません。
+DBは通常Composeが`mariadb:12.2`、Java ITも主に`12.2.2`・一部`12.2`の可変tagです。
+[Dockerデモ](scripts/docker/verify_image.py)だけは`12.2.2`の完全digestへ固定し、両者を同じbit再現性とは扱いません。
 H2はテスト補助で、本番用DBではありません。schemaはFlywayが管理し、Hibernateは`validate`、OSIVは無効です。
 
 ## 構成と信頼境界
@@ -107,8 +109,9 @@ Swagger UIはprodで無効です。local開発設定は[設定文書](docs/confi
 
 ## 検証結果とCI
 
-基準はmain **`5f0fae4ebd89754e23538cb09f97a1ff037255ed`**、2026-10-18の
-[main CI 39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)です。
+基準はmain **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**、2026-10-18の
+[main CI 39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)です。
+以前の[5f0fae4 / CI 39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)はPR #124反映時のsnapshotとして保持します。
 後続PRの新HEAD結果はPR本文・artifactで別に記録します。過去の件数を現在値として上書きしません。
 
 | 検証 | mainで確認した結果 | 保証範囲 |
@@ -131,6 +134,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - app rollbackはDB rollbackではありません。migrationは自動undoせず、[backup/restore](docs/db/backup-restore.md)とschema互換性の判断が別途必要です。
 - JWT個別失効/refresh、password変更・強制失効APIは未実装です。[JWTライフサイクル](docs/auth.md#jwtライフサイクルと失効制約)、[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)を参照。username再割当てや旧鍵へ戻す操作の再受理リスクも残ります。
 - Flyway/MariaDB12.2互換性WARN、Trivy OS由来49件を開示して継続監査します。負荷・容量・SLA・実secret・TLS・本番backup/restoreは未検証です。
+- Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
 - Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。S3/RDS/Redisは将来拡張で、現行の完成判定へ含めません。
 
 詳細: [Docker/メモリ](docs/docker-runtime.md)、[TLS](docs/tls.md)、[Terraform](terraform/README.md)、[配備/rollback](docs/deployment.md)、[監査状況](docs/release-status.md)。
