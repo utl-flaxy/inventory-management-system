@@ -27,7 +27,10 @@ def http_order(port, product, token, key):
 def new_request_stopped(port):
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/livez", timeout=0.5) as response:
-            return response.status != 200
+            return False
+    except urllib.error.HTTPError:
+        # A 4xx/5xx is still an HTTP response, not proof that Tomcat stopped accepting work.
+        return False
     except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError):
         return True
 
