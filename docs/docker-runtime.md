@@ -1,6 +1,12 @@
 # Docker runtime・再現性・メモリ設計 — Issue #76
 
-基準main: `74e8d953f8c132c5c0ebf79accc0f784cd75af1e`。Java 17 / Spring Boot 3.5.16を維持する。
+現行確認: main **`5f0fae4ebd89754e23538cb09f97a1ff037255ed`**、Java17 / **Spring Boot4.1.1**。
+[main CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086): Java2,176、必須5ジョブSUCCESS。
+OSV169 components/0 advisory、Trivy **OS49（MEDIUM27/LOW22）/ library0**。
+現在値と実証限界は[現行証跡](release-status.md)、再現コマンドは[隔離デモ](demo.md)を参照。
+
+**履歴:** Issue76導入時はmain `74e8d953f8c132c5c0ebf79accc0f784cd75af1e`、Boot3.5.16だった。
+[当時のimage/容量/旧JDK対照/Boot4 PoC](audits/issue-76-validation.json)はそのSHAの記録として保存し、現行Boot4正式採用後の結果と混同しない。
 2026年6月のEC2はt3.micro・2 vCPU・1 GiBだったという過去の確認値がある。
 現在の稼働instance type・実使用可能RAMは未確認。Terraformの既定値もt3.microだが、
 実host容量の証明にはならない。AWSへのアクセス、instance変更、本番操作は行わない。
@@ -119,13 +125,15 @@ host free/available memoryとswapを確認し、必要なら配備を止めて�
 既存volumeを使用しない。新規resourceはnonce label確認後にだけcleanupする。
 全体のdown、volume削除、Dockerのglobal cleanupは行わない。
 credentials/JWTは使い捨てrandom値をprivate temp fileで渡し、報告・ログでは値を除去する。
-ADMIN fixtureの付与は使い捨てDBだけのSQL操作であり、production user管理の変更ではない。
+ADMIN fixtureは使い捨てDBの専用最小権限userと、明示offline provisioning CLIで作成する。
+公開register・通常起動・migrationからADMINを作らない。production user管理の変更ではない。
 
 検証はnon-root、JRE/tool不在、read-only権限、bounded memory、readiness、JWT署名、
 USER/ADMIN認可、注文/在庫/取消・冪等性、headers、errors、V1〜V6、実app-only rollbackを含む。
-DB接続不能なtargetのreadiness失敗後に旧imageを復元し、DB ID/起動時刻とbusiness dataの不変を確認する。
-localの拡張検証は旧JDK/root imageとのrollback、384/512 MiBの起動試験、意図的heap OOM、
-PR #93の既存jarを使うBoot 4 runtime互換PoCを別途記録する。
+DB接続不能なtargetのreadiness失敗後に直前設定を復元し、DB ID/起動時刻とbusiness dataの不変を確認する。
+**標準CI/デモは--baseline-image未指定でcurrentとprevious_image_idが同一**。
+同一imageの設定故障からのapp-only復帰を実証し、異なる旧バイナリとの互換rollbackを保証しない。
+Issue76当時のlocal拡張検証（旧JDK/root image、384/512MiB起動、heap OOM、PR #93のBoot4 runtime PoC）は上記履歴JSONへ分離する。
 小容量でREADYになっても継続負荷・OS同居の安全を証明したとは扱わない。
 
 Trivy 0.75.0の公式scanner imageもdigest固定する
@@ -133,7 +141,7 @@ Trivy 0.75.0の公式scanner imageもdigest固定する
 scannerへDocker socketを渡さず、docker saveした対象imageだけをread-onlyで渡す。
 OS/Javaの全findingをJSON保存し、severity/filter/ignoreによる隠蔽はしない。
 findingがある監査処理成功と脆弱性ゼロを区別し、tool/DB取得/解析エラーはCIを失敗させる。
-OSVの既存8 advisoryについても別途再監査する。
+Issue76当時のOSV8件は履歴JSONに保持。現行mainはOSV0件、Trivy OS49件であり、同一対象の改善件数として合算しない。
 
 CIは既存5ジョブを維持し、test jobでfull verify後にDocker build/API/rollback/image auditを実行する。
 test timeoutはDocker検証分を含め20分に拡張。skipやcontinue-on-errorは追加しない。
@@ -142,6 +150,6 @@ localとCIの実測はPR本文で区別する。GitHubのrunnerとEC2が同じRA
 
 移行は旧appのimage IDと解決済みComposeを保存してから新sourceをbuildし、
 新image ID・revision・/readyzを確認してappのみ切り替える。
-失敗時は保存済み旧image/Composeへ戻し、旧imageがJDK/rootでも既存契約で復旧できる。
+失敗時は保存済み旧image/Composeへ戻す設計である。旧JDK/rootの対照実験はIssue76当時の証拠に限定し、将来すべての旧imageと新schemaの互換性を保証しない。
 新しいread-only/user/memory設定を旧snapshotへ強制しない。image pruneやDB migrationの書換えは行わない。
 Deployはdisabledを維持し、本番採用・容量決定・PR mergeはユーザーのレビューを待つ。

@@ -1,6 +1,19 @@
 # テスト品質ゲート
 
-## 現行mainの品質ゲート（2026-10-17確認）
+## 現行mainの品質ゲート（2026-10-18確認）
+
+基準main: **`5f0fae4ebd89754e23538cb09f97a1ff037255ed`**（PR #124 merge後）。
+[main CI 39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)は同SHAでcompleted/success、必須5ジョブSUCCESS。
+**Java17 / Boot4.1.1、Surefire1,314 + Failsafe862 = 2,176、Failures/Errors/Skipped=0**。
+Python29、Terraform mock27、Secret例外0/未解決0、SpotBugs SECURITY違反0、OSV169 components/0 advisory。
+Trivyは別対象で**OS49件（MEDIUM27/LOW22）、library0**。audit-onlyの正常実行は脆弱性ゼロを意味しない。
+
+main保護はstrictな必須5 checks、enforce_admins/linear_history有効、force push/delete禁止をread-only APIで確認。
+必須review数は0で、独立レビューは人手の運用。Deployはdisabled_manually、実AWS適用・本番TLSは未実施。
+詳細な対象・保証限界・監査史は[現行証跡](release-status.md)、再現可能な[隔離Dockerデモ](demo.md)を参照。
+後続PRは自分のHEADでfull verifyと全5ジョブを実行し、基準mainの結果の使い回しだけで合格としない。
+
+## 過去の品質ゲートsnapshot（2026-10-17）
 
 基準main: `cf566817c46a94249bc732d7f0d183805b7afa73`。実POMは **Spring Boot 4.1.1 / Java 17**。
 mainで確認済みのJava回帰基準は **Surefire 1,101 + Failsafe 760 = 1,861件**（Failures/Errors/Skipped=0）。
@@ -13,7 +26,7 @@ mainのbranch protection設定・本番Deploy・実AWS適用はこれらのCI成
 実ジョブ定義は [ci.yml](../.github/workflows/ci.yml)、秘密/静的解析の検証は [CI品質ゲート](ci-quality-gates.md)、残余は [Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8) を参照。
 
 **読み方:** 以下にはIssue別に追加した当時の実装・検証記録が時系列で残る。
-古い節の「現行」「baseline」「CI timeout」「Spring Boot 3.5」「Flyway 11」等は**そのIssueを実施した当時の情報**であり、2026-10-17のmainの構成・合格基準を上書きしない。検証時点の一次資料として保持する。
+古い節の「現行」「baseline」「CI timeout」「Spring Boot 3.5」「Flyway 11」等は**そのIssueを実施した当時の情報**であり、冒頭2026-10-18のmainの構成・合格基準を上書きしない。検証時点の一次資料として保持する。
 
 ## Java 17・実行コマンド
 

@@ -1,5 +1,11 @@
 # 検証済みmain SHAのEC2配備
 
+**現在Deploy workflowはdisabled_manually、現行構成はAWS未配備として扱う。**
+確認mainは`5f0fae4ebd89754e23538cb09f97a1ff037255ed`、Boot4.1.1/Java17。
+以下は運用者向けの設計・手順であり、本番適用済みの記録ではない。[現行監査証跡](release-status.md)を参照。
+現CIと[隔離デモ](demo.md)は同一image IDの故障設定からのapp-only復帰・DB不再作成を検証する。
+異なる旧バイナリ/新schema/旧鍵へのrollback、実EC2上のdeploy.sh全経路は未検証。
+
 Issue #17のCDは、既存の単一EC2/Compose構成でappだけを更新する。DB containerとvolumeは配備スクリプトで停止・再作成・削除しない。app切替時の短い停止はあり得る。
 
 ## 起動条件とSHA
@@ -143,7 +149,8 @@ rollback成功でも配備jobは失敗終了する。target成功と扱わず、
 
 ## Flywayとrollbackの限界
 
-Issue #69の[互換性判断](db/flyway-mariadb-compatibility.md)では、Boot管理Flyway 11.7.2とMariaDB 12.2を維持する。
+Issue #69の[当時の互換性判断](db/flyway-mariadb-compatibility.md)はFlyway11.7.2/MariaDB12.2の記録として保持する。
+現行Boot4のSBOMではFlyway12.4.0で、MariaDB12.2互換性WARNは残る。旧検討版へ戻す根拠にしない。
 全回帰成功を上流の12.2認証とみなさず、互換性WARNを非表示にしない。
 12.11.0の単独更新はJacksonの不整合で起動に失敗したため採用していない。
 本Issueの反映でFlyway/DB tagを上書きしたり、既存volumeのDBをupgrade/downgradeしたりしない。

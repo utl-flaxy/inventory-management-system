@@ -1,5 +1,9 @@
 # 2026-10-02品質監査 — 是正の証跡台帳
 
+> **履歴snapshot（2026-10-11）:** 以下の「現行」「今回」と20/21/1/4は調査main1278d456...時点を指す。
+> 本文の46 ID・集計・証拠を保持し、2026-10-18の値や全件再監査へ置き換えない。
+> その後の是正、現在の保護/CI/依存/運用残余は[現行証跡](../release-status.md)とEpic #8の同期欄を参照。
+
 調査日: 2026-10-11。調査main: [`1278d456764a0a7c13aa7a4d6277b599b7accd61`](https://github.com/utl-flaxy/inventory-management-system/commit/1278d456764a0a7c13aa7a4d6277b599b7accd61)。作業Issue: [#71](https://github.com/utl-flaxy/inventory-management-system/issues/71)、親Epic: [#8](https://github.com/utl-flaxy/inventory-management-system/issues/8)。
 
 元の46指摘すべてについて出典を確認し、現行main・閉鎖Issue・merge済みPR・最終headのCI・今回の実テストを照合した。**修正済み20、未対応21、リスク受容1、未確認4**。これは46件の完了宣言ではない。コードの是正、本番への反映、推奨アーキテクチャの採否を分けている。
