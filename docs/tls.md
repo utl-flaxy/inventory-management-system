@@ -1,5 +1,10 @@
 # Single EC2 HTTPS (Issue #61)
 
+現行確認: main `5f0fae4ebd89754e23538cb09f97a1ff037255ed` / **Java17・Boot4.1.1**、
+[main CI 39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)で必須5ジョブSUCCESS。
+以下は本番想定の定義と運用者向け手順。現行構成はAWS未配備として扱い、公的TLS稼働を主張しない。
+[現行証跡](release-status.md)と[loopback HTTPの隔離デモ](demo.md)を参照。
+
 Internet TCP80/443 → host Caddy → `127.0.0.1:8080` → Compose app。
 Terraformは必須FQDN `app_domain`、専用EIP/association、public TCP80/443を定義する。
 SSH22は運用者CIDRだけ。8080/2019/3306やIPv6のpublic ingressは追加しない。
@@ -73,6 +78,10 @@ Caddyは非信頼clientのX-Forwarded-For/Proto/Hostを上書きし、`Forwarded
 X-Forwarded-Port/Prefix/Sslを除去する。prodだけ`server.forward-headers-strategy=framework`で
 proxy情報を処理し、default/localへ強制しない。host/同一Compose networkは信頼境界内で、
 loopback制限だけでhost上の不正processからappを保護できるとは扱わない。
+prodのappは信頼proxyの設定不足を起動時に拒否する。Composeの`LOGIN_TRUSTED_PROXIES`は
+実appから観測するCaddy transport peerを運用者が確認して設定する。Caddy側localhostやDocker内部IPを推測して固定しない。
+非信頼peerのX-Forwarded-Forを認証制限の接続元として採用せず、判定不能503を共有IPへのfallbackに置き換えない。
+隔離デモのpeer実測は本番のpeer確認の代用ではない。詳細は[認証設計](auth.md)。
 API status/body/schema/auth/ProblemDetail/pagination/idempotencyは変更しない。
 
 Caddy access log・debug・request credential loggingは有効化しない。
@@ -95,4 +104,5 @@ CIからpublic CAへ証明書発行要求を送らない。
 
 実domain/DNS/本番証明書確認、Route53/ALB/ACM/CloudFront/IPv6/mTLS/WAF/OAuth2、
 remote state/backend、実AWS操作はOut of scope。
-Java17/Boot3.5.12/Terraform1.15.6/provider6.68.0を維持する。
+Issue61導入時のBoot3.5.12は履歴で、現行はJava17/Boot4.1.1/Terraform1.15.6/provider6.68.0。
+main CIはCaddyProxyITを含むJava2,176とTerraform mock27を実行するが、実DNS・公的CA・本番peer・実EC2への到達性は証明しない。

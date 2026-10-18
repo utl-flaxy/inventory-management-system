@@ -185,12 +185,14 @@ def provision_admin(image, network, db, username, database_password, password):
 
 def api_regression(port, db, image, network):
     checks = []
+    demo = []  # Only asserted HTTP outcomes and business values; never credentials or identifiers.
     password = secrets.token_urlsafe(18)
     private_values.append(password)
     for username in ["docker_user", "admin"]:
         body, _ = request(port, "/auth/register", method="POST", data={"username": username, "password": password, "role": "ROLE_ADMIN"})
         assert body["role"] == "ROLE_USER" and "password" not in body
     assert db_query(db, "SELECT COUNT(*) FROM users WHERE role='ROLE_ADMIN';") == "0"
+    demo.append(dict(step="register", http_status=200, users=2, role="ROLE_USER", admins=0))
     operator_secret = secrets.token_hex(24)
     private_values.append(operator_secret)
     # Test-generated hex credential travels only as SQL stdin to this disposable DB.
@@ -212,6 +214,7 @@ def api_regression(port, db, image, network):
     private_values.append(wrong_password)
     assert provision_admin(image, network, db, "another_operator", wrong_password, password) == (74, "DATABASE_FAILED")
     assert db_query(db, "SELECT COUNT(*) FROM users WHERE role='ROLE_ADMIN';") == "1"
+    demo.append(dict(step="offline_admin", concurrent_processes=3, created_admins=1, rerun_unchanged=True))
     checks.append("Offline initial ADMIN: 3 concurrent processes, one insert, least-privilege DB account, rerun unchanged, failed credentials redacted")
     tokens = {}
     for username in ["docker_user", administrator]:
@@ -219,6 +222,7 @@ def api_regression(port, db, image, network):
         tokens["docker_admin" if username == administrator else username] = body["token"]
         private_values.append(body["token"])
     user, admin = tokens["docker_user"], tokens["docker_admin"]
+    demo.append(dict(step="authenticate", http_status=200, user_and_admin=True))
     for _ in range(5):
         request(port, "/auth/login", 401, method="POST",
                 data={"username": "docker_user", "password": "wrong-disposable-password"},
@@ -257,11 +261,14 @@ def api_regression(port, db, image, network):
     request(port, "/products", 401, token="invalid-docker-test-token")
     request(port, "/api/v1/admin/orders", 403, token=user)
     request(port, "/products", 403, method="POST", token=user, data={"name": "fixture", "price": 100, "stock": 10})
+    demo.append(dict(step="authorization", anonymous_status=401, invalid_jwt_status=401, user_admin_status=403))
     checks.append("JWT signature verification and USER/ADMIN authorization")
     product, headers = request(port, "/products", method="POST", token=admin,
                                data={"name": "docker-fixture", "price": 100, "stock": 10})
     assert headers.get("X-Content-Type-Options") == "nosniff" and headers.get("X-Frame-Options") == "DENY"
     pid = product["id"]
+    assert product["price"] == 100 and product["stock"] == 10
+    demo.append(dict(step="admin_create_product", http_status=200, unit_price=100, stock=10))
     order, _ = request(port, "/api/v1/me/orders", method="POST", token=user,
                        data={"items": [{"productId": pid, "quantity": 2}]},
                        extra={"Idempotency-Key": "docker-order-1"})
@@ -271,6 +278,7 @@ def api_regression(port, db, image, network):
     assert order["id"] == repeated["id"] and order["totalPrice"] == 200
     actual, _ = request(port, f"/products/{pid}", token=user)
     assert actual["stock"] == 8
+    demo.append(dict(step="order_and_retry", http_status=200, quantity=2, total_price=200, stock=8, same_order=True))
     order_state_query = ("SELECT (SELECT COUNT(*) FROM orders), (SELECT COUNT(*) FROM order_items), "
                          "(SELECT COUNT(*) FROM inventory_movements), "
                          "(SELECT SUM(stock) FROM products), (SELECT SUM(version) FROM products);")
@@ -291,9 +299,17 @@ def api_regression(port, db, image, network):
     assert adjustment["delta"] == 3
     actual, _ = request(port, f"/products/{pid}", token=user)
     assert actual["stock"] == 11
-    request(port, f"/api/v1/me/orders/{order['id']}/cancel", method="POST", token=user)
+    demo.append(dict(step="admin_inventory_adjustment", http_status=200, delta=3, stock=11))
+    cancelled, _ = request(port, f"/api/v1/me/orders/{order['id']}/cancel", method="POST", token=user)
+    assert cancelled["status"] == "CANCELLED"
     actual, _ = request(port, f"/products/{pid}", token=user)
     assert actual["stock"] == 13
+    demo.append(dict(step="cancel", http_status=200, status="CANCELLED", stock=13))
+    administrative_orders, _ = request(port, "/api/v1/admin/orders", token=admin)
+    assert administrative_orders["totalElements"] == 1
+    assert administrative_orders["content"][0]["id"] == order["id"]
+    assert administrative_orders["content"][0]["status"] == "CANCELLED"
+    demo.append(dict(step="admin_view_orders", http_status=200, orders=1, status="CANCELLED"))
     checks.append("Order idempotency, stock decrement, inventory adjustment, cancellation transaction")
     error, _ = request(port, "/products", 400, method="POST", token=admin,
                        data={"name": "", "price": 0, "stock": -1})
@@ -301,7 +317,7 @@ def api_regression(port, db, image, network):
     request(port, "/v3/api-docs", 404, token=user)
     request(port, "/h2-console", 404, token=user)
     checks.extend(["Security headers", "Validation error response", "Production-only endpoint isolation"])
-    return checks, tokens, password, pid
+    return checks, tokens, password, pid, demo
 
 
 def main():
@@ -424,7 +440,7 @@ def main():
             report["checks"].append("JRE startup and /readyz=200 with status only")
             assert inspect(app)["HostConfig"]["ReadonlyRootfs"] is True
             report["checks"].append("Read-only rootfs, non-root, dropped capabilities, bounded tmpfs")
-            report["api_checks"], tokens, password, pid = api_regression(port, db, image, network)
+            report["api_checks"], tokens, password, pid, report["demo_steps"] = api_regression(port, db, image, network)
             migrations = db_query(db, "SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank;").splitlines()
             assert migrations == ["1", "2", "3", "4", "5", "6"]
             report["migrations"] = migrations
@@ -566,6 +582,7 @@ def main():
                     docker("rm" if kind == "container" else "network", *(["-f"] if kind == "container" else ["rm"]), name)
             (output / "summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"result": report["result"], "uid": 10001, "gid": 10001,
+                      "demo_steps": report["demo_steps"],
                       "image_bytes": report["image_bytes"], "checks": report["checks"], "migrations": report["migrations"],
                       "rollback": report["rollback"], "database_lifecycle": report["database_lifecycle"],
                       "image_scan": report.get("image_scan")}))
