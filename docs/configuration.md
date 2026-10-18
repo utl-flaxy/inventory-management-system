@@ -50,6 +50,8 @@ Spring Boot標準bindingを使い、application.propertiesにDB接続情報を�
 | SPRING_DATASOURCE_PASSWORD | app userのpassword。固定fallbackなし |
 | JWT_SECRET | 既存の必須署名鍵。32 UTF-8 bytes以上のランダムなsecret |
 | SPRING_PROFILES_ACTIVE | localまたはprod。未指定はsafe default |
+| APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES | prodでは実測したCaddy transport peerの正確なIP一覧。ComposeではLOGIN_TRUSTED_PROXIESから注入 |
+| APP_MEMORY_LIMIT（Compose専用） | host/DB/buildの余裕を確認して選ぶapp containerのRAM/swap上限。jar単独起動のJVM設定ではない |
 
 アプリへ直接渡す任意の`JWT_ISSUER`（既定`inventory-management-system`）と
 `JWT_EXPIRATION_MS`（既定`3600000` ms）は、`app.jwt.issuer` / `app.jwt.expiration-ms`へ対応する。
@@ -77,17 +79,28 @@ show-sqlはlocalでもfalse。format_sqlだけtrueとし、不要なSQL出力を
 ## Docker Compose startup
 
 `.env.example`はsecretが空のテンプレートで、そのままでは起動しない。
-privateな`.env`へコピーして、独立したDB_PASSWORD、DB_ROOT_PASSWORD、JWT_SECRETを設定する。
+新規環境用のprivateな`.env`へコピーして、独立したDB_PASSWORD、DB_ROOT_PASSWORD、JWT_SECRETを設定する。
 DB_NAME/DB_USERNAMEは英字開始の英数字とunderscoreのみ、DB_USERNAMEはroot以外。
+APP_MEMORY_LIMITとLOGIN_TRUSTED_PROXIESも必須。前者は[容量別予算](docker-runtime.md#jvmとcontainerの予算)、
+後者は[アプリが観測する信頼proxyの確認手順](auth.md#運用者の設定移行復旧)に従って決める。
+Docker gatewayやCaddyのlocalhostを推測で転記しない。両値とも空ならCompose解決を拒否する。
+信頼peer設定の不足/形式不正はprod起動時にも拒否する。非空でも経路と合わないpeerではloginが503になり得る。
+1GiB hostでappとDBを安全に同居できるとは扱わず、現在の実host容量は未確認のままにする。
 POSIXでは`.env`をchmod 600とする。Windowsでも利用者だけが読めるACLを使う。
 `.env`/`.env.*`はignoreし、安全な`.env.example`だけcommitする。
 
+以下は運用者が**新規環境**を用意する場合の手順であり、既存container/volumeを使う検証コマンドではない。
+手元の動作確認は[固有名の使い捨てDockerデモ](demo.md)を使う。この文書PRでは下記の通常Compose起動や本番操作は実行しない。
+
 ```bash
-./mvnw clean package -DskipTests
+./mvnw verify
 docker compose config --quiet
 docker compose up -d --build
 ```
 
+hostでのjar事前生成は不要。[Dockerfile](../Dockerfile)がJava17 JDK stage内でMaven依存をcacheし、
+ソースからpackageしてJRE stageへjarを渡す。image生成内のskipTestsは直前のfull verifyを置き換えない。
+`config --quiet`は必要な値の解決検証であり、容量や信頼peerが実環境で正しいことの証明ではない。
 Composeはprodを明示する。datasource URLは
 `jdbc:mariadb://db:3306/${DB_NAME}`として解決し、appには専用user/passwordだけを渡す。
 DB root passwordはDB containerだけに渡す。新しい空volumeではMariaDB公式imageが
@@ -105,9 +118,14 @@ JWT用環境変数は`JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}`だけ�
 
 ## Production startup / health
 
-private environmentで必須4項目を設定し、`SPRING_PROFILES_ACTIVE=prod`でJava 17のjarを起動する。
+jar単独起動ではprivate environmentでdatasource URL/user/password、JWT_SECRETに加え、
+`APP_LOGIN_RATE_LIMIT_TRUSTED_PROXIES`へ実測した信頼peerを設定し、`SPRING_PROFILES_ACTIVE=prod`でJava17のjarを起動する。
+prodの`require-trusted-proxy=true`、`server.forward-headers-strategy=framework`、登録/ログイン制限の検証を維持する。
+不正/不足設定の起動拒否は[ProductionConfiguration](../src/main/java/com/example/demo/config/ProductionConfiguration.java)が正本。
+Composeの場合はLOGIN_TRUSTED_PROXIESの転送とAPP_MEMORY_LIMITの明示指定も必要で、
+その値をjar用の環境変数と無条件に同一視しない。jar単独起動にも別途host/JVMのメモリ予算が必要。
 Flyway enabled、ddl-auto=validate、baseline-on-migrate=false、clean-disabled=trueを維持する。
-V1〜V4不変、V5/schema変更なし。
+schemaの正本は[Flyway V1〜V6](../src/main/resources/db/migration)。既存migrationを改変せず、次回のschema変更は別途レビューする。
 
 `GET /actuator/health`は全profileでJWTなし、prodではmain portの`/livez`と`/readyz`も匿名可。
 probeとdefault/local総合healthは正常時200 `{"status":"UP"}`のみ。
@@ -120,8 +138,10 @@ datasource URL/user/password、root password、JWT secretはhealth/ProblemDetail
 
 ## Deploy / secret handling
 
-[配備手順](deployment.md)ではDB_NAME/DB_USERNAMEをRepository variables、
+[配備手順](deployment.md)ではDB_NAME/DB_USERNAME/APP_MEMORY_LIMITをRepository variables、
 DB_PASSWORD/DB_ROOT_PASSWORD/JWT_SECRETをActions secretsで参照する。DB URLはComposeで導出する。
+LOGIN_TRUSTED_PROXIESは現行workflowのSSH転送変数ではなく、承認済みhostローカル`.env`で準備する。
+Actionsへ同名の値を置くだけで注入されるとは扱わず、実peer確認と設定反映は運用前の未実施事項に残す。
 runnerとremote BashはSSH/切替前に不足を拒否し、remoteもprodを強制する。
 DB_ROOT_PASSWORDは全serviceを含むCompose解決に必要なためrunner/remoteへ渡すが、
 app datasource・app container environmentへは渡さない。DBを再作成・password変更する操作は行わない。
@@ -131,5 +151,5 @@ resolved Composeとrollback環境にはsecretがあるため、umask 077/.deploy
 password rotation、EC2配備、Deploy workflow再有効化は未実施**。運用者がbackup/接続/Flywayを確認する。
 HTTPS/TLS、AWS Secrets Manager/SSM、RDS、Terraform全面変更、Actions version更新は対象外。
 
-参照: [Spring Boot Actuator](https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html)、
+参照: [probeとDB待機の実装契約](db-lifecycle.md)、
 [MariaDB公式imageのenvironment](https://mariadb.com/docs/server/server-management/automated-mariadb-deployment-and-administration/docker-and-mariadb/mariadb-server-docker-official-image-environment-variables)。

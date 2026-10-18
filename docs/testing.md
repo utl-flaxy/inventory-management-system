@@ -2,8 +2,8 @@
 
 ## 現行mainの品質ゲート（2026-10-18確認）
 
-基準main: **`5f0fae4ebd89754e23538cb09f97a1ff037255ed`**（PR #124 merge後）。
-[main CI 39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)は同SHAでcompleted/success、必須5ジョブSUCCESS。
+基準main: **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**（PR #127 merge後）。
+[main CI 39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)は同SHAでcompleted/success、必須5ジョブSUCCESS。
 **Java17 / Boot4.1.1、Surefire1,314 + Failsafe862 = 2,176、Failures/Errors/Skipped=0**。
 Python29、Terraform mock27、Secret例外0/未解決0、SpotBugs SECURITY違反0、OSV169 components/0 advisory。
 Trivyは別対象で**OS49件（MEDIUM27/LOW22）、library0**。audit-onlyの正常実行は脆弱性ゼロを意味しない。
@@ -12,6 +12,10 @@ main保護はstrictな必須5 checks、enforce_admins/linear_history有効、for
 必須review数は0で、独立レビューは人手の運用。Deployはdisabled_manually、実AWS適用・本番TLSは未実施。
 詳細な対象・保証限界・監査史は[現行証跡](release-status.md)、再現可能な[隔離Dockerデモ](demo.md)を参照。
 後続PRは自分のHEADでfull verifyと全5ジョブを実行し、基準mainの結果の使い回しだけで合格としない。
+旧基準[main5f0fae4 / CI39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)も同2,176件で、当時のsnapshotとして区別する。
+[設計とテストの対応表](design/transactions-and-locking.md#6-検証できていることとテストへの入口)から各競合・rollbackテストへ進める。
+Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定であり、[最終監査の失敗記録](audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持する。
+単独再実行やLinux CI成功をWindows full verify成功へ読み替えず、pool/timeout緩和やskipで解消扱いにしない。
 
 ## 過去の品質ゲートsnapshot（2026-10-17）
 
