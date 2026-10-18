@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from database_lifecycle import exercise_shutdown
 
 DB_IMAGE = "mariadb:12.2.2@sha256:6a4c4bbf0447c2247801309513fcc0dd17c3f35390368139ce419387fdd1144d"
 SCANNER_IMAGE = "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
@@ -398,6 +399,9 @@ def main():
                                ports=["127.0.0.1::8080"], mem_limit=limit, memswap_limit=limit,
                                labels={"inventory.issue76": nonce},
                                networks={"disposable": None})
+                grace = re.search(r"^    stop_grace_period: (\S+)$", (root / "docker-compose.yml").read_text(), re.M)
+                assert grace and grace[1] == "35s", "Compose must allow Boot's 30-second drain plus cleanup"
+                service["stop_grace_period"] = grace[1]
                 if hardened:
                     service.update(user="10001:10001", read_only=True, cap_drop=["ALL"],
                                    security_opt=["no-new-privileges:true"], pids_limit=256,
@@ -428,6 +432,22 @@ def main():
             report["app_after_api"] = memory(app)
             report["db_after_api"] = memory(db)
             report["checks"].append("MariaDB connection and unchanged Flyway V1-V6")
+            report["database_lifecycle"] = []
+            def restart_candidate():
+                cutover(candidate)
+                return wait_app(app)[0]
+            for mode, expected_status, expected_data in [("commit", 200, [0, 1, 1, 1]), ("deadline", 409, [1, 0, 0, 0])]:
+                lifecycle, port = exercise_shutdown(docker=docker, inspect=inspect, db_query=db_query,
+                        restart=restart_candidate, app=app, db=db, port=port, token=tokens["docker_user"],
+                        stop=lambda: docker("compose", "-p", project, "-f", candidate, "stop", "app"),
+                        mode=mode, private_values=private_values)
+                assert lifecycle["http_status"] == expected_status and lifecycle["business_state"] == expected_data
+                assert lifecycle["configured_stop_timeout_seconds"] == 35
+                assert lifecycle["exit_code"] in (0, 143) and not lifecycle["oom"] and not lifecycle["forced_kill"]
+                assert lifecycle["pool_shutdown_completed"] and lifecycle["app_db_connections_after_stop"] == 0
+                assert lifecycle["db_lock_waits_after_stop"] == 0 and lifecycle["stop_seconds"] < 12
+                if mode == "deadline": assert lifecycle["problem_code"] == "CONCURRENT_UPDATE"
+                report["database_lifecycle"].append(lifecycle)
             data_signature = db_query(db, "SELECT (SELECT COUNT(*) FROM orders), (SELECT SUM(stock) FROM products);")
             admin_signature = db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';")
             previous = temp / "previous.json"
@@ -547,7 +567,8 @@ def main():
             (output / "summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"result": report["result"], "uid": 10001, "gid": 10001,
                       "image_bytes": report["image_bytes"], "checks": report["checks"], "migrations": report["migrations"],
-                      "rollback": report["rollback"], "image_scan": report.get("image_scan")}))
+                      "rollback": report["rollback"], "database_lifecycle": report["database_lifecycle"],
+                      "image_scan": report.get("image_scan")}))
 
 
 if __name__ == "__main__":

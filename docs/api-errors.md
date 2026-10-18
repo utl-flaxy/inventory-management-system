@@ -60,6 +60,10 @@ JSON propertyの順序は契約にしない。
 
 ### DB障害の分類（AUD-10 / Issue #114）
 
+prodの待機上限と停止契約は[DB lifecycle（AUD-11 / Issue #116）](db-lifecycle.md)を参照。
+pool取得・query timeoutの503、行ロック待ちの409と、接続断後の未分類なcommit/rollback失敗500を区別する。
+接続断の全段階を一律503にはしない。どの5xxでも書込み結果を確認し、対応APIの同key/同内容retry契約に従う。
+
 有効なJWTでもユーザーの照会にはDBが必要。DB接続不能・切断（JDBC SQLState class 08）、
 `SQLTransientConnectionException`、`SQLRecoverableException`、接続取得/クエリのtimeout
 （`SQLTimeoutException` / Spring `QueryTimeoutException`）、Spring `TransientDataAccessResourceException`

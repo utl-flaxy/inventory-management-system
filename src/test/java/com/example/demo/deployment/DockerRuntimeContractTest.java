@@ -9,11 +9,31 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.time.Duration;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DockerRuntimeContractTest {
+    @Test
+    void databaseWaitsFitTransactionAndGracefulShutdownFitsComposeCleanupBudget() throws Exception {
+        var properties=new Properties();
+        try(var reader=Files.newBufferedReader(Path.of("src/main/resources/application-prod.properties"))) { properties.load(reader); }
+        long validation=Long.parseLong(properties.getProperty("spring.datasource.hikari.validation-timeout"));
+        long acquire=Long.parseLong(properties.getProperty("spring.datasource.hikari.connection-timeout"));
+        long transaction=Duration.parse("PT"+properties.getProperty("spring.transaction.default-timeout").toUpperCase(java.util.Locale.ROOT)).toMillis();
+        long drain=Duration.parse("PT"+properties.getProperty("spring.lifecycle.timeout-per-shutdown-phase").toUpperCase(java.util.Locale.ROOT)).toMillis();
+        long stop=Duration.parse("PT"+app().get("stop_grace_period").toString().toUpperCase(java.util.Locale.ROOT)).toMillis();
+        long connect=Long.parseLong(properties.getProperty("spring.datasource.hikari.data-source-properties.connectTimeout"));
+        long socket=Long.parseLong(properties.getProperty("spring.datasource.hikari.data-source-properties.socketTimeout"));
+        long lock=Long.parseLong(properties.getProperty("spring.datasource.hikari.connection-init-sql").split("=")[1])*1000;
+        assertEquals("10",properties.getProperty("spring.datasource.hikari.maximum-pool-size"),"Keep existing pool capacity");
+        assertTrue(validation<acquire && acquire<transaction && lock<transaction);
+        assertTrue(connect<acquire && transaction<socket && socket<=drain);
+        assertTrue(transaction<drain && drain+5000<=stop,"The Docker stop budget must preserve HTTP drain and cleanup time");
+        assertEquals("graceful",properties.getProperty("server.shutdown"));
+    }
     private static String dockerfile() throws Exception {
         return Files.readString(Path.of("Dockerfile"));
     }

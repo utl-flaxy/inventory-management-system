@@ -133,6 +133,10 @@ endpoint・匿名認証・status semanticsは維持し、default/localのbodyは
 
 ## Production health / restart（Issue #55）
 
+prodのDB待機・停止予算は[DB lifecycle](docs/db-lifecycle.md)にまとめています（AUD-11 / Issue #116）。
+pool10を維持し、接続取得5秒・行ロック5秒・Tx10秒、driver接続3秒/read30秒を区別します。
+SIGTERMのHTTP drain30秒に対しComposeは35秒待ちます。これらは本番容量・SLA・復旧性の保証ではありません。
+
 prodの`/livez`は`livenessState`だけを確認し、DB障害をapplication再起動の理由にしません。
 `/readyz`は`readinessState,db`を確認し、DB利用不能または`REFUSING_TRAFFIC`なら503を返します。
 Spring標準Actuatorのprobeを使用し、default/localにはprobe設定を追加しません。
