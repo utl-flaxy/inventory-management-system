@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -31,12 +32,14 @@ import org.testcontainers.utility.MountableFile;
 import tools.jackson.databind.ObjectMapper;
 
 import javax.sql.DataSource;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.*;
 import java.sql.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -148,8 +151,12 @@ class DatabaseTimeoutIT {
         await(() -> pool.getHikariPoolMXBean().getActiveConnections() == 0);
     }
 
-    @Test
+    @RepeatedTest(value = 3, name = "row timeout {currentRepetition}/{totalRepetitions}")
     void productLockTimeoutReturns409RollsBackAndSameKeyCanRetry() throws Exception {
+        RowLockSample beforeWait = rowLockSample();
+        assertEquals(0, beforeWait.currentWaits(), "The disposable DB must have no unrelated wait");
+        var workerStart = new AtomicLong();
+        var workerEnd = new AtomicLong();
         String before = snapshot();
         String key = UUID.randomUUID().toString();
         var executor = Executors.newSingleThreadExecutor();
@@ -158,17 +165,33 @@ class DatabaseTimeoutIT {
         long start = System.nanoTime();
         long blockedAt = 0;
         long responseAt = 0;
+        long wallStart=System.currentTimeMillis();
+        BigDecimal dbWallStart=jdbc.queryForObject("SELECT UNIX_TIMESTAMP(SYSDATE(6))",BigDecimal.class);
         try (var blocker = DriverManager.getConnection(database.getJdbcUrl(), database.getUsername(), database.getPassword())) {
             blocker.setAutoCommit(false);
             try (var statement = blocker.createStatement(); var rows = statement.executeQuery("SELECT id FROM products WHERE id=2 FOR UPDATE")) {
                 assertTrue(rows.next());
             }
             try {
-                pending = executor.submit(() -> send("/api/v1/me/orders", order(), key));
+                pending = executor.submit(() -> {
+                    workerStart.set(System.nanoTime());
+                    try { return send("/api/v1/me/orders", order(), key); }
+                    finally { workerEnd.set(System.nanoTime()); }
+                });
                 await(() -> rootNumber("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS") > 0);
                 blockedAt = System.nanoTime();
-                try { response = pending.get(8, TimeUnit.SECONDS); responseAt = System.nanoTime(); }
-                catch (TimeoutException expectedBeforeFix) { /* Preserve baseline >8s evidence; never leave a DB lock held. */ }
+                try {
+                    response = pending.get(8, TimeUnit.SECONDS);
+                    responseAt = System.nanoTime();
+                    if (response.statusCode() == 409) {
+                        // The failed application transaction must release the earlier product lock
+                        // while this independent transaction still holds the conflicting product.
+                        try (var statement = blocker.createStatement();
+                             var rows = statement.executeQuery("SELECT id FROM products WHERE id=1 FOR UPDATE NOWAIT")) {
+                            assertTrue(rows.next());
+                        }
+                    }
+                } catch (TimeoutException missingBoundedResponse) { /* Always release the fixture lock before reporting failure. */ }
             } finally { blocker.rollback(); }
         } finally {
             if (pending != null && response == null) response = pending.get(10, TimeUnit.SECONDS);
@@ -176,11 +199,28 @@ class DatabaseTimeoutIT {
             assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
         }
         long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
-        long observedWait = TimeUnit.NANOSECONDS.toMillis(responseAt - blockedAt);
-        System.out.printf("AUD-11 product row wait: status=%d elapsedMs=%d observedWaitMs=%d%n", response.statusCode(), elapsed, observedWait);
+        long observedWait = responseAt > blockedAt ? TimeUnit.NANOSECONDS.toMillis(responseAt - blockedAt) : -1;
+        RowLockSample afterWait = rowLockSample();
+        long dbWaitMs = afterWait.millis() - beforeWait.millis();
+        long dbWaits = afterWait.waits() - beforeWait.waits();
+        BigDecimal dbWallEnd=jdbc.queryForObject("SELECT UNIX_TIMESTAMP(SYSDATE(6))",BigDecimal.class);
+        System.out.printf("AUD-11 lock clocks: os=%s java=%s cpus=%d heapUsedMiB=%d hostMonoMs=%d hostWallMs=%d dbWallMs=%d%n",
+                System.getProperty("os.name"),System.getProperty("java.version"),Runtime.getRuntime().availableProcessors(),
+                (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1048576,
+                elapsed,System.currentTimeMillis()-wallStart,
+                dbWallEnd.subtract(dbWallStart).multiply(BigDecimal.valueOf(1000)).longValue());
+        System.out.printf("AUD-11 product row wait: status=%d elapsedMs=%d observedWaitMs=%d dbWaitMs=%d dbWaits=%d workerHttpMs=%d waiterResumeMs=%d%n",
+                response.statusCode(),elapsed,observedWait,dbWaitMs,dbWaits,
+                TimeUnit.NANOSECONDS.toMillis(workerEnd.get()-workerStart.get()),
+                responseAt >= workerEnd.get() ? TimeUnit.NANOSECONDS.toMillis(responseAt-workerEnd.get()) : -1);
         problem(response, 409, "CONCURRENT_UPDATE");
-        assertTrue(responseAt > blockedAt && observedWait < 6500,
-                "Observed row wait must be bounded independently of Docker observation startup cost");
+        assertTrue(responseAt > blockedAt, "The bounded HTTP response must arrive before releasing the blocker");
+        assertEquals(1, dbWaits, "The isolated fixture must measure exactly one row lock wait");
+        assertEquals(0, afterWait.currentWaits(), "The timed-out request must leave no pending DB wait");
+        // Native DB timing shares the server's timeout clock; host HTTP/VM scheduling does not.
+        // Retain the original upper bound and also reject NOWAIT or a mistakenly shortened timeout.
+        assertTrue(dbWaitMs >= 4500 && dbWaitMs < 6500,
+                "Native InnoDB wait must enforce the five-second budget (4500 <= ms < 6500)");
         assertTrue(before.equals(snapshot()), "Failed transaction must leave all business rows unchanged");
         assertEquals(200, send("/api/v1/me/orders", order(), key).statusCode());
         String after = snapshot();
@@ -301,6 +341,20 @@ class DatabaseTimeoutIT {
     private Map<String,Object> order() { return Map.of("items", List.of(Map.of("productId",1,"quantity",1),Map.of("productId",2,"quantity",1))); }
     private String snapshot() { return jdbc.queryForList("SELECT id,price,stock,version FROM products ORDER BY id") + ":" +
             jdbc.queryForObject("SELECT (SELECT COUNT(*) FROM orders)+(SELECT COUNT(*) FROM order_items)+(SELECT COUNT(*) FROM inventory_movements)", Long.class); }
+
+    private record RowLockSample(long millis, long waits, long currentWaits) { }
+
+    private RowLockSample rowLockSample() {
+        Map<String, Long> values = jdbc.query("SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS "
+                + "WHERE VARIABLE_NAME IN ('INNODB_ROW_LOCK_TIME','INNODB_ROW_LOCK_WAITS','INNODB_ROW_LOCK_CURRENT_WAITS')", rs -> {
+            Map<String, Long> result = new HashMap<>();
+            while (rs.next()) result.put(rs.getString(1).toUpperCase(Locale.ROOT), rs.getLong(2));
+            return result;
+        });
+        assertEquals(Set.of("INNODB_ROW_LOCK_TIME", "INNODB_ROW_LOCK_WAITS", "INNODB_ROW_LOCK_CURRENT_WAITS"), values.keySet());
+        return new RowLockSample(values.get("INNODB_ROW_LOCK_TIME"), values.get("INNODB_ROW_LOCK_WAITS"),
+                values.get("INNODB_ROW_LOCK_CURRENT_WAITS"));
+    }
     private HttpResponse<String> send(String path, Object data, String key) throws Exception {
         var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path)).timeout(Duration.ofSeconds(40))
                 .header("Authorization","Bearer "+token).header("Content-Type","application/json");

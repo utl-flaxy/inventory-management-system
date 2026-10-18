@@ -59,6 +59,37 @@ pool shutdown完了、app用DB接続0、DB lock wait0、exit0/143・OOMなし・
 同key再送は一度だけ成功した。ローカルのstop command実測は3.422秒であり、文書上のCompose既定値10秒と混同しない。
 最終値・実行したHEAD・CI URL・コンテナ起動時の環境エラーはPRへ記録する。
 
+## 行ロック待機の計測境界（Issue #121）
+
+DBの5秒と、Windowsホストで測るHTTP完了までの時間は同じ時計・区間ではない。
+旧DatabaseTimeoutITは、Docker execで待機を観測した後からFuture.getの呼び出し側が再開するまでを
+`observedWaitMs`として6,500ms未満と判定していた。この区間にはDB待機に加え、
+driver、Springの例外変換/rollback、HTTP転送、ホストの観測・スケジューリングが含まれる。
+
+[Issue #121](https://github.com/utl-flaxy/inventory-management-system/issues/121)の使い捨てDB診断では、
+DB待機5,138/5,038/5,061msに対し、ホスト側の観測は4,652/4,560/4,681msだった。
+同じ全体区間でもDB wall clockとホストwall/monotonic clockの進み方が一致しなかった。
+Windows/WSL2側の物理的な原因や、過去の6,819/6,881ms超過の個別原因を確定したものではない。
+隔離した不正な7秒fixtureではDB待機7,000/7,001msがホスト観測6,479/6,329msとなり、旧判定を通過した。
+このため、ホストのHTTP区間をDB待機の上限証明として使わない。
+是正後は同じ7秒fixtureの3ケースをDB待機上限違反として拒否し、HTTP409自体は維持した。
+正常な5秒fixtureでは、ホスト観測6,781msでもDB待機5,008msで、DB不変・retry等を含む対象9件が成功した。
+
+| 検証対象 | 計測・判定 |
+|---|---|
+| 実DBの行ロック待機 | 専用DBの`Innodb_row_lock_time`差分。既存の上限6,500msを維持し、4,500ms以上も要求してNOWAITや短すぎる誤設定を拒否 |
+| 計測の隔離 | `Innodb_row_lock_waits`差分が正確に1、開始前/応答後の`Innodb_row_lock_current_waits`が0。共有DBや他workerの待機と合算しない |
+| HTTPの有限性 | 従来のFuture.get 8秒を維持。blocker解放前に409が返ることを要求し、cleanup後の応答を成功扱いしない |
+| 全Tx rollback | DB snapshot不変、先に取得した商品ロックを別TxのNOWAITで確認、同keyのretry/replay、pool active=0を維持 |
+| ホスト側の時間 | `observedWaitMs`、worker HTTP時間、Future呼出側再開、host/DB wall clockを別々に診断出力。DB期限や本番HTTP SLAと混同しない |
+
+行ロックシナリオは毎回business dataとkeyを用意し直して3反復する。
+global statusは累積値なので前後差を使い、欠落したcounterや別の待機を検出したら失敗させる。
+timeout・pool・driver設定や業務コードは変更しない。秘密値やSQL本文を診断ログへ追加しない。
+
+根拠: [MariaDBのInnoDB status variables](https://mariadb.com/docs/server/ha-and-performance/optimization-and-tuning/system-variables/innodb-status-variables#innodb_row_lock_time)。
+これらはDB内部時計の測定であり、VM停止や時計調整も含めた実時間のSLAを保証するものではない。
+
 ## 運用・rollback・非保証
 
 本番のinstance容量、SLA、failover、負荷下の待ち時間や復旧性は未検証。pool10/5秒/10秒はこの単一JVMの保守的な初期値で、

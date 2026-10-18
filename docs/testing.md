@@ -606,6 +606,26 @@ python scripts/docker/verify_image.py --scan
 
 各deadlineはHTTP全体のSLAではない。計測条件・既定値・運用判断・非保証は[DB lifecycle](db-lifecycle.md)を参照。
 
+### Windowsの行ロック待機測定（Issue #121）
+
+DatabaseTimeoutITの行ロックケースは3反復し、専用MariaDBのnative待機時間/回数/現在待機数を前後で読む。
+DB待機の判定は4,500ms以上・既存上限6,500ms未満で行い、ホストのHTTP観測時間では判定しない。
+従来のFuture.get 8秒、blocker解放前の409、全Tx rollback・DB不変・同key retry/replay・pool残留0は維持する。
+先に取得した商品ロックも、blockerを保持した別TxからNOWAITで取得できることを確認する。
+既存ケースを削除せず、この3反復で実行件数を2件追加する。
+
+```bash
+./mvnw test-compile '-Dit.test=DatabaseTimeoutIT' failsafe:integration-test failsafe:verify
+./mvnw verify
+```
+
+Windowsは`mvnw.cmd`とJava17で同じgoalを実行する。対象ITの成功をfull verify成功とは扱わない。
+診断段階では旧判定を残したfull verifyも実行し、3反復のDB待機5,138/5,038/5,061msと
+ホスト観測4,652/4,560/4,681msを確認した。この回は成功したが、過去のWindows full verifyでの
+6,819/6,881msによる失敗を成功へ読み替えない。現行設定は5秒のまま。
+隔離コピーだけに不正な7秒fixtureを用意して比較し、是正後は3回ともDB待機上限違反として検出した。
+時計領域、環境条件、非保証は[測定境界](db-lifecycle.md#行ロック待機の計測境界issue-121)を参照。
+
 ## JWTフィルタ経路とauth境界（Issue #81）
 
 JwtFilterRegistrationITはMockMvcだけでなく実Tomcat・ServletContext・SecurityFilterChainを用い、
