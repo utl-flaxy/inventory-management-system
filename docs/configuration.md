@@ -51,7 +51,10 @@ Spring Boot標準bindingを使い、application.propertiesにDB接続情報を�
 | JWT_SECRET | 既存の必須署名鍵。32 UTF-8 bytes以上のランダムなsecret |
 | SPRING_PROFILES_ACTIVE | localまたはprod。未指定はsafe default |
 
-JWT_ISSUER/JWT_EXPIRATION_MSの既存defaultと署名/issuer/期限検証は維持する。
+アプリへ直接渡す任意の`JWT_ISSUER`（既定`inventory-management-system`）と
+`JWT_EXPIRATION_MS`（既定`3600000` ms）は、`app.jwt.issuer` / `app.jwt.expiration-ms`へ対応する。
+実稼働値は未確認。署名・issuer・期限検証は維持し、既発行JWTの期限は設定変更では変わらない。
+Composeでの注入範囲は[下記](#docker-compose-startup)、失効制約は[認証契約](auth.md#jwtライフサイクルと失効制約)を参照。
 prodではBeanFactoryPostProcessorがDataSource/Flywayのbean生成前に不足/blank、root、
 URL内credential、弱いJWT鍵を拒否する。例外には設定名だけを含め、値や原因のURLを含めない。
 既存TestcontainersのDynamicPropertySourceはcanonical datasource propertyを直接渡せる。
@@ -93,6 +96,12 @@ scripts/db-init/01-app-privileges.shが対象DBの必要なDDL/DMLだけへ権�
 global権限・GRANT OPTIONなし。既存volumeではuser作成もこの初期化scriptも実行されないため、
 [既存DBの手順](db/README.md#専用app-db-userへの切替issue-37)を先に実施する。
 実値を含む`docker compose config`の標準出力を共有・CI artifact化しない。
+
+JWT用環境変数は`JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}`だけをappへ明示注入する。
+未設定・空ならCompose解決時に拒否する。`JWT_ISSUER` / `JWT_EXPIRATION_MS`は現行Composeに
+転送設定がなく、hostや`.env`へ置くだけではappコンテナに渡らない。
+上書きが必要な場合の注入変更は別途レビューし、この文書化ではComposeの実行設定を変更しない。
+詳細は[JWT設定](security/jwt-configuration.md)を参照。
 
 ## Production startup / health
 
