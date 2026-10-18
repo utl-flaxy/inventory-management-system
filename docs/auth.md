@@ -130,6 +130,10 @@ v1.1候補はユーザー単位の`tokenVersion`と安定したユーザーIDの
 refresh tokenは必要性が確認された場合だけrotation・再利用検出を別設計とし、Redis・OAuth2全面移行を必須にしない。
 いずれも未実装の候補であり、migration・API・TTLはこの文書化では変更しない。
 
+2026-10-19の[Phase A設計ADR](design/jwt-revocation-v1.1.md)で、ユーザー単位失効の採用案、
+旧JWTの切替、API・同時更新・移行試験と後続PRの分割を定義する。独立レビュー待ちであり、
+現行の発行/認証・失効未実装という上記契約を変更するものではない。
+
 ## Usernameとpassword
 
 両APIでusernameは `[A-Za-z0-9._-]{3,50}`。null、空、空白、2文字以下、51文字以上、
