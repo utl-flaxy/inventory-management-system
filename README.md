@@ -782,6 +782,13 @@ POST /auth/register
 
 ## ログイン
 
+認証情報の不一致は401、DB接続不能・取得/クエリtimeoutは503 `SERVICE_UNAVAILABLE` と区別します（AUD-10 / Issue #114）。
+有効なJWTでのAPIも、DB障害を401へ変換せず、復旧後は同じ未失効JWTを利用できます。
+503でJWTを破棄せず、書込みは結果と冪等性契約を確認してから再送してください。
+原因不明・DB設定/SQL不備などは500を維持し、復旧時刻不明のためDB障害503にRetry-Afterは付けません。
+既存の未認証401・権限不足403・受付制限429・接続元不明の専用503は維持します。
+詳細は[DB障害のエラー分類](docs/api-errors.md#db障害の分類aud-10--issue-114)と[検証手順](docs/testing.md#db障害と認証エラーの分類aud-10--issue-114)を参照してください。
+
 形式不正は400、形式が有効でもuser不存在・password不一致なら同一本文の401 `INVALID_CREDENTIALS`です。
 成功は従来の200/tokenだけを返します。JWTの署名・issuer・期限と、DB roleによる認可を維持します。
 

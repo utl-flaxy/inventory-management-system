@@ -1,5 +1,7 @@
 package com.example.demo.security;
 
+import com.example.demo.exception.ServerFailureResponse;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -23,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
+    private final SecurityProblemWriter problemWriter;
 
     @Override
     protected void doFilterInternal(
@@ -43,10 +47,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        String username;
         try {
             String token = authHeader.substring(7);
-            String username = jwtUtil.extractUsername(token);
-
+            username = jwtUtil.extractUsername(token);
+        } catch (JwtException | IllegalArgumentException ex) {
+            reject(ex);
+            filterChain.doFilter(request, response);
+            return;
+        } catch (Exception ex) {
+            writeServerFailure(ex, request, response);
+            return;
+        }
+        try {
             if (username != null
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
 
@@ -64,12 +77,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
-        } catch (Exception e) {
-            SecurityContextHolder.clearContext();
-            log.atWarn().addKeyValue("event", "security.jwt.rejected")
-                    .addKeyValue("exceptionType", e.getClass().getName()).log("JWT rejected");
+        } catch (UsernameNotFoundException ex) {
+            reject(ex);
+        } catch (Exception ex) {
+            writeServerFailure(ex, request, response);
+            return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void reject(Exception exception) {
+        SecurityContextHolder.clearContext();
+        log.atWarn().addKeyValue("event", "security.jwt.rejected")
+                .addKeyValue("exceptionType", exception.getClass().getName()).log("JWT rejected");
+    }
+
+    private void writeServerFailure(Exception exception, HttpServletRequest request, HttpServletResponse response) throws IOException {
+        SecurityContextHolder.clearContext();
+        var failure = ServerFailureResponse.from(exception);
+        problemWriter.write(request, response, failure.status(), failure.code(), failure.detail());
     }
 }

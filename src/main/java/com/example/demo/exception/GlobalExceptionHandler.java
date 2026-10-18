@@ -25,9 +25,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -242,24 +240,7 @@ public class GlobalExceptionHandler {
                     .body(ApiProblemFactory.create(error.getStatusCode(), "INVALID_REQUEST",
                             ApiProblemFactory.INVALID_REQUEST_DETAIL, request));
         }
-        Throwable root = rootCause(ex);
-        StackTraceElement[] frames = root.getStackTrace();
-        log.atError().addKeyValue("event", "system.unhandled_error")
-                .addKeyValue("exceptionType", ex.getClass().getName())
-                .addKeyValue("rootCauseType", root.getClass().getName())
-                .addKeyValue("topFrame", frames.length == 0 ? "unknown" : frames[0].toString())
-                .log("Unexpected system error");
-        return ApiProblemFactory.response(HttpStatus.INTERNAL_SERVER_ERROR, "SYSTEM_ERROR",
-                ApiProblemFactory.SYSTEM_ERROR_DETAIL, request);
-    }
-
-    private Throwable rootCause(Throwable exception) {
-        var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
-        Throwable root = exception;
-        visited.add(root);
-        while (root.getCause() != null && visited.add(root.getCause())) {
-            root = root.getCause();
-        }
-        return root;
+        var failure = ServerFailureResponse.from(ex);
+        return ApiProblemFactory.response(failure.status(), failure.code(), failure.detail(), request);
     }
 }
