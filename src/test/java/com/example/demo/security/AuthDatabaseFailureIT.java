@@ -111,7 +111,7 @@ class AuthDatabaseFailureIT {
         assertEquals(200, get("/api/v1/me/orders", token).statusCode());
         assertEquals(200, login(PASSWORD).statusCode());
         assertEquals(1, users.count());
-        assertEquals(hash, users.findByUsername(USERNAME).orElseThrow().getPassword());
+        assertTrue(hash.equals(users.findByUsername(USERNAME).orElseThrow().getPassword()), "Stored hash must remain unchanged");
         System.out.printf("AUD-10 physical DB pause: orders=%d login=%d recovery=200 sameJwt=true%n",
                 failedOrders.statusCode(), failedLogin.statusCode());
         assertProblem(failedOrders, 503, "SERVICE_UNAVAILABLE", "/api/v1/me/orders");
