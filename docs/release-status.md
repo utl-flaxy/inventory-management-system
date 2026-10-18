@@ -1,3 +1,60 @@
+# 構成と監査証跡 — snapshot / live（Issue #132）
+
+**portfolio v1.0の正式GOは独立レビュー・最終承認後。実利用者向け本番運用はNO GO。**
+本書は監査時点の証拠と、現在の状態を確認する入口を分ける。後続commitの存在だけで過去の監査記録が未達へ戻る契約にはしない。
+
+## 現在のmain CI（live）
+
+[main pushに絞ったSpring Boot CI](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)の先頭runを開く。
+[main HEAD](https://github.com/utl-flaxy/inventory-management-system/commits/main/)とのSHA一致と、`test` / `terraform` / `secret-scan` / `java-static-analysis` / `dependency-audit`の5ジョブがすべてcompleted/successであることを確認する。
+未完了・失敗・対応するrunがない場合、下のsnapshot成功を現在の成功へ読み替えない。
+PRの新HEADはPR本文のrun/headで別に検証する。main CIとPR CIを代用しない。
+
+## 監査基準snapshot（2026-10-18 UTC確認）
+
+基準はmain **`0614d7d306fed5a3ec43ba7a7502b8bf7e65f3ed`**（PR #131 squash後）、
+[main push CI39136004541](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39136004541)。GitHub APIのmain SHA、run head、event=push、completed/success、全5ジョブを照合した。
+このSHA/runは固定し、mainが更新された場合の現在確認はlive入口で行う。新しい監査が必要になった場合は別の時点として追記し、旧記録を書き換えない。
+
+|対象|このsnapshotで確認した値|保証範囲|
+|---|---|---|
+|Java17 full verify|Surefire1,314 + Failsafe862 = **2,176**、F/E/S=0、BUILD SUCCESS|MariaDB/Testcontainersを含む有限の回帰。持続負荷/SLAの保証ではない|
+|Python / Terraform|**29 / mock27成功**|品質gate方針、構文/validate/mock。実AWS applyなし|
+|Gitleaks / SpotBugs|tracked332、例外0・findings0・未解決0 / main118 classes、SECURITY違反0。正常/異常self-test成功|当該SHAのtree/対象bytecode。全git履歴・全SASTではない|
+|OSV / Trivy|**169 components / 0 advisory**、imageは**OS49（MEDIUM27/LOW22）、library0、C/H0**|異なる監査対象。audit-onlyの処理成功を脆弱性ゼロと扱わない|
+|Docker|clean archive、JRE17、UID/GID10001:10001、read-only、V1〜V6、readiness/API、9段階デモ、shutdown/設定復帰PASS|使い捨てlinux/amd64。公的TLS・実host容量・異版rollbackは未実証|
+|保護 / Deploy|strictな必須5check、enforce_admins/linear_history有効、force push/delete禁止、必須承認数0 / disabled_manually|確認時点のread-only API結果。人手の独立レビューとGitHubの必須承認を区別|
+
+Docker image/previous_image_idはともに`sha256:540afb28d769dfb0f4dbb416da925ccb177e235f6600293bd3c6872a6e235105`。
+DB container ID/起動時刻・注文/在庫不変を確認した**同一image IDの設定故障復帰**であり、異なる旧binary・新schema・旧鍵との互換rollbackではない。
+CI artifactは`dependency-audit-0614d7d...`、`docker-validation-0614d7d...`等。保存30日のため長期保持はmaintainerが期限内に値を除去した証跡を確保する。
+
+## D01/D12の是正記録（Issue #132）
+
+|項目|PR #131時点の残差|今回の是正・受入根拠|
+|---|---|---|
+|D01|READMEの基準が186aad8/39123950859のままで、最新mainの確認先と区別できていない|[READMEの検証結果とCI](../README.md#検証結果とci)を0614d7d/39136004541の固定snapshotへ同期し、現在確認用のmain push filterを併記。[testing](testing.md#品質ゲートの参照方針snapshot--live)も同じ契約にする。main更新だけでsnapshotのSHAを追い続ける必要はない|
+|D12|Epic上段がPR #129 OPEN/未反映と表示|[Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8)の上段のみ、APIで確認したPR #129/#131のMERGEDと下表のmerge SHAへ同期（API updatedAt=`2026-10-18T14:50:12Z`）。旧歴史本文・計測値は保持。更新前後のバックアップと差分を保存し、保持検証の根拠はこのPR本文へ記録する|
+
+|統合済みの文書PR|APIで確認した状態と固定merge SHA|
+|---|---|
+|[PR #129](https://github.com/utl-flaxy/inventory-management-system/pull/129)|MERGED、2026-10-18T12:22:20Z、`f15480170d4b58b34d54198dcc11a9a399f1aa36`。設計文書2本とREADMEの5組source/testリンクは基準mainに含まれる|
+|[PR #131](https://github.com/utl-flaxy/inventory-management-system/pull/131)|MERGED、2026-10-18T14:26:34Z、`0614d7d306fed5a3ec43ba7a7502b8bf7e65f3ed`。[受入再判定](audit/portfolio-v1-acceptance-recheck-2026-10-18.md)の14/2/0はその監査時点の記録で、正式GO承認ではない|
+
+D01/D12の文書上の残差は上のsnapshot/live契約とEpic同期で解消する。新HEADの5ジョブ成功と是正diffをPR本文で示し、受入判断は独立レビューへ委ねる。
+[最終監査](audit/portfolio-v1-final-acceptance-2026-10-18.md)の12/3/1と、再判定の14/2/0を遡及変更しない。この追記で正式GOや本番GOを宣言しない。
+
+## 残余と履歴の扱い
+
+- Windows DatabaseTimeoutITの過去の初回DB観測CLI3失敗は**根因未確定**。[初回記録](audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)と[後続の成功/限界](audit/portfolio-v1-acceptance-recheck-2026-10-18.md#7-windowsの失敗履歴と今回の補助検証)を別に保持し、成功で初回を抹消しない。skip/pool/timeout緩和なし。
+- Trivy OS49、Flyway/MariaDB12.2互換性WARN、JWT個別失効未実装（#79）、異版rollback未検証、過去の証明書時刻事象を保持する。OSV0とimage脆弱性0は別。
+- AWS未配備として扱い、実secret/本番DB/既存volume、実DNS・公的TLS、信頼proxy peer、容量/負荷/SLA、本番backup/restore・復旧は未検証。Deployは無効、PRODUCTION NO GO。
+- [PR #103](https://github.com/utl-flaxy/inventory-management-system/pull/103)は統合検証用Draft、マージ対象・現在品質証拠へ含めない。Issue #126/#130は正式受入前に閉じない。
+- 下の旧release-statusはIssue #123/#128時点の全文。186aad8/39123950859、5f0fae4/39109302086の数値・image ID・旧提案は**当時の記録**であり、現在値へ流用しない。旧46件/依存66件/Issue76の原台帳・JSON、旧監査報告書は改変しない。
+
+<details>
+<summary>履歴原文: Issue #123/#128時点のrelease-status（全文保存）</summary>
+
 # 現行構成と監査証跡 — Issue #123 / #128
 
 確認日: **2026-10-18**。基準main: **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**（PR #127 merge後）。
@@ -96,3 +153,5 @@ Draft PR #103は過去の統合検証用で、マージ対象・現行mainの証
 2. JWT失効（#79、v1.1候補）、OS49 findings、Flyway/MariaDB互換性WARN、過去の証明書時刻問題を追跡する。0件のスキャンは将来の安全保証ではない。
 3. 本番運用前には容量・負荷・TLS・信頼proxy・鍵/権限・backup/restore・異版rollback・監視/復旧目標を実環境で別途判断。今回それらを実行しない。
 4. Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定。対象IT再実行9件の成功と区別し、[監査§10](audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)の失敗を保持する。skip・pool/timeout緩和は行わない。
+
+</details>

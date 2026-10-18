@@ -109,16 +109,27 @@ Swagger UIはprodで無効です。local開発設定は[設定文書](docs/confi
 
 ## 検証結果とCI
 
-基準はmain **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**、2026-10-18の
-[main CI 39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)です。
-以前の[5f0fae4 / CI 39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)はPR #124反映時のsnapshotとして保持します。
-後続PRの新HEAD結果はPR本文・artifactで別に記録します。過去の件数を現在値として上書きしません。
+### 現在のmain CIを確認する（live）
 
-| 検証 | mainで確認した結果 | 保証範囲 |
+[mainへのpushに絞ったSpring Boot CI](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)を開き、
+先頭runの対象SHAが[main HEAD](https://github.com/utl-flaxy/inventory-management-system/commits/main/)と一致するか、必須5ジョブがすべてcompleted/successかを確認します。
+新しいrunが未完了・失敗なら、下の過去の成功を現在の成功へ読み替えません。PRのCIはPR本文で別に確認します。
+
+### 監査基準snapshot（2026-10-18 UTC確認）
+
+以下はmain **`0614d7d306fed5a3ec43ba7a7502b8bf7e65f3ed`**（PR #131 merge後）の
+[main push CI 39136004541](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39136004541)を取得して確認した固定記録です。
+mainが進んだだけでこのSHA/runを置き換える必要はありません。現在の成否は上のlive入口で確認し、監査時点の値と区別します。
+旧snapshotの[186aad8 / CI39123950859](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859)、
+[f154801 / CI39127003622](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39127003622)、
+[5f0fae4 / CI39109302086](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39109302086)も当時の証拠として保存します。
+参照方針とD01/D12の是正根拠は[release-status](docs/release-status.md#d01d12の是正記録issue-132)へまとめています。
+
+| 検証 | 監査snapshotで確認した結果 | 保証範囲 |
 |---|---|---|
 | Java17 full verify | **2,176件** = Surefire1,314 + Failsafe862、F/E/S=0 | MariaDB12.2.2 / JWT / 注文・在庫 / DB障害等。全負荷や将来の非フレーク性は未保証 |
 | Python / Terraform | **29件 / mock27件**成功 | gate方針、Terraform構文・mock plan。実AWSへの適用ではない |
-| Gitleaks / SpotBugs | 例外0・未解決0 / SECURITY違反0 | current tracked tree / main bytecode。履歴全体・全SASTではない |
+| Gitleaks / SpotBugs | 例外0・未解決0 / SECURITY違反0 | 当該SHAのtracked tree / main bytecode。履歴全体・全SASTではない |
 | OSV / Trivy | Java169 components・advisory0 / **OS49件**（MEDIUM27/LOW22）、library0 | 別の監査対象。OSV0とimage脆弱性0を混同しない |
 | Docker | clean build、非root、readiness、実API、shutdown、設定故障復帰PASS | 使い捨てlinux/amd64環境。公的TLS・実host性能・異版rollbackは未保証 |
 
