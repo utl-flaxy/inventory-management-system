@@ -139,7 +139,11 @@ class AuthPasswordIT {
     }
 
     @Test void commitsHashVersionAuditAndRevokesAllDevicesWithoutChangingAnotherUser(CapturedOutput output) throws Exception {
-        String secondDevice = jwt.generateToken(alice.uid(), 0);
+        String secondDevice = new JwtUtil(SECRET, "inventory-management-system", 3600000,
+                java.time.Clock.offset(java.time.Clock.systemUTC(), Duration.ofMinutes(-1)))
+                .generateToken(alice.uid(), 0);
+        assertFalse(token.equals(secondDevice), "The two valid device tokens must be distinct without sleeping");
+        assertEquals(new JwtUtil.VerifiedJwt(alice.uid(), 0), jwt.verify(secondDevice));
         doAnswer(call -> { assertFalse(TransactionSynchronizationManager.isActualTransactionActive());return call.callRealMethod(); })
                 .when(passwords).matches(eq(PASSWORD), anyString());
         doAnswer(call -> { assertFalse(TransactionSynchronizationManager.isActualTransactionActive());return call.callRealMethod(); })
