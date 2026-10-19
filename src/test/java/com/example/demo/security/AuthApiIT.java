@@ -179,10 +179,12 @@ class AuthApiIT {
         String token = body.get("token").asText();
         var claims = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)))
                 .requireIssuer(ISSUER).build().parseSignedClaims(token).getPayload();
-        assertEquals("alice", claims.getSubject());
+        assertEquals(users.findByUsername("alice").orElseThrow().getAuthUid(), claims.getSubject());
+        assertEquals(claims.getSubject(), claims.get("uid"));
+        assertEquals("0", claims.get("tokenVersion"));
         assertTrue(claims.getExpiration().after(new Date()));
         assertNotNull(claims.getIssuedAt());
-        assertEquals(Set.of("sub", "iss", "iat", "exp"), claims.keySet());
+        assertEquals(Set.of("sub", "uid", "tokenVersion", "iss", "iat", "exp"), claims.keySet());
         String decodedPayload = new String(Base64.getUrlDecoder().decode(token.split("\\.")[1]),
                 StandardCharsets.UTF_8);
         assertFalse(response.contains(SECRET));
@@ -269,7 +271,7 @@ class AuthApiIT {
         register("alice", "different-password").andExpect(status().isConflict());
         String response = auth("/auth/login", credentials("ALICE", PASSWORD)).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertEquals("Alice", jwt.extractUsername(json.readTree(response).path("token").asText()));
+        assertEquals(users.findByUsername("Alice").orElseThrow().getAuthUid(), jwt.verify(json.readTree(response).path("token").asText()).uid());
         assertEquals(1, users.count());
     }
 
@@ -346,6 +348,14 @@ class AuthApiIT {
         for (String code : List.of("200", "400", "401", "429", "503")) assertTrue(document.path("paths").path("/auth/login").path("post").path("responses").has(code));
         var unavailable = document.path("paths").path("/auth/login").path("post").path("responses").path("503");
         assertTrue(unavailable.path("description").asText().contains("LOGIN_SOURCE_UNAVAILABLE"));
+        var logout=document.path("paths").path("/auth/logout-all").path("post");
+        for(String code:List.of("204","401","429","503","500"))assertTrue(logout.path("responses").has(code));
+        assertTrue(logout.path("description").asText().contains("after commit"));
+        assertTrue(logout.path("responses").path("503").path("description").asText().contains("AUTH_MUTATION_SOURCE_UNAVAILABLE"));
+        assertTrue(logout.path("responses").path("429").path("description").asText().contains("AUTH_MUTATION_RATE_LIMITED"));
+        assertEquals(1,logout.path("responses").path("429").path("headers").path("Retry-After").path("schema").path("minimum").asInt());
+        assertEquals("#/components/schemas/ApiProblem",logout.path("responses").path("401")
+                .path("content").path("application/problem+json").path("schema").path("$ref").asText());
         for (String path : List.of("/auth/register", "/auth/login", "/api/v1/me/orders")) {
             String method = path.startsWith("/auth/") ? "post" : "get";
             var serverFailure = document.path("paths").path(path).path(method).path("responses").path("503");
@@ -437,7 +447,8 @@ class AuthApiIT {
     @Test
     void currentDatabaseRoleOverridesJwtRoleClaimAndChangesWithoutReissuingToken() throws Exception {
         register("alice", PASSWORD).andExpect(status().isOk());
-        String token = Jwts.builder().subject("alice").issuer(ISSUER)
+        String uid = users.findByUsername("alice").orElseThrow().getAuthUid();
+        String token = Jwts.builder().subject(uid).claim("uid", uid).claim("tokenVersion", "0").issuer(ISSUER)
                 .claim("role", "ROLE_ADMIN").issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 60000))
                 .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8))).compact();

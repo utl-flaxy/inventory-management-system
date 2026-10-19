@@ -48,9 +48,9 @@ class IdempotencyMigrationIT {
         var before = legacySnapshot();
         var historical = jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");
         Flyway flyway = Flyway.configure().dataSource(dataSource).load();
-        assertEquals(3, flyway.migrate().migrationsExecuted);
+        assertEquals(4, flyway.migrate().migrationsExecuted);
         flyway.validate();
-        assertEquals("6", flyway.info().current().getVersion().getVersion());
+        assertEquals("7", flyway.info().current().getVersion().getVersion());
         assertEquals(before, legacySnapshot());
         assertEquals(historical, jdbc.queryForList("SELECT * FROM flyway_schema_history WHERE version IN ('1','2','3') ORDER BY installed_rank"));
         assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM orders WHERE idempotency_key IS NULL AND request_fingerprint IS NULL", Integer.class));
@@ -118,7 +118,7 @@ class IdempotencyMigrationIT {
     }
 
     private Map<String, List<Map<String, Object>>> legacySnapshot() {
-        return Map.of("users", jdbc.queryForList("SELECT * FROM users ORDER BY id"),
+        return Map.of("users", jdbc.queryForList("SELECT id,username,password,role FROM users ORDER BY id"),
                 "products", jdbc.queryForList("SELECT * FROM products ORDER BY id"),
                 "orders", jdbc.queryForList("SELECT id,customer_id,total_price,status,ordered_at,updated_at,completed_at,version FROM orders ORDER BY id"),
                 "items", jdbc.queryForList("SELECT * FROM order_items ORDER BY id"));

@@ -16,7 +16,8 @@ RequestCorrelationFilterはServlet側でSecurityより先にrequestIdを設定�
 JWT処理の除外とpermitAllは同一のRequestMatcherを共有する。対象はcanonicalな
 POST /auth/login と POST /auth/registerだけ。context pathを含むrequest URIの完全一致で判定し、
 query stringは判定に含めない。公開POSTはBearer headerがあってもJWT処理に依存しない。
-署名・issuer・期限を検証するJwtUtil、UserDetails照会、role認可は変更しない。
+署名・issuer・期限を検証するJwtUtilとDBの現在roleによる認可を維持する。
+B1ではUserDetailsのusername照会を、UUID主体の新しいcommitted認証readへ置き換える。
 
 /authority・/authentication・/authzなどのprefix類似パス、/auth配下の別ルート、
 別HTTP method、末尾slash・case違い・encoded aliasはこの公開例外に含めない。
@@ -40,6 +41,65 @@ ProblemDetail・安全なevent/requestId、AUD-11の待機・shutdown契約を�
 [OncePerRequestFilter](https://docs.spring.io/spring-framework/docs/7.0.0/javadoc-api/org/springframework/web/filter/OncePerRequestFilter.html)。
 
 ## JWTライフサイクルと失効制約
+
+### v1.1 B1の現行契約（Issue #136）
+
+[設計契約](design/jwt-revocation-v1.1.md)に従い、ユーザー単位の全端末失効を実装する。
+SecurityのSTATELESSはHTTP sessionを保持しない意味であり、失効状態までサーバーに存在しないという意味ではない。
+`POST /auth/logout-all` は有効Bearerの本人だけを対象とし、body/queryで他人を選べない。
+User行ロック下で受信世代を再確認し、世代のSQL増分と監査INSERTを同一Txでcommitした後、204・bodyなしを返す。
+同じ世代の並行要求は1回だけ成功し、他は401。commit後の同JWTによる再送も401となる。
+別ユーザーのJWTや業務データは変更しない。ログアウトはpasswordを知られることへの対策やアカウント停止ではなく、再ログインは可能。
+
+| claim / 永続化 | 現行の発行・検証 |
+|---|---|
+| `sub` / `uid` | 同一のcanonical lowercase UUIDv4。users.auth_uidは一度だけ生成し、業務用users.id/FKは保持 |
+| `tokenVersion` | 非負SIGNED BIGINTのcanonical十進**文字列**。DBのtoken_versionと一致必須。欠落・数値型・先頭0・負数・overflowを拒否 |
+| `iss` / `iat` / `exp` | 署名・issuer・必須iat/expを1回のparseで検証。期限ちょうどから拒否 |
+| role / jti / refresh | 発行しない。DBの現在roleで認可。個別JWT失効・refreshは未実装 |
+
+旧username主体のJWTは期限内でも401で一括拒否し、再ログインを要求する。username fallbackはない。
+JWTの不正は認証DB readより前に拒否する。正常JWTはprimary DBへuidで1回、短いREAD_COMMITTED/REQUIRES_NEWの
+projection（id/uid/version/roleだけ）を読む。hash/JWT/usernameをprincipalへ保持せず、nameはuidとする。
+CurrentUserもuidで再解決し、internal id/世代を照合する。usernameを同名の別主体へ再割当てても旧uidのJWTは新主体を指さない。
+roleは次のDB認証readへ反映される。公開role変更APIはなく、直SQLでroleだけを変える操作は失効保証の対象外。
+将来の正規role変更は世代更新と同一Txにする。ユーザー不在/世代不一致401、権限不足403、DB障害503/500を維持する。
+
+失効境界はcommit。commit後に始まる認証readでは旧JWTを拒否するが、認証済みの進行中注文等を取り消す保証はない。
+loginはusername lookupとBCrypt1回をTx外で行い、成功時にだけ短いUser行ロックとfresh readでuid/保存username/hash/世代を再確認する。
+その間に変更があれば401 INVALID_CREDENTIALS。古いhash照合の結果で新世代を発行しない。
+MAX世代では増分・発行を500でfail-closedとし、0へ戻さない。
+
+認証管理専用枠は `app.auth.mutation.rate-limit.` の `source-limit=5`、`max-concurrent=2`、`window=PT1M`、`max-entries=4096`。
+B1の操作はlogout-allだけ。login/registerの枠とは独立する。成功/失敗とも受付を消費し、permitは全経路で解放する。
+超過は429 AUTH_MUTATION_RATE_LIMITED＋正のRetry-After。信頼済みpeer経由の接続元を確認できない場合は
+503 AUTH_MUTATION_SOURCE_UNAVAILABLE（Retry-Afterなし）。偽装XFFやunknownへのfallbackはない。
+固定窓burst、NAT共有、履歴退避、再起動、複数JVM、分散DoSへの限界は既存の制限と同様に残る。
+認証管理の確認済みUser行ロックtimeout/deadlockは503、未知/設定障害500とし、業務のCONCURRENT_UPDATE 409と区別する。
+
+署名鍵は設定文字列のUTF-8 bytesでBase64デコードしない。鍵に応じたHMAC、issuer、TTL既定3600000ms、
+外部設定 `JWT_SECRET` / `JWT_ISSUER` / `JWT_EXPIRATION_MS` は変更しない。実稼働値は未確認。
+Composeの明示注入はJWT_SECRETだけであり、hostのissuer/TTL設定が自動的にコンテナへ渡るとは扱わない。
+password hashだけの直SQL変更やクライアント側破棄はサーバー失効にならない。
+Spring Security標準LogoutFilterはlogout-allのaliasではなく、標準 `/logout` の応答は未実測のまま。
+
+監査tableは内部actor/target ID・操作・結果・時刻・server requestIdを保持し、成功ログはcommit後だけ。
+raw IP/username/password/hash/JWTをログや監査へ出さない。
+[移行・DDL失敗・監査保持・rollback/復元の手順](security/jwt-revocation-migration.md)に従い、
+旧validatorを停止/drain→V7→新binaryのみで再開する。旧binary/旧鍵/古いDB世代への復帰は失効JWTを再受理し得る。
+
+B2 password変更、B3 ADMIN強制失効は未実装で[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPEN。
+[jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)は別段階。実利用者向けPRODUCTION NO GOを継続する。
+根拠: [claims unit](../src/test/java/com/example/demo/security/JwtRevocationClaimsTest.java)、
+[実HTTP・commit/競合IT](../src/test/java/com/example/demo/security/AuthRevocationIT.java)、
+[V7移行IT](../src/test/java/com/example/demo/repository/AuthIdentityMigrationIT.java)。
+
+### 歴史的記録: v1.0の失効未実装契約
+
+以下はB1導入前の契約を保存したもの。現在の仕様は上のB1節を参照する。
+
+<details>
+<summary>v1.0 / Issue #119の記録（遡及変更しない）</summary>
 
 v1.0は現在のJWT契約を文書化する。JWT失効の新機能は導入していない。
 文書化は[Issue #119](https://github.com/utl-flaxy/inventory-management-system/issues/119)、
@@ -134,12 +194,14 @@ refresh tokenは必要性が確認された場合だけrotation・再利用検�
 旧JWTの切替、API・同時更新・移行試験と後続PRの分割を定義する。独立レビュー待ちであり、
 現行の発行/認証・失効未実装という上記契約を変更するものではない。
 
+</details>
+
 ## Usernameとpassword
 
 両APIでusernameは `[A-Za-z0-9._-]{3,50}`。null、空、空白、2文字以下、51文字以上、
 space含有、前後space、日本語、control文字、`/`、`@`を400で拒否する。trim・case変換・正規化は行わない。
 現行DBのusers.usernameはVARCHAR(255)、`utf8mb4_unicode_ci`のcase-insensitive UNIQUE。
-`Alice`を登録後の`alice`登録は409、`ALICE`でのloginは同じuserに対応し、JWT subjectはDBの保存済み`Alice`となる。
+`Alice`を登録後の`alice`登録は409、`ALICE`でのloginは同じuserに対応し、JWT subjectはそのuserの不変auth_uidとなる。
 API上限50とDB上限255の違いは意図的で、列縮小やcollation変更・migrationは追加しない。
 
 passwordはNotBlank、8〜72文字（Bean Validation SizeのUTF-16長）、さらにUTF-8で72 bytes以下。
@@ -233,7 +295,7 @@ RegistrationSecurityITは実MariaDB・prod・実HTTPで正常/409/429/503/500、
 ユーザー不在時は起動時に一度だけ同じPasswordEncoderで生成したランダムなdummy BCrypt hashへ照合する。
 現在のBCrypt costは10。dummyの固定hash・別cost・リクエストごとのencodeは使わない。
 ユーザーが存在し、照合に成功した場合だけJWTを生成する。dummy照合が成功しても認証はしない。
-成功レスポンスはtokenだけ。署名、issuer、subject、iat、expは従来どおり。
+成功レスポンスはtokenだけ。署名、issuer、TTLを維持し、subject/uid/世代は上記B1契約に従う。
 JWT role claimを追加せず、protected endpointの認可は毎request取得するDB roleをsource of truthとする。
 
 user不存在・password不一致はともに401、status/code/type/title/detail/instanceを同じにする。

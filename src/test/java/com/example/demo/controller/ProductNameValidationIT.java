@@ -68,7 +68,7 @@ class ProductNameValidationIT {
 
     @BeforeEach
     void fixtures() {
-        jdbc.update("INSERT INTO users (id,username,password,role) VALUES (1,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'admin','test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products (id,name,price,stock,version) VALUES (1,'original',100,7,0)");
     }
 
@@ -157,7 +157,7 @@ class ProductNameValidationIT {
 
     private MockHttpServletRequestBuilder nameRequest(String method, String nameJson) {
         return (method.equals("POST") ? post("/products") : put("/products/1"))
-                .header("Authorization", "Bearer " + jwt.generateToken("admin"))
+                .header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":" + nameJson + ",\"price\":200,"
                         + (method.equals("POST") ? "\"stock\":7}" : "\"version\":0}"));

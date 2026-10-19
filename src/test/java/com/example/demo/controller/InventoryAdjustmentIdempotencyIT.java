@@ -79,11 +79,10 @@ class InventoryAdjustmentIdempotencyIT {
     @BeforeEach void fixtures() {
         SecurityContextHolder.clearContext();
         for (String table : List.of("inventory_movements","order_items","orders","products","users")) jdbc.update("DELETE FROM " + table);
-        jdbc.update("INSERT INTO users(id,username,password,role) VALUES "
-                + "(1,'alice','private-test-hash','ROLE_USER'),(2,'admin','private-test-hash','ROLE_ADMIN'),(3,'other','private-test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','private-test-hash','ROLE_USER'),(UUID_v4(),2,'admin','private-test-hash','ROLE_ADMIN'),(UUID_v4(),3,'other','private-test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products(id,name,price,stock,version) VALUES(1,'apple',100,10,0),(2,'orange',100,5,0)");
-        tokens = Map.of("alice","Bearer " + jwt.generateToken("alice"), "admin","Bearer " + jwt.generateToken("admin"),
-                "other","Bearer " + jwt.generateToken("other"));
+        tokens = Map.of("alice","Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice"), "admin","Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin"),
+                "other","Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "other"));
         clearInvocations(products, movements, users);
     }
     @AfterEach void clearAuthentication() { SecurityContextHolder.clearContext(); }
@@ -340,8 +339,7 @@ class InventoryAdjustmentIdempotencyIT {
                         .header("Authorization", tokens.get("admin"))).andReturn()));
                 try { assertTrue(actorAttempt.await(10, TimeUnit.SECONDS)); }
                 catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw new IllegalStateException(ex); }
-                SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("admin", null,
-                        AuthorityUtils.createAuthorityList("ROLE_ADMIN")));
+                com.example.demo.TestAuth.authenticate(jdbc, "admin");
                 var request = new InventoryAdjustmentRequest(); request.setDelta(3); request.setReason(ManualInventoryReason.CORRECTION);
                 inventory.adjust(1L, request, "while-cancel-waits");
             });

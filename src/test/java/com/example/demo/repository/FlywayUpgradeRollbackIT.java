@@ -37,11 +37,10 @@ class FlywayUpgradeRollbackIT {
         dataSource.setPassword(database.getPassword());
         var jdbc = new JdbcTemplate(dataSource);
         ClassLoader previous = Thread.currentThread().getContextClassLoader();
-        try (var baselineLoader = new BaselineFlywayLoader(List.of("flyway-core", "flyway-mysql").stream()
-                .map(name -> {
-                    try { return Path.of("target/rollback-libraries/" + name + "-11.7.2.jar").toUri().toURL(); }
-                    catch (java.net.MalformedURLException ex) { throw new IllegalStateException(ex); }
-                }).toArray(URL[]::new), previous)) {
+        try (var baselineLoader = new BaselineFlywayLoader(new URL[]{
+                Path.of("target/rollback-libraries/flyway-core-11.7.2.jar").toUri().toURL(),
+                Path.of("target/rollback-libraries/flyway-mysql-11.7.2.jar").toUri().toURL(),
+                Path.of("target/classes").toUri().toURL()}, previous)) {
             Thread.currentThread().setContextClassLoader(baselineLoader);
             Class<?> baselineType = baselineLoader.loadClass("org.flywaydb.core.Flyway");
             assertNotSame(Flyway.class.getClassLoader(), baselineType.getClassLoader());
@@ -50,7 +49,7 @@ class FlywayUpgradeRollbackIT {
             config.getClass().getMethod("locations", String[].class).invoke(config, (Object) new String[]{"classpath:db/migration"});
             Object baseline = config.getClass().getMethod("load").invoke(config);
             Object initial = baselineType.getMethod("migrate").invoke(baseline);
-            assertEquals(6, initial.getClass().getField("migrationsExecuted").get(initial));
+            assertEquals(7, initial.getClass().getField("migrationsExecuted").get(initial));
             jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1, 'rollback-fixture', 125, 10)");
             var history = jdbc.queryForList("SELECT version, checksum, success FROM flyway_schema_history ORDER BY installed_rank");
 
@@ -75,7 +74,8 @@ class FlywayUpgradeRollbackIT {
     static class BaselineFlywayLoader extends URLClassLoader {
         BaselineFlywayLoader(URL[] urls, ClassLoader parent) { super(urls, parent); }
         @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-            if (!name.startsWith("org.flywaydb.")) return super.loadClass(name, resolve);
+            // Java migrations must link against the same isolated Flyway API as the resolver.
+            if (!name.startsWith("org.flywaydb.") && !name.startsWith("db.migration.")) return super.loadClass(name, resolve);
             synchronized (getClassLoadingLock(name)) {
                 Class<?> loaded = findLoadedClass(name);
                 if (loaded == null) loaded = findClass(name);

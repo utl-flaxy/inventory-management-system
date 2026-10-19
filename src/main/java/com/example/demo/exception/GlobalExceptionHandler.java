@@ -35,6 +35,21 @@ import java.util.TreeMap;
 @Hidden // OpenAPIのerror契約は共通customizerで定義する。
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(AuthMutationSourceUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleAuthMutationSource(AuthMutationSourceUnavailableException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_MUTATION_SOURCE_UNAVAILABLE",
+                AuthMutationSourceUnavailableException.DETAIL, request);
+    }
+
+    @ExceptionHandler(AuthMutationRateLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleAuthMutationRateLimit(AuthMutationRateLimitExceededException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(org.springframework.http.HttpHeaders.RETRY_AFTER, Long.toString(ex.retryAfterSeconds()))
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(ApiProblemFactory.create(HttpStatus.TOO_MANY_REQUESTS, "AUTH_MUTATION_RATE_LIMITED",
+                        AuthMutationRateLimitExceededException.DETAIL, request));
+    }
+
     @ExceptionHandler(RegistrationSourceUnavailableException.class)
     public ResponseEntity<ProblemDetail> handleRegistrationSource(RegistrationSourceUnavailableException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.SERVICE_UNAVAILABLE, "REGISTRATION_SOURCE_UNAVAILABLE",

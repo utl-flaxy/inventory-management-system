@@ -69,11 +69,10 @@ class ProductDeletionIT {
         SecurityContextHolder.clearContext();
         for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users"))
             jdbc.update("DELETE FROM " + table);
-        jdbc.update("INSERT INTO users(id,username,password,role) VALUES "
-                + "(1,'alice','private-test-hash','ROLE_USER'),(2,'admin','private-test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','private-test-hash','ROLE_USER'),(UUID_v4(),2,'admin','private-test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products(id,name,price,stock,version) VALUES (1,'apple',100,10,0)");
-        userToken = "Bearer " + jwt.generateToken("alice");
-        adminToken = "Bearer " + jwt.generateToken("admin");
+        userToken = "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice");
+        adminToken = "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin");
     }
 
     @AfterEach void clearAuthentication() { SecurityContextHolder.clearContext(); }

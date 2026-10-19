@@ -43,6 +43,8 @@ public class ProductionConfiguration {
                     .orElseGet(LoginRateLimitProperties::new).validateProduction();
             Binder.get(environment).bind("app.registration.rate-limit", RegistrationRateLimitProperties.class)
                     .orElseGet(RegistrationRateLimitProperties::new).validate();
+            Binder.get(environment).bind("app.auth.mutation.rate-limit", com.example.demo.security.AuthMutationRateLimitProperties.class)
+                    .orElseGet(com.example.demo.security.AuthMutationRateLimitProperties::new).validate();
             if (!"framework".equalsIgnoreCase(environment.getProperty("server.forward-headers-strategy")))
                 throw new IllegalStateException("Production forwarding must use framework after transport capture");
         };

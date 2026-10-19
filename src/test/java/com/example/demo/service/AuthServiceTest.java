@@ -6,7 +6,6 @@ import com.example.demo.entity.User;
 import com.example.demo.exception.InvalidCredentialsException;
 import com.example.demo.exception.UsernameAlreadyExistsException;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.security.JwtUtil;
 import com.example.demo.security.LoginDummyPassword;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,7 @@ import static org.mockito.Mockito.*;
 class AuthServiceTest {
     @Mock private UserRepository users;
     @Mock private PasswordEncoder encoder;
-    @Mock private JwtUtil jwt;
+    @Mock private LoginTokenIssuer jwt;
     @Mock private LoginDummyPassword dummy;
     @InjectMocks private AuthService service;
 
@@ -115,15 +114,16 @@ class AuthServiceTest {
     }
 
     @Test
-    void successfulLoginQueriesOnceMatchesPasswordAndUsesStoredUsernameForJwt() {
-        when(users.findByUsername("alice")).thenReturn(Optional.of(user()));
+    void successfulLoginQueriesOnceMatchesPasswordAndPassesImmutableSnapshotToLockedIssuer() {
+        User saved = user();
+        when(users.findByUsername("alice")).thenReturn(Optional.of(saved));
         when(encoder.matches(PASSWORD, "stored-hash")).thenReturn(true);
-        when(jwt.generateToken("Alice")).thenReturn("test-token");
+        when(jwt.issue(any())).thenReturn(new LoginTokenIssuer.Issued("test-token", 1L, "ROLE_USER"));
         assertEquals("test-token", service.login(login()).getToken());
         verify(users).findByUsername("alice");
         verifyNoMoreInteractions(users);
         verify(encoder).matches(PASSWORD, "stored-hash");
-        verify(jwt).generateToken("Alice");
+        verify(jwt).issue(LoginTokenIssuer.Snapshot.of(saved));
         verifyNoMoreInteractions(jwt);
     }
 

@@ -58,6 +58,18 @@ public class OpenApiConfig {
                                     .description("Positive whole seconds until source window expires; 1 second for concurrent saturation. Availability is not guaranteed after waiting.")
                                     .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
                 }
+                if (path.equals("/auth/logout-all") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
+                    operation.setDescription("Authenticated user-wide JWT revocation. Increments the user's generation and inserts an audit row in one transaction; 204 is returned after commit. "
+                            + "The same JWT subsequently receives 401, including on retry. No request body is used; the authenticated principal is the only target. "
+                            + "Defaults per JVM: 5 admitted attempts per verified source per fixed 60-second window, 2 concurrent auth mutations, 4096 source windows. "
+                            + "Independent of login/register. Requests authenticated before commit may finish; individual JWT revocation is not provided.");
+                    responses.addApiResponse("401", new ApiResponse().description("UNAUTHENTICATED: missing or invalid JWT; legacy and revoked JWTs are rejected, including a generation change while waiting for the user lock"));
+                    responses.addApiResponse("503", new ApiResponse().description("AUTH_MUTATION_SOURCE_UNAVAILABLE: verified client identity unavailable. SERVICE_UNAVAILABLE: confirmed transient DB/row-lock failure; no Retry-After."));
+                    responses.addApiResponse("429", new ApiResponse().description("AUTH_MUTATION_RATE_LIMITED: auth mutation source quota or concurrency exhausted")
+                            .addHeaderObject("Retry-After", new io.swagger.v3.oas.models.headers.Header()
+                                    .description("Positive whole seconds; availability after waiting is not guaranteed")
+                                    .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
+                }
                 responses.addApiResponse("500", new ApiResponse().description("SYSTEM_ERROR"));
                 responses.putIfAbsent("503", new ApiResponse().description("SERVICE_UNAVAILABLE: temporary database connection/timeout failure; keep a valid JWT. Recovery time is unknown; no Retry-After. Do not blindly replay writes."));
                 if (!path.startsWith("/auth/")) {

@@ -80,7 +80,7 @@ class OsivApiIT {
             var jdbc = context.getBean(JdbcTemplate.class);
             for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users"))
                 jdbc.update("DELETE FROM " + table);
-            assertEquals(6, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+            assertEquals(7, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
 
             String adminName = "osiv-admin-" + profile;
             String aliceName = "osiv-alice-" + profile;

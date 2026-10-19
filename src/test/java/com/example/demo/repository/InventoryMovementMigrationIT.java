@@ -63,14 +63,14 @@ class InventoryMovementMigrationIT {
         jdbc.update("INSERT INTO inventory_movements(product_id,delta,stock_before,stock_after,reason,source_type,source_id,actor_user_id,note,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", row.values().toArray());
     }
     @Test void v5AndV6AreAppliedWithUnchangedLegacyRowsHashesAndFlywayHistory() throws Exception {
-        assertEquals(2, migrated); assertEquals(0, count());
+        assertEquals(3, migrated); assertEquals(0, count());
         assertEquals(legacyProducts, jdbc.queryForList("SELECT * FROM products ORDER BY id"));
         assertEquals(legacyHistory, jdbc.queryForList("SELECT * FROM flyway_schema_history WHERE version IN ('1','2','3','4') ORDER BY installed_rank"));
         assertEquals(migrationHashes, hashes()); assertEquals(4, migrationHashes.size());
         assertEquals("V5__create_inventory_movements.sql", jdbc.queryForObject("SELECT script FROM flyway_schema_history WHERE version='5'", String.class));
         assertNotNull(jdbc.queryForObject("SELECT checksum FROM flyway_schema_history WHERE version='5'", Integer.class));
         var flyway = Flyway.configure().dataSource(dataSource).load();
-        flyway.validate(); assertEquals("6", flyway.info().current().getVersion().getVersion());
+        flyway.validate(); assertEquals("7", flyway.info().current().getVersion().getVersion());
     }
     @Test void applicationRestartsValidateHibernateAndDoNotReapplyMigrationsOrCreateSnapshots() {
         var history = jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");

@@ -197,7 +197,8 @@ def api_regression(port, db, image, network):
     private_values.append(operator_secret)
     # Test-generated hex credential travels only as SQL stdin to this disposable DB.
     db_query(db, "CREATE USER 'bootstrap_operator'@'%' IDENTIFIED BY '" + operator_secret + "'; "
-             "GRANT SELECT (username,role), INSERT (username,password,role) ON inventory76.users TO 'bootstrap_operator'@'%';")
+             "GRANT SELECT (username,role), INSERT (username,password,role,auth_uid,token_version) ON inventory76.users TO 'bootstrap_operator'@'%'; "
+             "GRANT SELECT (version,success,checksum) ON inventory76.flyway_schema_history TO 'bootstrap_operator'@'%';")
     # Different names and independent CLI processes prove cross-process serialization, not just username UNIQUE.
     names = ["docker_admin_" + str(i) for i in range(3)]
     with ThreadPoolExecutor(max_workers=3) as pool:
@@ -317,6 +318,25 @@ def api_regression(port, db, image, network):
     request(port, "/v3/api-docs", 404, token=user)
     request(port, "/h2-console", 404, token=user)
     checks.extend(["Security headers", "Validation error response", "Production-only endpoint isolation"])
+    # Separate from the historical nine-step business demo: B1 revocation and relogin.
+    request(port, "/auth/logout-all", 204, method="POST", token=user)
+    rejected, _ = request(port, "/products", 401, token=user)
+    assert rejected["code"] == "UNAUTHENTICATED"
+    request(port, "/auth/logout-all", 401, method="POST", token=user)
+    fresh, _ = request(port, "/auth/login", method="POST", data={"username": "docker_user", "password": password},
+                       extra={"X-Forwarded-For": "198.51.100.80"})
+    tokens["revoked_user"], tokens["docker_user"] = user, fresh["token"]
+    private_values.append(fresh["token"])
+    request(port, "/products", token=fresh["token"])
+    request(port, "/api/v1/admin/orders", 403, token=fresh["token"])
+    request(port, "/api/v1/admin/orders", token=admin)
+    assert db_query(db, "SELECT token_version FROM users WHERE username='docker_user';") == "1"
+    assert db_query(db, "SELECT COUNT(*) FROM auth_revocation_audit WHERE action='LOGOUT_ALL' AND actor_user_id=target_user_id;") == "1"
+    before_retry = db_query(db, order_state_query)
+    replay, _ = request(port, "/api/v1/me/orders", method="POST", token=fresh["token"],
+                        data={"items": [{"productId": pid, "quantity": 2}]}, extra={"Idempotency-Key": "docker-order-1"})
+    assert replay["id"] == order["id"] and db_query(db, order_state_query) == before_retry
+    checks.append("B1 logout-all 204, old JWT and replay 401, relogin generation 1, one audit, independent ADMIN, same order key unchanged")
     return checks, tokens, password, pid, demo
 
 
@@ -442,12 +462,12 @@ def main():
             report["checks"].append("Read-only rootfs, non-root, dropped capabilities, bounded tmpfs")
             report["api_checks"], tokens, password, pid, report["demo_steps"] = api_regression(port, db, image, network)
             migrations = db_query(db, "SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank;").splitlines()
-            assert migrations == ["1", "2", "3", "4", "5", "6"]
+            assert migrations == ["1", "2", "3", "4", "5", "6", "7"]
             report["migrations"] = migrations
             report["app_startup_peak_cgroup_bytes"] = max((s["cgroup_bytes"] or 0) for s in samples)
             report["app_after_api"] = memory(app)
             report["db_after_api"] = memory(db)
-            report["checks"].append("MariaDB connection and unchanged Flyway V1-V6")
+            report["checks"].append("MariaDB connection, unchanged Flyway V1-V6 and additive V7 auth identity/audit")
             report["database_lifecycle"] = []
             def restart_candidate():
                 cutover(candidate)
@@ -465,7 +485,7 @@ def main():
                 if mode == "deadline": assert lifecycle["problem_code"] == "CONCURRENT_UPDATE"
                 report["database_lifecycle"].append(lifecycle)
             data_signature = db_query(db, "SELECT (SELECT COUNT(*) FROM orders), (SELECT SUM(stock) FROM products);")
-            admin_signature = db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';")
+            admin_signature = db_query(db, "SELECT id,username,password,role,auth_uid,token_version FROM users WHERE role='ROLE_ADMIN';")
             previous = temp / "previous.json"
             old_image = args.baseline_image or info["Id"]
             compose_file(previous, inspect(old_image)["Id"], hardened=not bool(args.baseline_image))
@@ -483,13 +503,21 @@ def main():
             db_after = inspect(db)
             assert db_after["Id"] == db_before["Id"] and db_after["State"]["StartedAt"] == db_before["State"]["StartedAt"]
             assert db_query(db, "SELECT (SELECT COUNT(*) FROM orders), (SELECT SUM(stock) FROM products);") == data_signature
-            assert db_query(db, "SELECT id,username,password,role FROM users WHERE role='ROLE_ADMIN';") == admin_signature
+            assert db_query(db, "SELECT id,username,password,role,auth_uid,token_version FROM users WHERE role='ROLE_ADMIN';") == admin_signature
             report["initial_admin_provisioning"] = dict(concurrent_cli_processes=3, created_admins=1,
                     existing_admin_result="ADMIN_PRESENT", db_permissions=["SELECT", "INSERT"],
-                    db_select_columns=["username", "role"], db_insert_columns=["username", "password", "role"],
+                    db_select_columns=["username", "role"], db_insert_columns=["username", "password", "role", "auth_uid", "token_version"],
+                    migration_history_select_columns=["version", "success", "checksum"],
                     bad_db_credentials_exit=74, credentials_not_in_command_output=True,
                     identity_hash_and_role_unchanged_after_app_restarts=True, default_startup_created_admins=0)
             request(port, f"/products/{pid}", token=tokens["docker_user"])
+            request(port, f"/products/{pid}", 401, token=tokens["revoked_user"])
+            assert db_query(db, "SELECT token_version FROM users WHERE username='docker_user';") == "1"
+            assert db_query(db, "SELECT COUNT(*) FROM auth_revocation_audit;") == "1"
+            report["jwt_revocation"] = dict(logout_status=204, old_jwt_status=401, replay_status=401,
+                    relogin_status=200, generation=1, audit_rows=1, other_user_isolated=True,
+                    order_key_replay_unchanged=True, same_image_restarts_preserve_revocation=True,
+                    old_binary_rollback_validated=False)
             report["rollback"] = {"actual_app_only_cutover": True, "failed_readiness_then_old_image_restored": True,
                                   "failure_target": "container loopback 127.0.0.1:1",
                                   "db_id_and_start_time_unchanged": True, "order_and_stock_data_unchanged": True,
@@ -585,6 +613,7 @@ def main():
                       "demo_steps": report["demo_steps"],
                       "image_bytes": report["image_bytes"], "checks": report["checks"], "migrations": report["migrations"],
                       "rollback": report["rollback"], "database_lifecycle": report["database_lifecycle"],
+                      "jwt_revocation": report["jwt_revocation"],
                       "image_scan": report.get("image_scan")}))
 
 

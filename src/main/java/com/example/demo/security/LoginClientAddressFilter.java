@@ -2,6 +2,7 @@ package com.example.demo.security;
 
 import com.example.demo.exception.LoginSourceUnavailableException;
 import com.example.demo.exception.RegistrationSourceUnavailableException;
+import com.example.demo.exception.AuthMutationSourceUnavailableException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +38,7 @@ public class LoginClientAddressFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !"POST".equals(request.getMethod())
                 || (!(request.getContextPath() + "/auth/login").equals(request.getRequestURI())
-                && !isRegistration(request));
+                && !isRegistration(request) && !isAuthMutation(request));
     }
 
     @Override
@@ -55,8 +56,10 @@ public class LoginClientAddressFilter extends OncePerRequestFilter {
         }
         if (source == null) {
             problems.write(request, response, HttpStatus.SERVICE_UNAVAILABLE,
-                    isRegistration(request) ? "REGISTRATION_SOURCE_UNAVAILABLE" : "LOGIN_SOURCE_UNAVAILABLE",
-                    isRegistration(request) ? RegistrationSourceUnavailableException.DETAIL : LoginSourceUnavailableException.DETAIL);
+                    isAuthMutation(request) ? "AUTH_MUTATION_SOURCE_UNAVAILABLE" :
+                            isRegistration(request) ? "REGISTRATION_SOURCE_UNAVAILABLE" : "LOGIN_SOURCE_UNAVAILABLE",
+                    isAuthMutation(request) ? AuthMutationSourceUnavailableException.DETAIL :
+                            isRegistration(request) ? RegistrationSourceUnavailableException.DETAIL : LoginSourceUnavailableException.DETAIL);
             return;
         }
         request.setAttribute(ATTRIBUTE, source);
@@ -67,12 +70,18 @@ public class LoginClientAddressFilter extends OncePerRequestFilter {
         Object captured = request.getAttribute(ATTRIBUTE);
         // A missing filter cannot turn a rewritten remoteAddr into a trusted client identity.
         if (captured instanceof String address && literalAddress(address) != null) return address;
+        if (isAuthMutation(request)) throw new AuthMutationSourceUnavailableException();
         if (isRegistration(request)) throw new RegistrationSourceUnavailableException();
         throw new LoginSourceUnavailableException();
     }
 
     private static boolean isRegistration(HttpServletRequest request) {
         return (request.getContextPath() + "/auth/register").equals(request.getRequestURI());
+    }
+
+    private static boolean isAuthMutation(HttpServletRequest request) {
+        return "POST".equals(request.getMethod())
+                && (request.getContextPath() + "/auth/logout-all").equals(request.getRequestURI());
     }
 
     static String literalAddress(String value) {

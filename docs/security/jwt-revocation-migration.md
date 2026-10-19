@@ -1,0 +1,83 @@
+# JWT B1移行・復旧手順（Issue #136）
+
+契約: [レビュー済みADR](../design/jwt-revocation-v1.1.md) §3〜§7、[認証API](../auth.md#jwtライフサイクルと失効制約)。
+Java17 / Spring Boot4.1.1 / MariaDB12.2.2を対象とする。実環境の移行・鍵変更は実施していない。
+実利用者向け **PRODUCTION NO GO** は継続する。
+
+## 互換性と停止境界
+
+- V7は既存usersのPK・username・password hash・role、注文/FK、V1〜V6を保持する追加migration。
+  `auth_uid CHAR(36) ascii_bin UNIQUE NOT NULL` にJava UUIDv4を一度だけ割当て、
+  `token_version BIGINT NOT NULL DEFAULT 0 CHECK >= 0` と専用監査tableを追加する。
+- 新JWTは `sub = uid = auth_uid`、`tokenVersion` は非負BIGINTのcanonical十進文字列。
+  username主体・claim欠落・不正型の旧JWTは、署名/期限が有効でも401。dual acceptanceはなく全端末再ログインが必要。
+- **旧validatorを停止・drainしてから移行し、新binaryだけで受付を再開する。混在fleetは禁止。**
+  古いvalidatorは世代を検証しないため、追加schemaだけで安全な互換運転にはならない。
+  アプリ、バッチ、ADMIN CLI、運用ツールをすべて版管理する。
+
+## 運用者が実環境で確認する手順
+
+1. 承認済み停止時間、全validator/CLIの所在、対象DB、移行権限、復旧用の保全先を確認する。
+   実際の容量・SLA・処理時間を使い捨てDBの結果から推定して承認しない。
+   現行は起動Flywayとappが対象DB限定の既存DDL権限を共用する。実環境でのmigration用資格情報と
+   通常appのDML権限の分離は別途運用確認が必要であり、本PRで既存DBの権限を変更したとは扱わない。
+2. 既存の[backup/restore手順](../db/README.md)で取得・整合性・復元先を確認する。
+   保全先へ秘密値を公開しない。raw table/credential/解決済みComposeをログへ出さない。
+3. 新規受付を止め、進行中要求をgraceful shutdownでdrainし、旧processが残っていないことを確認する。
+   [DB待機・shutdown契約](../configuration.md)のpool10、取得5秒、ロック5秒、Tx10秒は緩和しない。
+4. V1〜V6の履歴/checksumとInnoDBを確認し、新binaryのFlywayでV7を適用する。
+   V7はJava migration `db.migration.V7__add_auth_identity_and_revocations`、固定checksum `1360701`。
+   SQL migrationのディレクトリにV7.sqlを追加する方式ではない。公開後はV7を書き換えない。
+5. 成功したV7履歴、uidの非NULL/一意/UUIDv4形式、非負世代、監査table、既存PK/FK/件数の保全を確認する。
+   管理者向けの集計結果だけを残し、uid・username・hashをartifactへ出さない。
+6. 新binaryだけを起動し、readiness、旧JWT401、新ログイン、USER/ADMIN境界、注文/在庫を確認する。
+   `POST /auth/logout-all` の204→旧JWT401→再ログインも専用検証アカウントで確認する。
+   実ユーザーを無断で失効させない。新規ADMINが必要な場合だけ[新CLI](../initial-admin-provisioning.md)を明示実行する。
+7. 問題がなければ受付を再開し、秘密値なしのrequestId・安全なエラー分類・DB負荷・監査容量を観測する。
+   このPRの実証は使い捨て環境だけであり、上記本番作業を完了したとは扱わない。
+
+## MariaDB DDL途中失敗
+
+MariaDB DDLの一括rollbackは保証しない。V7は200行ずつNULL uidだけをbackfillし、既に割当てたuid/世代を再設定しない。
+部分列の型/データ、重複/形式/世代、table engineを検査し、不適切な状態は停止する。
+restartableなmigration本体と、Flywayの失敗履歴を自動的に消すことは別である。
+
+- 受付を停止したままにし、どのDDLまで完了したか・成功/失敗履歴・backupを運用者が確認する。
+- 不整合データを削除したり、全uidを再生成したり、世代を0へ戻したりしない。
+- 既存列・制約・監査tableがV7定義と一致するかもレビューする。任意の既存schemaの自動修復は保証しない。
+- 原因を解消し、残存DDLと保全を確認したうえで、失敗履歴の扱いを独立承認する。
+  `repair` / `clean` を起動時やCIで自動実行する処理はない。
+- `AuthIdentityMigrationIT` はDDL後の故障と本体再開、uid不変、Flyway失敗履歴による再起動拒否を実証する。
+  巨大な既存DBでの停止時間や、あらゆる外部DDL改変からの自動復旧は未保証。
+
+## 失効・監査・不確実な応答
+
+logout-allは本人Userだけをロックし、受信世代を再照合してSQL増分と監査INSERTを同じTxでcommitする。
+監査はactor/targetの内部ID、LOGOUT_ALL、SUCCEEDED、時刻、server requestIdのみ。
+password/hash/JWT/username/raw IPを含めず、User削除にcascadeしない。アプリに監査閲覧APIや自動削除処理はない。
+閲覧は承認済みDB権限に限定し、保存期間・容量・保全/削除の運用承認は公開前の課題とする。
+通常ログの成功eventはcommit後だけ発行する。失敗ログには安全な型とrequestIdを使う。
+
+204はcommit後。同じ世代の並行要求は1成功、他は401であり、同JWTでの再送に204を保証しない。
+認証readがcommit後なら旧世代は401だが、既に認証済みの業務を取り消す機能ではない。
+Tx rollbackでは世代/監査の両方を戻す。一方、通信断やcommit時の障害で結果が不明な場合、
+500/503を「必ず未commit」と決めつけない。再認証と承認済み監査確認で判断し、盲目的な書込みretryをしない。
+
+## rollback / backup復元の制約
+
+Docker検証のrollbackは**同じB1 image IDの設定故障からのapp-only復帰**である。
+DBコンテナを再作成せず、世代と監査を保持し、旧JWT401/再ログインJWT有効を確認する。
+異なる旧アプリバイナリへの安全なrollbackを実証したものではない。
+
+世代検証のない旧imageへ戻すことは禁止。旧imageは旧JWTを再受理し得る。
+新uid必須列に対する旧CLIのINSERTも失敗するため、旧CLIを継続使用しない。
+追加列を残しても旧validatorの安全性は回復しない。破壊的なdown migrationは用意しない。
+問題時は停止を維持し、新validatorを保持した修正版による復旧を優先する。
+
+DBを過去backupへ復元するとtoken_versionも古くなり、以前失効したJWTが再受理され得る。
+復元テストはuid/世代/監査を保存できることを示すだけで、失効の単調性を復元越しに保証しない。
+復元時は全validator停止、JWT鍵・全JWT拒否方針の独立承認、新規発行まで含めた再検証が必要。
+旧鍵へ戻すと旧署名が再び有効になり得る。漏洩鍵の再利用は禁止。実secretの取得・変更は本PRでは行わない。
+
+B2 password変更、B3 ADMIN強制失効、[jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)、
+refresh、アカウント停止、MFAは未実装。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPENを維持する。

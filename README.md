@@ -33,8 +33,8 @@ TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`di
 | 項目 | 現行mainの構成 |
 |---|---|
 | Java / Framework | Java 17、Spring Boot **4.1.1**、Spring Framework 7.0.9 |
-| Security | Spring Security 7、JJWT 0.12.7、BCrypt、stateless JWT |
-| Persistence | Spring Data JPA / Hibernate、MariaDB 12.2、Flyway V1〜V6 |
+| Security | Spring Security 7、JJWT 0.12.7、BCrypt、Bearer JWT（HTTP sessionなし・DB世代照合） |
+| Persistence | Spring Data JPA / Hibernate、MariaDB 12.2、Flyway V1〜V6＋Java V7（認証uid/失効世代/監査） |
 | Web / API docs | Spring MVC、Jakarta Validation、springdoc 3.1.1。Swaggerは明示したlocal profileのみ |
 | Build / Tests | Maven Wrapper、JUnit、Surefire/Failsafe、Testcontainers |
 | Container | digest固定Java17 JDK build + JRE runtime、Compose、UID/GID10001:10001 |
@@ -67,6 +67,7 @@ flowchart LR
 | 利用者 | API | 主な契約 |
 |---|---|---|
 | 公開 | POST `/auth/register`、POST `/auth/login` | 登録はROLE_USER固定。独立した登録/ログイン制限、超過429/Retry-After、接続元判定不能503 |
+| 本人 | POST `/auth/logout-all` | 全端末失効をcommit後204、旧JWT/再送401。独立した認証管理制限、移行時は旧JWTを一括拒否 |
 | USER / ADMIN | GET `/products`、GET `/products/search?keyword=...`、GET `/products/{id}` | 一覧/検索のページング、keyword Unicode境界 |
 | ADMIN | POST/PUT/DELETE `/products`系 | 商品名255コードポイントまで。PUTはversion必須、stockを変更しない |
 | 本人 | POST/GET `/api/v1/me/orders`、GET `/{id}`、POST `/{id}/cancel` | 作成1〜100明細、Idempotency-Key必須、他者の注文は404 |
@@ -143,7 +144,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - Deployは**無効**。main CI成功だけで現在配備される状態ではありません。将来の配備はCIの`DEPLOY_SHA`、revision label、app-onlyの`--no-deps --no-build`切替を維持する設計です。
 - 現CI/デモのrollbackは**同一image IDの設定故障から直前設定へ復帰**する試験です。DB container再作成なし・業務データ不変を確認します。異なる旧バイナリと新schemaの互換性、実EC2での復旧を保証しません。
 - app rollbackはDB rollbackではありません。migrationは自動undoせず、[backup/restore](docs/db/backup-restore.md)とschema互換性の判断が別途必要です。
-- JWT個別失効/refresh、password変更・強制失効APIは未実装です。[JWTライフサイクル](docs/auth.md#jwtライフサイクルと失効制約)、[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)を参照。username再割当てや旧鍵へ戻す操作の再受理リスクも残ります。
+- B1はUUID主体＋世代と `POST /auth/logout-all` による全端末失効です。旧JWTは401になり再ログインが必要です。[JWTライフサイクル](docs/auth.md#jwtライフサイクルと失効制約)と[停止移行・rollback制約](docs/security/jwt-revocation-migration.md)を参照。個別JWT失効/refresh、password変更・ADMIN強制失効APIは未実装で、[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPENです。旧binary・旧鍵・過去DBへの復帰には再受理リスクがあります。
 - Flyway/MariaDB12.2互換性WARN、Trivy OS由来49件を開示して継続監査します。負荷・容量・SLA・実secret・TLS・本番backup/restoreは未検証です。
 - Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
 - Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。S3/RDS/Redisは将来拡張で、現行の完成判定へ含めません。

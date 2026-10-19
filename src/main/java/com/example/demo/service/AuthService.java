@@ -7,7 +7,7 @@ import com.example.demo.entity.User;
 import com.example.demo.exception.InvalidCredentialsException;
 import com.example.demo.exception.UsernameAlreadyExistsException;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.security.JwtUtil;
+import com.example.demo.security.AuthStateLocks;
 import com.example.demo.security.LoginDummyPassword;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
+    private final LoginTokenIssuer tokenIssuer;
     private final LoginDummyPassword dummyPassword;
 
     // ユーザー登録
@@ -67,10 +67,12 @@ public class AuthService {
         }
 
         // JWT生成
-        String token = jwtUtil.generateToken(user.getUsername());
+        LoginTokenIssuer.Issued issued;
+        try { issued = tokenIssuer.issue(LoginTokenIssuer.Snapshot.of(user)); }
+        catch (RuntimeException failure) { throw AuthStateLocks.translate(failure); }
         log.atInfo().addKeyValue("event", "auth.login.succeeded")
-                .addKeyValue("userId", user.getId()).addKeyValue("role", user.getRole())
+                .addKeyValue("userId", issued.userId()).addKeyValue("role", issued.role())
                 .log("Login succeeded");
-        return new LoginResponse(token);
+        return new LoginResponse(issued.token());
     }
 }

@@ -44,6 +44,8 @@ public final class ApiProblemFactory {
             case "LOGIN_SOURCE_UNAVAILABLE" -> "Login Source Unavailable";
             case "REGISTRATION_RATE_LIMITED" -> "Registration Rate Limited";
             case "REGISTRATION_SOURCE_UNAVAILABLE" -> "Registration Source Unavailable";
+            case "AUTH_MUTATION_RATE_LIMITED" -> "Authentication Mutation Rate Limited";
+            case "AUTH_MUTATION_SOURCE_UNAVAILABLE" -> "Authentication Mutation Source Unavailable";
             case "UNSUPPORTED_MEDIA_TYPE" -> "Unsupported Media Type";
             case "INVALID_REQUEST" -> "Invalid Request";
             case "INVALID_IDEMPOTENCY_KEY" -> "Invalid Idempotency Key";

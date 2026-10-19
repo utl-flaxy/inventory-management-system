@@ -125,7 +125,8 @@ prodの`require-trusted-proxy=true`、`server.forward-headers-strategy=framework
 Composeの場合はLOGIN_TRUSTED_PROXIESの転送とAPP_MEMORY_LIMITの明示指定も必要で、
 その値をjar用の環境変数と無条件に同一視しない。jar単独起動にも別途host/JVMのメモリ予算が必要。
 Flyway enabled、ddl-auto=validate、baseline-on-migrate=false、clean-disabled=trueを維持する。
-schemaの正本は[Flyway V1〜V6](../src/main/resources/db/migration)。既存migrationを改変せず、次回のschema変更は別途レビューする。
+schemaの正本は[Flyway V1〜V6](../src/main/resources/db/migration)と[Java V7](../src/main/java/db/migration/V7__add_auth_identity_and_revocations.java)。
+既存migrationは改変しない。B1の[停止移行・旧JWT拒否・復元制約](security/jwt-revocation-migration.md)を確認する。
 
 `GET /actuator/health`は全profileでJWTなし、prodではmain portの`/livez`と`/readyz`も匿名可。
 probeとdefault/local総合healthは正常時200 `{"status":"UP"}`のみ。

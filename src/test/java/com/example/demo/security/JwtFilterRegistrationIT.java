@@ -86,7 +86,7 @@ class JwtFilterRegistrationIT {
     @Autowired ProbeRecorder recorder;
     @MockitoSpyBean JwtAuthenticationFilter filter;
     @MockitoSpyBean JwtUtil jwt;
-    @MockitoSpyBean UserDetailsService users;
+    @MockitoSpyBean JwtUserAuthenticator users;
     @MockitoSpyBean OrderService orders;
     @MockitoSpyBean ProductService products;
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
@@ -117,9 +117,9 @@ class JwtFilterRegistrationIT {
         clientAddress="198.51.100."+CLIENT_SEQUENCE.incrementAndGet();
         jdbc.update("DELETE FROM users");
         String hash=encoder.encode(PASSWORD);
-        jdbc.update("INSERT INTO users(id,username,password,role) VALUES(1,'routing_user',?,'ROLE_USER'),(2,'routing_admin',?,'ROLE_ADMIN')",hash,hash);
+        jdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES(UUID_v4(),1,'routing_user',?,'ROLE_USER'),(UUID_v4(),2,'routing_admin',?,'ROLE_ADMIN')",hash,hash);
         secrets.addAll(List.of(SECRET,PASSWORD,hash,database.getPassword(),database.getJdbcUrl(),"routing_user","routing_admin"));
-        userToken=jwt.generateToken("routing_user");adminToken=jwt.generateToken("routing_admin");
+        userToken=com.example.demo.TestAuth.token(jwt, jdbc, "routing_user");adminToken=com.example.demo.TestAuth.token(jwt, jdbc, "routing_admin");
         secrets.addAll(List.of(userToken,adminToken));
         recorder.trace.clear();
         clearInvocations(filter,jwt,users,orders,products);
@@ -130,8 +130,8 @@ class JwtFilterRegistrationIT {
         }).when(filter).doFilter(any(),any(),any());
         doAnswer(call -> { recorder.trace.add("jwt-internal");return call.callRealMethod(); })
                 .when(filter).doFilterInternal(any(),any(),any());
-        doAnswer(call -> { recorder.trace.add("parse");return call.callRealMethod(); }).when(jwt).extractUsername(anyString());
-        doAnswer(call -> { recorder.trace.add("lookup");return call.callRealMethod(); }).when(users).loadUserByUsername(anyString());
+        doAnswer(call -> { recorder.trace.add("parse");return call.callRealMethod(); }).when(jwt).verify(anyString());
+        doAnswer(call -> { recorder.trace.add("lookup");return call.callRealMethod(); }).when(users).authenticate(any());
     }
     @AfterEach
     void noConsoleSecrets(CapturedOutput output) {
@@ -147,14 +147,14 @@ class JwtFilterRegistrationIT {
         var response=send("GET","/api/v1/me/filter-probe",userToken,null);
         System.out.printf("ISSUE-81 registration: servletJwt=%d securityCopies=%d rawEntries=%d internal=%d parse=%d lookup=%d status=%d trace=%s%n",
                 names.size(),securityCopies,calls(filter,"doFilter"),calls(filter,"doFilterInternal"),
-                calls(jwt,"extractUsername"),calls(users,"loadUserByUsername"),response.statusCode(),recorder.trace);
+                calls(jwt,"verify"),calls(users,"authenticate"),response.statusCode(),recorder.trace);
         assertEquals(200,response.statusCode());
         assertEquals(0,names.size(),"JWT must not be automatically registered in the Servlet container");
         assertEquals(1,securityCopies);
         assertEquals(1,calls(filter,"doFilter"));
         assertEquals(1,calls(filter,"doFilterInternal"));
-        assertEquals(1,calls(jwt,"extractUsername"));
-        assertEquals(1,calls(users,"loadUserByUsername"));
+        assertEquals(1,calls(jwt,"verify"));
+        assertEquals(1,calls(users,"authenticate"));
         List<String> order=security.getFilters().stream().map(f -> f==filter?"JwtAuthenticationFilter":f.getClass().getSimpleName()).toList();
         System.out.println("ISSUE-81 security order: "+order);
         assertTrue(order.indexOf("SecurityContextHolderFilter")<order.indexOf("JwtAuthenticationFilter"));
@@ -169,10 +169,10 @@ class JwtFilterRegistrationIT {
     void similarlyNamedProtectedPathMustProcessValidJwt(String path) throws Exception {
         var response=send("GET",path,userToken,null);
         System.out.printf("ISSUE-81 prefix similarity: status=%d parse=%d lookup=%d%n",
-                response.statusCode(),calls(jwt,"extractUsername"),calls(users,"loadUserByUsername"));
+                response.statusCode(),calls(jwt,"verify"),calls(users,"authenticate"));
         assertEquals(200,response.statusCode());
-        assertEquals(1,calls(jwt,"extractUsername"));
-        assertEquals(1,calls(users,"loadUserByUsername"));
+        assertEquals(1,calls(jwt,"verify"));
+        assertEquals(1,calls(users,"authenticate"));
     }
 
     @Test
@@ -188,7 +188,7 @@ class JwtFilterRegistrationIT {
     void futureAuthDescendantProcessesValidJwt() throws Exception {
         var response=send("GET","/auth/filter-probe",userToken,null);
         assertEquals(200,response.statusCode());
-        assertEquals(1,calls(jwt,"extractUsername"));assertEquals(1,calls(users,"loadUserByUsername"));
+        assertEquals(1,calls(jwt,"verify"));assertEquals(1,calls(users,"authenticate"));
         assertEquals(1,Collections.frequency(recorder.trace,"controller"));
     }
 
@@ -197,7 +197,7 @@ class JwtFilterRegistrationIT {
     void publicPostsRemainUsableWithoutJwtProcessingEvenWithBearerHeader(String path) throws Exception {
         String username=path.endsWith("register")?"routing_created":"routing_user";
         secrets.add(username);
-        doThrow(new IllegalStateException("unreachable-public-parser-canary")).when(jwt).extractUsername(anyString());
+        doThrow(new IllegalStateException("unreachable-public-parser-canary")).when(jwt).verify(anyString());
         var response=send("POST",path,"malformed-public-bearer",Map.of("username",username,"password",PASSWORD));
         assertEquals(200,response.statusCode());
         var body=json.readTree(response.body());
@@ -205,7 +205,7 @@ class JwtFilterRegistrationIT {
         else { assertTrue(body.path("token").isString());secrets.add(body.path("token").asText()); }
         assertFalse(response.body().contains(PASSWORD));
         assertEquals(1,calls(filter,"doFilter"));assertEquals(0,calls(filter,"doFilterInternal"));
-        assertEquals(0,calls(jwt,"extractUsername"));assertEquals(0,calls(users,"loadUserByUsername"));
+        assertEquals(0,calls(jwt,"verify"));assertEquals(0,calls(users,"authenticate"));
     }
 
     @Test
@@ -217,7 +217,7 @@ class JwtFilterRegistrationIT {
         var limited=send("POST","/auth/login",null,bad);
         problem(limited,429,"LOGIN_RATE_LIMITED");
         assertTrue(Long.parseLong(limited.headers().firstValue("Retry-After").orElseThrow())>0);
-        assertEquals(0,calls(jwt,"extractUsername"));assertEquals(0,calls(users,"loadUserByUsername"));
+        assertEquals(0,calls(jwt,"verify"));assertEquals(0,calls(users,"authenticate"));
     }
 
     @ParameterizedTest
@@ -227,7 +227,8 @@ class JwtFilterRegistrationIT {
         if(scenario.equals("malformed"))value="malformed-routing-token";
         else {
             String secret=scenario.equals("wrong-secret")?randomValue():SECRET;
-            var builder=Jwts.builder().subject("routing_user")
+            String uid=com.example.demo.TestAuth.principal(jdbc,"routing_user").uid();
+            var builder=Jwts.builder().subject(uid).claim("uid",uid).claim("tokenVersion","0").issuedAt(new Date())
                     .issuer(scenario.equals("wrong-issuer")?"other-system":"inventory-management-system");
             if(!scenario.equals("missing-expiration"))builder.expiration(new Date(System.currentTimeMillis()+(scenario.equals("expired")?-3600000:3600000)));
             value=builder.signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8))).compact();
@@ -235,7 +236,7 @@ class JwtFilterRegistrationIT {
         secrets.add(value);
         problem(send("GET","/api/v1/me/filter-probe",value,null),401,"UNAUTHENTICATED");
         assertEquals(1,calls(filter,"doFilter"));assertEquals(1,calls(filter,"doFilterInternal"));
-        assertEquals(1,calls(jwt,"extractUsername"));assertEquals(0,calls(users,"loadUserByUsername"));
+        assertEquals(1,calls(jwt,"verify"));assertEquals(0,calls(users,"authenticate"));
         assertEquals(1,lastRejectedEvents);assertFalse(recorder.trace.contains("controller"));
     }
 
@@ -244,7 +245,7 @@ class JwtFilterRegistrationIT {
     void invalidJwtCannotCreateOrdersOrEscalateToAdmin(JwtNegativeTokens.Case scenario) throws Exception {
         jdbc.update("INSERT INTO products(id,name,price,stock,version) VALUES(1,'jwt-negative-product',100,10,0)");
         String otherSecret = randomValue();
-        String token = JwtNegativeTokens.invalid(scenario, SECRET, otherSecret, "routing_user", "routing_admin");
+        String token = JwtNegativeTokens.invalid(scenario, SECRET, otherSecret, com.example.demo.TestAuth.principal(jdbc, "routing_user").uid(), com.example.demo.TestAuth.principal(jdbc, "routing_admin").uid());
         secrets.addAll(List.of(otherSecret, token));
         var before = businessSnapshot();
         try {
@@ -259,8 +260,8 @@ class JwtFilterRegistrationIT {
             assertEquals(1, lastRejectedEvents);
             assertEquals(0, lastServerFailureEvents);
             assertTrue(before.equals(businessSnapshot()), "Rejected ADMIN command must leave every business row unchanged");
-            assertEquals(2, calls(jwt, "extractUsername"));
-            assertEquals(0, calls(users, "loadUserByUsername"));
+            assertEquals(2, calls(jwt, "verify"));
+            assertEquals(0, calls(users, "authenticate"));
             verifyNoInteractions(orders, products);
             // Rejection must not leave a privileged SecurityContext or break legitimate subsequent requests.
             assertEquals(200, send("GET", "/api/v1/me/filter-probe", userToken, null).statusCode());
@@ -286,8 +287,8 @@ class JwtFilterRegistrationIT {
         problem(send("GET","/api/v1/admin/filter-probe",userToken,null),403,"ACCESS_DENIED");
         assertEquals(200,send("GET","/api/v1/admin/filter-probe",adminToken,null).statusCode());
         problem(send("GET","/api/v1/me/filter-probe",null,null),401,"UNAUTHENTICATED");
-        assertEquals(3,calls(filter,"doFilter"));assertEquals(2,calls(jwt,"extractUsername"));
-        assertEquals(2,calls(users,"loadUserByUsername"));assertEquals(1,Collections.frequency(recorder.trace,"controller"));
+        assertEquals(3,calls(filter,"doFilter"));assertEquals(2,calls(jwt,"verify"));
+        assertEquals(2,calls(users,"authenticate"));assertEquals(1,Collections.frequency(recorder.trace,"controller"));
     }
 
     @ParameterizedTest
@@ -297,10 +298,10 @@ class JwtFilterRegistrationIT {
         RuntimeException failure=status==503
                 ?new org.springframework.dao.DataAccessResourceFailureException(canary,new SQLTransientConnectionException(canary,"08006"))
                 :new IllegalStateException(canary);
-        doThrow(failure).when(users).loadUserByUsername(anyString());
+        doThrow(failure).when(users).authenticate(any());
         problem(send("GET","/api/v1/me/filter-probe",userToken,null),status,status==503?"SERVICE_UNAVAILABLE":"SYSTEM_ERROR");
-        assertEquals(1,calls(filter,"doFilter"));assertEquals(1,calls(jwt,"extractUsername"));
-        assertEquals(1,calls(users,"loadUserByUsername"));assertEquals(1,lastServerFailureEvents);
+        assertEquals(1,calls(filter,"doFilter"));assertEquals(1,calls(jwt,"verify"));
+        assertEquals(1,calls(users,"authenticate"));assertEquals(1,lastServerFailureEvents);
         assertEquals(0,lastRejectedEvents);assertFalse(recorder.trace.contains("controller"));
     }
 

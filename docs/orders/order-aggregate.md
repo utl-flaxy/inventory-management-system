@@ -8,7 +8,8 @@ Orderは注文者・作成/更新日時・状態・version・明細・合計を�
 
 ## 注文者と日時
 
-CurrentUser helperがSecurityContextの認証済みusernameをUserRepositoryで解決する。
+CurrentUser helperがSecurityContextの認証済みUUID主体をUserRepositoryで再解決し、internal id/世代を照合する。
+業務のcustomer_id/FKは従来の数値PKを維持する。[B1認証契約](../auth.md#jwtライフサイクルと失効制約)を参照。
 customerは必須で、リクエストから指定できない。未認証/存在しない認証ユーザーは401。
 所有者による参照・cancel制限やADMINの操作制限は[注文APIの認可（Issue #5）](../security/order-authorization.md)を参照。
 orderedAt/updatedAtはInstant（UTC）。生成時に設定し、更新時はJPAのPreUpdateでupdatedAtを更新する。

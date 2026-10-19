@@ -90,7 +90,8 @@ class InitialAdminProvisioningIT {
                 create.setString(1, OPERATOR_SECRET);
                 create.execute();
             }
-            statement.execute("GRANT SELECT (username,role), INSERT (username,password,role) ON initial_admin.users TO 'bootstrap_operator'@'%'");
+            statement.execute("GRANT SELECT (username,role), INSERT (username,password,role,auth_uid,token_version) ON initial_admin.users TO 'bootstrap_operator'@'%'");
+            statement.execute("GRANT SELECT (version,success,checksum) ON initial_admin.flyway_schema_history TO 'bootstrap_operator'@'%'");
         }
     }
 
@@ -115,7 +116,7 @@ class InitialAdminProvisioningIT {
     void ordinaryStartupDoesNotCreateAnAdminOrRegisterAProvisioningBean() {
         assertEquals(0, countAdmins());
         assertTrue(context.getBeansOfType(InitialAdminProvisioner.class).isEmpty());
-        assertEquals(6, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+        assertEquals(7, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
     }
 
     @Test
@@ -174,7 +175,7 @@ class InitialAdminProvisioningIT {
 
     @Test
     void existingOrdinaryUserIsNeverPromotedOrOverwritten() throws Exception {
-        jdbc.update("INSERT INTO users (username,password,role) VALUES (?,?, 'ROLE_USER')", "claimed_name", encoder.encode(PASSWORD));
+        jdbc.update("INSERT INTO users (auth_uid,username,password,role) VALUES (UUID_v4(),?,?, 'ROLE_USER')", "claimed_name", encoder.encode(PASSWORD));
         String original = hash("claimed_name");
         assertEquals(USERNAME_TAKEN, provisioner.provision(this::operator, "claimed_name", () -> {
             fail("A claimed username must not request a password"); return null;
@@ -209,7 +210,7 @@ class InitialAdminProvisioningIT {
     @Test
     void concurrentPublicRegistrationWinsUniqueConstraintWithoutBeingPromoted() throws Exception {
         assertThrows(SQLException.class, () -> provisioner.provision(this::operator, "claimed_during_input", () -> {
-            jdbc.update("INSERT INTO users (username,password,role) VALUES (?,?, 'ROLE_USER')", "claimed_during_input", encoder.encode(PASSWORD));
+            jdbc.update("INSERT INTO users (auth_uid,username,password,role) VALUES (UUID_v4(),?,?, 'ROLE_USER')", "claimed_during_input", encoder.encode(PASSWORD));
             return PASSWORD.toCharArray();
         }));
         assertEquals(0, countAdmins());
@@ -245,7 +246,7 @@ class InitialAdminProvisioningIT {
 
     @Test
     void databaseCheckRejectsUnsupportedRole() throws Exception {
-        try (Connection connection = operator(); var insert = connection.prepareStatement("INSERT INTO users (username,password,role) VALUES (?,?,?)")) {
+        try (Connection connection = operator(); var insert = connection.prepareStatement("INSERT INTO users (auth_uid,username,password,role) VALUES (UUID_v4(),?,?,?)")) {
             insert.setString(1, "invalid_role"); insert.setString(2, encoder.encode(PASSWORD)); insert.setString(3, "ROLE_SUPER_ADMIN");
             assertThrows(SQLException.class, insert::executeUpdate);
         }

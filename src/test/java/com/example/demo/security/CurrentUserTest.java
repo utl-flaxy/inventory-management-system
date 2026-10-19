@@ -35,13 +35,12 @@ class CurrentUserTest {
     @Test
     void authenticatedPrincipalResolvesExistingUser() {
         User user = com.example.demo.TestOrders.customer();
-        org.springframework.security.core.userdetails.User principal =
-                new org.springframework.security.core.userdetails.User("alice", "unused", List.of());
+        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getAuthUid(), 0, user.getRole());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(userRepository.findByAuthUid(com.example.demo.TestOrders.customer().getAuthUid())).thenReturn(Optional.of(user));
         assertSame(user, currentUser.requireUser());
-        verify(userRepository).findByUsername("alice");
+        verify(userRepository).findByAuthUid(com.example.demo.TestOrders.customer().getAuthUid());
     }
 
     @Test
@@ -68,7 +67,7 @@ class CurrentUserTest {
     @Test
     void deletedUserIsRejected() {
         com.example.demo.TestOrders.authenticate();
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.empty());
+        when(userRepository.findByAuthUid(com.example.demo.TestOrders.customer().getAuthUid())).thenReturn(Optional.empty());
         assertThrows(AuthenticationCredentialsNotFoundException.class, currentUser::requireUser);
     }
 }

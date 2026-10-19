@@ -101,11 +101,10 @@ class OrderCsvExportIT {
     private long itemId;
 
     @BeforeEach void fixtures() {
-        jdbc.update("INSERT INTO users(id,username,password,role) VALUES(1,'alice','test-hash','ROLE_USER'),(2,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES(UUID_v4(),1,'alice','test-hash','ROLE_USER'),(UUID_v4(),2,'admin','test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products(id,name,price,stock) VALUES(1,'current-master',999,10)");
         itemId = 0;
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                "admin", null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+        com.example.demo.TestAuth.authenticate(jdbc, "admin");
     }
 
     @AfterEach void cleanup() {
@@ -124,7 +123,7 @@ class OrderCsvExportIT {
 
     private HttpResponse<byte[]> request(String username) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + PATH)).timeout(Duration.ofSeconds(20));
-        if (username != null) request.header("Authorization", "Bearer " + jwt.generateToken(username));
+        if (username != null) request.header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, username));
         return http.send(request.GET().build(), HttpResponse.BodyHandlers.ofByteArray());
     }
 
@@ -189,13 +188,14 @@ class OrderCsvExportIT {
         order(1, "PENDING", java.util.stream.IntStream.range(0, 601).mapToObj(i -> "first-" + i).toList());
         order(2, "SHIPPED", java.util.stream.IntStream.range(0, 502).mapToObj(i -> "second-" + i).toList());
         var before = snapshot();
+        String adminUid = com.example.demo.TestAuth.principal(jdbc, "admin").uid();
         doAnswer(invocation -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             Connection connection = DataSourceUtils.getConnection(dataSource);
             assertTrue(connection.isReadOnly());
             assertEquals(Connection.TRANSACTION_REPEATABLE_READ, connection.getTransactionIsolation());
-            assertEquals("admin", SecurityContextHolder.getContext().getAuthentication().getName());
+            assertEquals(adminUid, SecurityContextHolder.getContext().getAuthentication().getName());
             var result = mockingDetails(items).getMockCreationSettings().getDefaultAnswer().answer(invocation);
             assertEquals(0, entityManager.unwrap(Session.class).getStatistics().getEntityCount());
             return result;
@@ -260,7 +260,7 @@ class OrderCsvExportIT {
         doThrow(new org.springframework.dao.DataAccessResourceFailureException("private database diagnostic",
                 new java.sql.SQLException("SELECT csv-private-value alice uk_users_username")))
                 .when(items).findCsvBatch(anyLong(), anyLong(), anyInt());
-        mvc.perform(get(PATH).header("Authorization", "Bearer " + jwt.generateToken("admin")))
+        mvc.perform(get(PATH).header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin")))
                 .andExpect(status().isInternalServerError()).andExpect(content().contentType("application/problem+json"))
                 .andExpect(jsonPath("$.code").value("SYSTEM_ERROR"));
         assertSafeLogs(logs.getAll().substring(start));
@@ -290,7 +290,7 @@ class OrderCsvExportIT {
         }).when(items).findCsvBatch(anyLong(), anyLong(), anyInt());
         int start = logs.getAll().length();
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + PATH))
-                .header("Authorization", "Bearer " + jwt.generateToken("admin")).timeout(Duration.ofSeconds(20)).GET().build();
+                .header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin")).timeout(Duration.ofSeconds(20)).GET().build();
         var response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
         assertEquals(200, response.statusCode()); // headers are already committed; body must terminate abnormally.
         try (var input = response.body()) { assertThrows(IOException.class, input::readAllBytes); }

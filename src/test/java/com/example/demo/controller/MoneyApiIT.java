@@ -67,7 +67,7 @@ class MoneyApiIT {
     @BeforeEach
     void fixtures() {
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class));
-        jdbc.update("INSERT INTO users (id,username,password,role) VALUES (1,'alice','test-hash','ROLE_USER'),(2,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','test-hash','ROLE_USER'),(UUID_v4(),2,'admin','test-hash','ROLE_ADMIN')");
     }
 
     @AfterEach
@@ -128,7 +128,7 @@ class MoneyApiIT {
                         .content(json.writeValueAsString(Map.of("name", "changed", "price", 4_000_000_000L,
                                 "version", version))))
                 .andExpect(status().isOk());
-        mvc.perform(get(ME + "/" + orderId).header("Authorization", "Bearer " + jwt.generateToken("alice")))
+        mvc.perform(get(ME + "/" + orderId).header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalPrice").value(6_000_000_000L))
                 .andExpect(jsonPath("$.items[0].productName").value("expensive-item"))
                 .andExpect(jsonPath("$.items[0].unitPrice").value(3_000_000_000L))
@@ -219,13 +219,13 @@ class MoneyApiIT {
     }
 
     private ResultActions createOrder(OrderItemRequest... items) throws Exception {
-        return mvc.perform(post(ME).header("Idempotency-Key", com.example.demo.TestOrders.key()).header("Authorization", "Bearer " + jwt.generateToken("alice"))
+        return mvc.perform(post(ME).header("Idempotency-Key", com.example.demo.TestOrders.key()).header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(com.example.demo.TestOrders.request(items))));
     }
 
     private String adminToken() {
-        return "Bearer " + jwt.generateToken("admin");
+        return "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin");
     }
 
     private void complete(long orderId) throws Exception {

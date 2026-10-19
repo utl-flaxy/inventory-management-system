@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JwtUtilTest {
+    private static final String UID = java.util.UUID.randomUUID().toString();
 
     private static final String SECRET_A =
             Base64.getEncoder().encodeToString(Jwts.SIG.HS256.key().build().getEncoded());
@@ -27,15 +28,15 @@ class JwtUtilTest {
             Base64.getEncoder().encodeToString(Jwts.SIG.HS256.key().build().getEncoded());
 
     @Test
-    void validTokenReturnsUsername() {
+    void validTokenReturnsUuidAndGeneration() {
         JwtUtil jwtUtil = new JwtUtil(
                 SECRET_A,
                 "inventory-management-system",
                 3_600_000L);
 
-        String token = jwtUtil.generateToken("alice");
+        String token = jwtUtil.generateToken(UID, 0);
 
-        assertEquals("alice", jwtUtil.extractUsername(token));
+        assertEquals(new JwtUtil.VerifiedJwt(UID, 0), jwtUtil.verify(token));
     }
 
     @Test
@@ -49,9 +50,9 @@ class JwtUtilTest {
                 "inventory-management-system",
                 3_600_000L);
 
-        String token = issuer.generateToken("alice");
+        String token = issuer.generateToken(UID, 0);
 
-        assertThrows(JwtException.class, () -> verifier.extractUsername(token));
+        assertThrows(JwtException.class, () -> verifier.verify(token));
     }
 
     @Test
@@ -65,19 +66,19 @@ class JwtUtilTest {
                 "inventory-management-system",
                 3_600_000L);
 
-        String token = issuer.generateToken("alice");
+        String token = issuer.generateToken(UID, 0);
 
-        assertThrows(JwtException.class, () -> verifier.extractUsername(token));
+        assertThrows(JwtException.class, () -> verifier.verify(token));
     }
 
     @ParameterizedTest
     @EnumSource(value = JwtNegativeTokens.Case.class, names = {"UNSIGNED", "PAYLOAD_TAMPERED", "WRONG_SIGNATURE"})
     void unsignedOrCryptographicallyModifiedTokenIsRejected(JwtNegativeTokens.Case scenario) {
         JwtUtil verifier = new JwtUtil(SECRET_A, "inventory-management-system", 3_600_000L);
-        String token = JwtNegativeTokens.invalid(scenario, SECRET_A, SECRET_B, "alice", "target_admin");
+        String token = JwtNegativeTokens.invalid(scenario, SECRET_A, SECRET_B, UID, java.util.UUID.randomUUID().toString());
         Class<? extends JwtException> expected = scenario == JwtNegativeTokens.Case.UNSIGNED
                 ? UnsupportedJwtException.class : SignatureException.class;
-        assertThrows(expected, () -> verifier.extractUsername(token));
+        assertThrows(expected, () -> verifier.verify(token));
     }
 
     @ParameterizedTest
@@ -101,26 +102,26 @@ class JwtUtilTest {
     void expiredTokenIsRejected() {
         JwtUtil verifier = new JwtUtil(SECRET_A, "inventory-management-system", 3_600_000L);
         String token = Jwts.builder()
-                .subject("alice")
+                .subject(UID).claim("uid", UID).claim("tokenVersion", "0")
                 .issuer("inventory-management-system")
                 .issuedAt(new Date(System.currentTimeMillis() - 7_200_000L))
                 .expiration(new Date(System.currentTimeMillis() - 3_600_000L))
                 .signWith(Keys.hmacShaKeyFor(SECRET_A.getBytes(StandardCharsets.UTF_8)))
                 .compact();
 
-        assertThrows(ExpiredJwtException.class, () -> verifier.extractUsername(token));
+        assertThrows(ExpiredJwtException.class, () -> verifier.verify(token));
     }
 
     @Test
     void tokenWithoutExpirationIsRejected() {
         JwtUtil verifier = new JwtUtil(SECRET_A, "inventory-management-system", 3_600_000L);
         String token = Jwts.builder()
-                .subject("alice")
+                .subject(UID).claim("uid", UID).claim("tokenVersion", "0")
                 .issuer("inventory-management-system")
                 .signWith(Keys.hmacShaKeyFor(SECRET_A.getBytes(StandardCharsets.UTF_8)))
                 .compact();
 
-        assertThrows(JwtException.class, () -> verifier.extractUsername(token));
+        assertThrows(JwtException.class, () -> verifier.verify(token));
     }
 
     @Test
@@ -129,7 +130,7 @@ class JwtUtilTest {
                 () -> new JwtUtil("x".repeat(31), "inventory-management-system", 3_600_000L));
         JwtUtil verifier = new JwtUtil("x".repeat(32), "inventory-management-system", 3_600_000L);
 
-        assertEquals("alice", verifier.extractUsername(verifier.generateToken("alice")));
+        assertEquals(new JwtUtil.VerifiedJwt(UID, 0), verifier.verify(verifier.generateToken(UID, 0)));
     }
 
     @ParameterizedTest

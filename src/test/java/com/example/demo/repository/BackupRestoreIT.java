@@ -45,7 +45,7 @@ class BackupRestoreIT {
     private static final String INVENTORY_KEY = "private-backup-inventory-key57";
     private static final String FINGERPRINT = "e".repeat(64);
     private static final List<String> TABLES = List.of("users", "products", "orders", "order_items",
-            "inventory_movements", "flyway_schema_history");
+            "inventory_movements", "auth_revocation_audit", "flyway_schema_history");
     @Container static final MariaDBContainer source = container(SOURCE_PASSWORD);
     @Container static final MariaDBContainer target = container(TARGET_PASSWORD);
     @TempDir static Path temp;
@@ -72,8 +72,10 @@ class BackupRestoreIT {
         sourceJdbc = new JdbcTemplate(dataSource(source));
         targetJdbc = new JdbcTemplate(dataSource(target));
         Flyway.configure().dataSource(dataSource(source)).locations("classpath:db/migration").load().migrate();
-        sourceJdbc.update("INSERT INTO users(id,username,password,role) VALUES (10,?,?, 'ROLE_USER'),(11,?,?, 'ROLE_ADMIN')",
+        sourceJdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES (UUID_v4(),10,?,?, 'ROLE_USER'),(UUID_v4(),11,?,?, 'ROLE_ADMIN')",
                 USERNAME, HASH, "backup-admin57", HASH);
+        sourceJdbc.update("UPDATE users SET token_version=3 WHERE id=10");
+        sourceJdbc.update("INSERT INTO auth_revocation_audit(actor_user_id,target_user_id,action,result,created_at,request_id) VALUES(10,10,'LOGOUT_ALL','SUCCEEDED','2026-10-19 00:00:00.123456',?)", java.util.UUID.randomUUID().toString());
         sourceJdbc.update("INSERT INTO products(id,name,price,stock,version) VALUES (1,?,5000000000,14,3),(2,?,7,9,0)",
                 "更新後の商品 🧪", "予備商品");
         String[] statuses = {"PENDING", "SHIPPED", "COMPLETED", "CANCELLED"};
@@ -132,7 +134,7 @@ class BackupRestoreIT {
         var flyway = Flyway.configure().dataSource(dataSource(target)).locations("classpath:db/migration").load();
         flyway.validate();
         assertEquals(0, flyway.info().pending().length);
-        assertEquals(6, flyway.info().applied().length);
+        assertEquals(7, flyway.info().applied().length);
         var before = rows(targetJdbc);
         try (var context = new SpringApplicationBuilder(DemoApplication.class).profiles("prod").run(
                 "--spring.datasource.url=" + target.getJdbcUrl(), "--spring.datasource.username=inventory_app",
@@ -233,8 +235,10 @@ class BackupRestoreIT {
         assertEquals(4, targetJdbc.queryForObject("SELECT COUNT(DISTINCT status) FROM orders", Integer.class));
         assertEquals(7, targetJdbc.queryForObject("SELECT COUNT(*) FROM inventory_movements", Integer.class));
         var history = targetJdbc.queryForList("SELECT version,description,type,checksum,success FROM flyway_schema_history ORDER BY installed_rank");
-        assertEquals(6, history.size());
-        for (int i = 0; i < 6; i++) {
+        assertEquals(3L, targetJdbc.queryForObject("SELECT token_version FROM users WHERE id=10",Long.class));
+        assertEquals(1, targetJdbc.queryForObject("SELECT COUNT(*) FROM auth_revocation_audit",Integer.class));
+        assertEquals(7, history.size());
+        for (int i = 0; i < 7; i++) {
             assertEquals(Integer.toString(i + 1), history.get(i).get("version"));
             assertEquals(true, history.get(i).get("success"));
             assertNotNull(history.get(i).get("checksum"));

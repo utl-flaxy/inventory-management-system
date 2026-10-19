@@ -14,6 +14,11 @@ OSV169 components/0 advisory、Trivy **OS49（MEDIUM27/LOW22）/ library0**。
 
 ## イメージと移行
 
+Issue #136のB1ではruntime/Composeの権限・メモリ設定を変えず、Java V7とUUID/世代JWTを追加する。
+旧validatorの停止/drainと再ログインが必要。[専用runbook](security/jwt-revocation-migration.md)を参照。
+Dockerデモのrollbackは同じB1 imageの設定復帰だけで、世代を読まない旧binaryへ戻す許可ではない。
+上記v1.0監査snapshotは歴史的な値を保持し、B1の再計測は当該PR/新HEADのCIで確認する。
+
 旧構成はhost Mavenで生成したjarを、単一stageのTemurin JDK 17にCOPYしroot実行する。
 新構成は公式Temurin JDK 17のbuild stageと、JRE 17のruntime stageに分離する。
 JDK/JREはUbuntu 24.04 Noble・17.0.20.1+1の公式multi-architecture index digestへ固定。

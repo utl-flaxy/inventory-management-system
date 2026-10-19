@@ -73,6 +73,8 @@ class CompletionMigrationIT {
         }
         assertEquals(before, snapshot());
         assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM orders WHERE completed_at IS NULL", Integer.class));
+        com.example.demo.security.AuthIdentity.requireUid(jdbc.queryForObject("SELECT auth_uid FROM users WHERE id=1", String.class));
+        assertEquals(0L, jdbc.queryForObject("SELECT token_version FROM users WHERE id=1", Long.class));
     }
 
     @Test
@@ -89,7 +91,7 @@ class CompletionMigrationIT {
     }
 
     private Map<String, List<Map<String, Object>>> snapshot() {
-        return Map.of("users", jdbc.queryForList("SELECT * FROM users ORDER BY id"),
+        return Map.of("users", jdbc.queryForList("SELECT id,username,password,role FROM users ORDER BY id"),
                 "products", jdbc.queryForList("SELECT * FROM products ORDER BY id"),
                 "orders", jdbc.queryForList("SELECT id,customer_id,total_price,status,ordered_at,updated_at,version FROM orders ORDER BY id"),
                 "items", jdbc.queryForList("SELECT * FROM order_items ORDER BY id"));

@@ -1,6 +1,8 @@
 # FlywayによるDB管理（Issue #15）
 
-DB schemaのsource of truthは `src/main/resources/db/migration`。
+DB schemaのsource of truthは [SQL V1〜V6](../../src/main/resources/db/migration) と
+[Java V7](../../src/main/java/db/migration/V7__add_auth_identity_and_revocations.java)。
+B1の停止移行・旧JWT拒否・部分DDL・backup巻戻りの制約は[専用runbook](../security/jwt-revocation-migration.md)を参照。
 通常起動はSpring BootがFlyway migrateを実行した後、HibernateがEntityとの一致をvalidateする。
 Hibernateはテーブルを作成・変更しない。Entity annotationはmapping/validation補助として使う。
 
@@ -9,7 +11,9 @@ schema/data/Flyway historyをprivate bundleへ取得し、まずdisposable DBで
 backup中のconcurrent DDLを避け、restore中は全writerを停止する。productionへの自動restoreやvolume削除は行わない。
 
 新規環境の初期管理者は[オフラインADMIN provisioning](../initial-admin-provisioning.md)で明示的に作成する。
-公開register・通常起動・migrationには管理者作成を追加しない。provisioning用DB userには対象usersのSELECT(username,role) / INSERT(username,password,role)だけを付与する。
+公開register・通常起動・migrationには管理者作成を追加しない。provisioning用DB userには対象usersの
+SELECT(username,role) / INSERT(username,password,role,auth_uid,token_version)、
+flyway_schema_historyのSELECT(version,success,checksum)だけを付与する。
 
 ## 専用app DB userへの切替（Issue #37）
 
@@ -18,7 +22,7 @@ ComposeのMARIADB_USER/MARIADB_PASSWORDとdb-init scriptは空volumeの初期化
 既存volumeのuser/password/権限はenvironment変更だけでは更新されない。volumeを削除して移行しない。
 
 必要な権限はSELECT/INSERT/UPDATE/DELETE（業務処理とFlyway history）と
-CREATE/ALTER/INDEX/REFERENCES（V1〜V6のtable/column/index/FK変更）。
+CREATE/ALTER/INDEX/REFERENCES（V1〜V7のtable/column/index/FK変更）。
 global ALL、GRANT OPTIONは付与しない。clean-disabled=trueなのでDROPは不要。
 将来migrationが別の権限を必要とする場合は、そのmigrationと権限を一緒にレビューする。
 新規Compose DBはscripts/db-init/01-app-privileges.shが同じ権限を設定する。

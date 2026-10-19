@@ -86,7 +86,7 @@ class OrderPagingIT {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @Autowired JdbcTemplate jdbc;
+    @MockitoSpyBean JdbcTemplate jdbc;
     @Autowired JwtUtil jwt;
     @Autowired OrderService service;
     @Autowired EntityManagerFactory emf;
@@ -97,8 +97,7 @@ class OrderPagingIT {
     void fixtures() {
         for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users"))
             jdbc.update("DELETE FROM " + table);
-        jdbc.update("INSERT INTO users (id,username,password,role) VALUES (1,'alice','test-hash','ROLE_USER'),"
-                + "(2,'bob','test-hash','ROLE_USER'),(3,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','test-hash','ROLE_USER'),(UUID_v4(),2,'bob','test-hash','ROLE_USER'),(UUID_v4(),3,'admin','test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products (id,name,price,stock) VALUES (1,'renamed',900,1000),(2,'other',100,1000)");
         addOrder(101, 1); addOrder(102, 1); addOrder(103, 2); addOrder(104, 1); addOrder(105, 3);
         SqlCapture.clear();
@@ -248,7 +247,7 @@ class OrderPagingIT {
     @MethodSource("actors")
     void roleMatrixIsUnchanged(String path, String actor, int expected) throws Exception {
         var request = get(path);
-        if (!actor.isEmpty()) request.header("Authorization", "Bearer " + jwt.generateToken(actor));
+        if (!actor.isEmpty()) request.header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, actor));
         var result = mvc.perform(request).andExpect(status().is(expected));
         if (expected == 401) result.andExpect(problem(401, "UNAUTHENTICATED", "Unauthenticated", path));
         if (expected == 403) result.andExpect(problem(403, "ACCESS_DENIED", "Access Denied", path));
@@ -295,16 +294,22 @@ class OrderPagingIT {
     @MethodSource("sizes")
     void realQueryCountIsConstantAndOnlyRequestedOrdersAreMaterialized(String path, int size) throws Exception {
         for (long id = 106; id <= 226; id++) addOrder(id, 1);
+        var request = request(path).param("size", String.valueOf(size)); // Build fixture token before measuring.
+        String uid = com.example.demo.TestAuth.principal(jdbc, path.equals(ADMIN) ? "admin" : "alice").uid();
         var statistics = emf.unwrap(SessionFactory.class).getStatistics();
         statistics.clear(); SqlCapture.clear();
-        var response = read(request(path).param("size", String.valueOf(size)));
+        org.mockito.Mockito.clearInvocations(jdbc);
+        var response = read(request);
         assertEquals(Math.min(size, 100), response.path("size").asInt());
         assertEquals(Math.min(size, 100), response.path("content").size());
         assertEquals(path.equals(ADMIN) ? 126 : 124, response.path("totalElements").asLong());
         var sql = SqlCapture.sql();
         var orderQueries = sql.stream().filter(query -> query.contains(" from orders ")).toList();
         assertEquals(3, orderQueries.size(), "ID page + count + one bounded detail query");
-        assertEquals(path.equals(ADMIN) ? 4 : 5, statistics.getPrepareStatementCount(), "Includes JWT/user lookup");
+        org.mockito.Mockito.verify(jdbc).query(org.mockito.ArgumentMatchers.eq("SELECT id,auth_uid,token_version,role FROM users WHERE auth_uid = ?"),
+                org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.RowMapper.class), org.mockito.ArgumentMatchers.eq(uid));
+        long totalQueries = statistics.getPrepareStatementCount() + 1; // Dedicated JDBC authentication projection is outside Hibernate statistics.
+        assertEquals(path.equals(ADMIN) ? 4 : 5, totalQueries, "Hibernate business queries plus exactly one JWT identity read");
         assertEquals(0, statistics.getCollectionFetchCount());
         assertTrue(statistics.getEntityLoadCount() <= 2, "Only authentication users; orders/items are scalar DTOs");
         assertEquals(0, statistics.getEntityInsertCount()); assertEquals(0, statistics.getEntityUpdateCount());
@@ -317,7 +322,7 @@ class OrderPagingIT {
         String root = orderQueries.stream().filter(query -> query.contains("limit")).findFirst().orElseThrow();
         assertFalse(root.contains("join order_items"));
         System.out.printf("ORDER_PAGING_QUERY path=%s size=%d orderQueries=%d totalQueries=%d entities=%d collectionFetches=%d%n",
-                path, size, orderQueries.size(), statistics.getPrepareStatementCount(),
+                path, size, orderQueries.size(), totalQueries,
                 statistics.getEntityLoadCount(), statistics.getCollectionFetchCount());
     }
 
@@ -355,7 +360,7 @@ class OrderPagingIT {
         assertEquals("idx_orders_customer", own.get("key"));
         var items = jdbc.queryForMap("EXPLAIN SELECT id,order_id FROM order_items WHERE order_id IN (101,102) ORDER BY order_id,id");
         assertEquals("idx_order_items_order", items.get("key"));
-        assertEquals(6, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+        assertEquals(7, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
         System.out.println("ORDER_PAGING_EXPLAIN root=PRIMARY self=idx_orders_customer details=idx_order_items_order migrations=6");
     }
 
@@ -395,7 +400,7 @@ class OrderPagingIT {
     }
 
     private MockHttpServletRequestBuilder request(String path) {
-        return get(path).header("Authorization", "Bearer " + jwt.generateToken(path.equals(ADMIN) ? "admin" : "alice"));
+        return get(path).header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, path.equals(ADMIN) ? "admin" : "alice"));
     }
 
     private JsonNode read(MockHttpServletRequestBuilder request) throws Exception {

@@ -668,6 +668,27 @@ JwtPublicEndpointMatcherTestはmethod・context path・canonical URI・類似/�
 最終検証はJava17 full verify、実Docker/Trivy、Secret正常/異常、SpotBugs正常/異常、OSV、
 PythonとTerraform mockおよび当HEADのGitHub CI全5ジョブで行う。詳細は[認証仕様](auth.md)を参照。
 
+## JWT B1の回帰（Issue #136）
+
+v1.0の数値・監査snapshotは上記と過去節へ保存する。B1の実測件数・CI URLは本PR本文と新HEADのCIを参照する。
+旧形式JWTを引き続き受け付けるという互換性はなく、[認証契約](auth.md#jwtライフサイクルと失効制約)と
+[停止移行手順](security/jwt-revocation-migration.md)が現在の仕様である。
+
+| 証拠 | 保証範囲 |
+|---|---|
+| [JwtRevocationClaimsTest](../src/test/java/com/example/demo/security/JwtRevocationClaimsTest.java) | 固定Clock、必須iat/expと期限境界、UUID主体、文字列世代、旧/欠落/不正型/負数/先頭0/overflow拒否 |
+| [LoginTokenIssuerTest](../src/test/java/com/example/demo/service/LoginTokenIssuerTest.java) | ロック＋fresh read後のuid/保存username/hash/世代再確認。古い証明で新世代を発行しない |
+| [AuthRevocationIT](../src/test/java/com/example/demo/security/AuthRevocationIT.java) | prod実HTTP＋MariaDB、世代/audit原子性、同version並行1成功、commit/rollback、古い業務snapshot、別ユーザー分離、同名再作成、偽装source、429/503/500、ログ非露出、logout/login/注文競合と冪等retry |
+| [AuthIdentityMigrationIT](../src/test/java/com/example/demo/repository/AuthIdentityMigrationIT.java) | V6データ/FK/hash/role保全、UUID一度限り、DDL中断再開、不適切な部分schema/失敗履歴の停止、負世代/形式/旧CLI拒否 |
+| [InitialAdminLifecycleIT](../src/test/java/com/example/demo/provisioning/InitialAdminLifecycleIT.java) / [ProvisioningIT](../src/test/java/com/example/demo/provisioning/InitialAdminProvisioningIT.java) | INSERT専用最小権限、V7履歴確認、並列作成、再起動後のuid/世代/監査保持と旧JWT拒否（同じ署名鍵） |
+| [BackupRestoreIT](../src/test/java/com/example/demo/repository/BackupRestoreIT.java) | uid/非ゼロ世代/監査を含む全tableの実backup/restore。復元による失効巻戻りの安全性は保証しない |
+| [Docker検証](../scripts/docker/verify_image.py) | clean archive build、従来9段階デモ＋B1別検証、logout→旧JWT401→再ログイン、同一image設定故障復帰後も世代/監査保持。異なる旧binaryへのrollbackは未検証 |
+
+既存JWT6否定系・DB障害分類・ロック/注文/在庫・ADMIN CLIのテストは削除/skipしない。
+fixtureのraw INSERTとprincipalを新uidへ更新し、製品のpool10/取得5秒/ロック5秒/Tx10秒を緩和しない。
+Windows旧DatabaseTimeoutIT初回3失敗の根因未確定と、baseline main CIの失敗→再実行の履歴は、今回の成功で消さない。
+TrivyのOS検出、Flyway互換性WARN、実環境の未確認も別に報告する。
+
 ## JWT否定系の受入条件（Issue #123 第一PR / AUD-23）
 
 監査のAUD-23はSHOULD、v1.0 DoDは明示テストを要求していた。

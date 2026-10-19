@@ -99,6 +99,15 @@ class ProductionConfigurationTest {
         runner.withPropertyValues(properties(values)).run(context -> assertNull(context.getStartupFailure()));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings={"source-limit=0","max-concurrent=0","max-concurrent=65","max-entries=0","window=PT0S"})
+    void invalidAuthMutationBudgetFailsBeforeDatabaseInitialization(String setting,CapturedOutput output) {
+        var values=valid();var pair=setting.split("=",2);
+        values.put("app.auth.mutation.rate-limit."+pair[0],pair[1]);
+        fails(values,"Invalid authentication mutation rate limit configuration");
+        assertNoSecrets(output);
+    }
+
     private void fails(Map<String, String> values, String message) {
         runner.withPropertyValues(properties(values)).run(context -> {
             assertNotNull(context.getStartupFailure());

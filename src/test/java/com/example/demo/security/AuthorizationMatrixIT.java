@@ -114,7 +114,7 @@ class AuthorizationMatrixIT {
 
     @BeforeEach
     void fixtures() {
-        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1,'alice','test-hash','ROLE_USER'), (2,'bob','test-hash','ROLE_USER'), (3,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id, username, password, role) VALUES (UUID_v4(),1,'alice','test-hash','ROLE_USER'), (UUID_v4(),2,'bob','test-hash','ROLE_USER'), (UUID_v4(),3,'admin','test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1,'apple',100,94)");
         jdbc.update("INSERT INTO orders (id, customer_id, total_price, status, ordered_at, updated_at) VALUES (101,1,200,'PENDING',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP), (102,2,300,'PENDING',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP), (103,3,100,'PENDING',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO order_items (id, order_id, product_id, quantity, price, product_name_snapshot) VALUES (101,101,1,2,100,'apple'), (102,102,1,3,100,'apple'), (103,103,1,1,100,'apple')");
@@ -132,7 +132,7 @@ class AuthorizationMatrixIT {
 
     private MockHttpServletRequestBuilder as(Actor actor, MockHttpServletRequestBuilder request) {
         return actor == Actor.ANONYMOUS ? request
-                : request.header("Authorization", "Bearer " + jwt.generateToken(actor.username));
+                : request.header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, actor.username));
     }
 
     private record Snapshot(List<Map<String, Object>> products, List<Map<String, Object>> orders,
@@ -281,8 +281,8 @@ class AuthorizationMatrixIT {
 
     @RepeatedTest(3)
     void ownerCancelAndAdministratorShipThroughJwtCannotBothSucceed() throws Exception {
-        String ownerToken = jwt.generateToken("alice");
-        String adminToken = jwt.generateToken("admin");
+        String ownerToken = com.example.demo.TestAuth.token(jwt, jdbc, "alice");
+        String adminToken = com.example.demo.TestAuth.token(jwt, jdbc, "admin");
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
         var executor = Executors.newFixedThreadPool(2);
@@ -361,7 +361,9 @@ class AuthorizationMatrixIT {
     @ValueSource(strings = {"fake-role-claim", "downgraded-admin", "promoted-user"})
     void jwtRoleClaimsAreIgnoredAndCurrentDatabaseRoleControlsAccess(String scenario) throws Exception {
         String username = scenario.equals("downgraded-admin") ? "admin" : "alice";
-        String token = Jwts.builder().subject(username).issuer(ISSUER).claim("role", "ROLE_ADMIN")
+        String uid = com.example.demo.TestAuth.principal(jdbc, username).uid();
+        String token = Jwts.builder().subject(uid).claim("uid", uid).claim("tokenVersion", "0")
+                .issuedAt(new Date()).issuer(ISSUER).claim("role", "ROLE_ADMIN")
                 .expiration(new Date(System.currentTimeMillis() + 3_600_000))
                 .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8))).compact();
         if (scenario.equals("downgraded-admin")) {
@@ -378,8 +380,7 @@ class AuthorizationMatrixIT {
     @ParameterizedTest
     @EnumSource(value = Actor.class, names = {"USER_A", "USER_B"})
     void methodSecurityAlsoBlocksDirectAdminControllerInvocation(Actor actor) {
-        var principal = userDetailsService.loadUserByUsername(actor.username);
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        com.example.demo.TestAuth.authenticate(jdbc, actor.username);
         Snapshot before = snapshot();
         assertThrows(AccessDeniedException.class, () -> adminController.getAll(new org.springframework.util.LinkedMultiValueMap<>()));
         assertEquals(before, snapshot());
