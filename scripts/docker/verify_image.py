@@ -76,10 +76,9 @@ def request(port, path, expected=200, *, method="GET", data=None, token=None, ex
     return json.loads(body) if body else None, response_headers
 
 
-def discover_transport_peer(root, temp, network, nonce, created):
+def discover_transport_peer(root, _temp, network, nonce, created):
     """Observe this disposable host-published path, including Docker Desktop NAT, without app IP logging."""
-    source = temp / "PeerProbe.java"
-    source.write_text(
+    source = (
         'import com.sun.net.httpserver.HttpServer; import java.net.InetSocketAddress;\n'
         'class PeerProbe { public static void main(String[] args) throws Exception {\n'
         ' var server = HttpServer.create(new InetSocketAddress(8080), 0);\n'
@@ -87,7 +86,7 @@ def discover_transport_peer(root, temp, network, nonce, created):
         '  byte[] peer = exchange.getRemoteAddress().getAddress().getHostAddress().getBytes(java.nio.charset.StandardCharsets.US_ASCII);\n'
         '  exchange.sendResponseHeaders(200, peer.length);\n'
         '  try (var out = exchange.getResponseBody()) { out.write(peer); }\n'
-        ' }); server.start(); } }\n', encoding="utf-8")
+        ' }); server.start(); } }\n')
     build_image = re.search(r"^FROM (\S+) AS build$", (root / "Dockerfile").read_text(encoding="utf-8"), re.M).group(1)
     name = "inventory76-peer-" + nonce
     created.append(("container", name))
@@ -96,8 +95,10 @@ def discover_transport_peer(root, temp, network, nonce, created):
            "--read-only", "--user", "10001:10001", "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
            "--pids-limit=64", "--memory=256m", "--memory-swap=256m",
            "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m,mode=1777", "--no-healthcheck",
-           "--mount", f"type=bind,source={source},target=/probe/PeerProbe.java,readonly",
-           "--entrypoint", "java", build_image, "-Xmx96m", "--add-modules", "jdk.httpserver", "/probe/PeerProbe.java")
+           # The source is public test code, not a credential. Keep private host TEMP files unshared.
+           "--entrypoint", "sh", build_image, "-c",
+           'printf "%s" "$1" > /tmp/PeerProbe.java && exec java -Xmx96m --add-modules jdk.httpserver /tmp/PeerProbe.java',
+           "peer-probe", source)
     port = int(inspect(name)["NetworkSettings"]["Ports"]["8080/tcp"][0]["HostPort"])
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:

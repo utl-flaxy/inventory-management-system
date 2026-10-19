@@ -26,6 +26,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Disposable demo failed; inspect the value-free
 
 既存のimageを渡す`--image`はbuildを省く別モード。このデモ・CIのclean build証拠には使わない。
 `--baseline-image`、`--boot4-image`、`--capacity-probes`も今回の標準手順では指定しない。
+Windowsのprivate TEMPからのbind mount拒否を避けるため、接続元確認用の公開Javaソースは
+確認用コンテナ内のbounded tmpfsへ書き込む。秘密値を引数へ移す変更ではなく、private env fileの権限は広げない。
 
 ## 実際に行う操作と成功条件
 
