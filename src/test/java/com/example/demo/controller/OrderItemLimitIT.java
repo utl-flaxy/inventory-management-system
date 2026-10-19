@@ -79,7 +79,7 @@ class OrderItemLimitIT {
 
     @BeforeEach
     void fixtures() {
-        jdbc.update("INSERT INTO users(id,username,password,role) VALUES(1,'alice','test-hash','ROLE_USER')");
+        jdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES(UUID_v4(),1,'alice','test-hash','ROLE_USER')");
         var rows = new ArrayList<Object[]>();
         for (long id = 1; id <= 101; id++) rows.add(new Object[]{id, "limit-product-" + id, id * 10, 3});
         jdbc.batchUpdate("INSERT INTO products(id,name,price,stock,version) VALUES(?,?,?,?,0)", rows);
@@ -186,7 +186,7 @@ class OrderItemLimitIT {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void transactionalServiceEntriesRejectOversizeBeforeBusinessReadsAndWrites(boolean responseEntry) {
-        com.example.demo.TestOrders.authenticate();
+        com.example.demo.TestAuth.authenticate(jdbc, "alice");
         var before = snapshot();
         var request = request(items(101));
         var error = assertThrows(InvalidOrderRequestException.class, () -> {
@@ -227,7 +227,7 @@ class OrderItemLimitIT {
     }
 
     private ResultActions create(String key, OrderRequest request) throws Exception {
-        return mvc.perform(post(PATH).header("Authorization", "Bearer " + jwt.generateToken("alice"))
+        return mvc.perform(post(PATH).header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice"))
                 .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(request)));
     }
 

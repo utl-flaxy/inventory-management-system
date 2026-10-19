@@ -40,7 +40,7 @@ class OrderDataIntegrityTest {
 
     @BeforeEach
     void setup() {
-        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1, 'alice', 'test-hash', 'ROLE_USER')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (?,1,'alice','test-hash','ROLE_USER')", com.example.demo.TestOrders.customer().getAuthUid());
         com.example.demo.TestOrders.authenticate();
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1, 'apple', 100, 10)");
         jdbc.update("INSERT INTO orders (id, total_price, status, customer_id, ordered_at, updated_at, completed_at) VALUES (1000, 25, 'COMPLETED', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");

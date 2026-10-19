@@ -31,9 +31,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(SelfOrderController.class)
-@Import({SecurityConfig.class, JwtUtil.class, SecurityProblemWriter.class})
+@Import({SecurityConfig.class, JwtUtil.class, SecurityProblemWriter.class, com.example.demo.config.ClockConfiguration.class})
 class JwtAuthenticationTest {
 
+    private static final String UID = java.util.UUID.randomUUID().toString();
     private static final String ISSUER = "inventory-management-system";
     private static final String SECRET = newSecret();
 
@@ -47,7 +48,9 @@ class JwtAuthenticationTest {
     private OrderService orderService;
 
     @MockitoBean
-    private UserDetailsService userDetailsService;
+    private JwtUserAuthenticator authenticator;
+
+    @MockitoBean private UserDetailsService unusedStandardUserDetails;
 
     @DynamicPropertySource
     static void jwtProperties(DynamicPropertyRegistry registry) {
@@ -61,7 +64,7 @@ class JwtAuthenticationTest {
 
     private String token(String secret, String issuer, Date expiration) {
         return Jwts.builder()
-                .subject("alice")
+                .subject(UID).claim("uid", UID).claim("tokenVersion", "0").issuedAt(new Date())
                 .issuer(issuer)
                 .expiration(expiration)
                 .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
@@ -72,15 +75,15 @@ class JwtAuthenticationTest {
     void unauthenticatedProtectedEndpointReturns401() throws Exception {
         mockMvc.perform(get("/api/v1/me/orders")).andExpect(status().isUnauthorized());
 
-        verify(jwtUtil, never()).extractUsername(anyString());
-        verifyNoInteractions(userDetailsService, orderService);
+        verify(jwtUtil, never()).verify(anyString());
+        verifyNoInteractions(authenticator, orderService);
     }
 
     @Test
     void rejectedJwtLogsOnlyTypeWithCorrelationAndStillReturns401() throws Exception {
         String token = "very-secret-jwt";
         doThrow(new io.jsonwebtoken.JwtException("Bearer very-secret-jwt super-secret-password private_username"))
-                .when(jwtUtil).extractUsername(token);
+                .when(jwtUtil).verify(token);
         try (var logs = new TestApplicationLogs()) {
             var result = mockMvc.perform(get("/api/v1/me/orders")
                             .header("Authorization", "Bearer " + token).header("X-Request-Id", "spoofed")
@@ -99,14 +102,14 @@ class JwtAuthenticationTest {
             assertNull(org.slf4j.MDC.get("requestId"));
             logs.assertSafe(token, "private_username", "query-private", "spoofed");
         }
-        verify(jwtUtil, times(1)).extractUsername(token);
-        verifyNoInteractions(userDetailsService, orderService);
+        verify(jwtUtil, times(1)).verify(token);
+        verifyNoInteractions(authenticator, orderService);
     }
 
     @Test
     void validJwtAuthenticatesAndIsParsedOnce() throws Exception {
-        when(userDetailsService.loadUserByUsername("alice"))
-                .thenReturn(User.withUsername("alice").password("unused").roles("USER").build());
+        when(authenticator.authenticate(new JwtUtil.VerifiedJwt(UID, 0)))
+                .thenReturn(new AuthPrincipal(1L, UID, 0, "ROLE_USER"));
         when(orderService.findMyOrders(any())).thenAnswer(call -> org.springframework.data.domain.Page.empty(call.getArgument(0)));
         String token = token(SECRET, ISSUER, new Date(System.currentTimeMillis() + 3_600_000L));
 
@@ -114,8 +117,8 @@ class JwtAuthenticationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().json("{\"content\":[],\"page\":0,\"size\":20,\"totalElements\":0,\"totalPages\":0,\"first\":true,\"last\":true}"));
 
-        verify(jwtUtil, times(1)).extractUsername(token);
-        verify(userDetailsService, times(1)).loadUserByUsername("alice");
+        verify(jwtUtil, times(1)).verify(token);
+        verify(authenticator, times(1)).authenticate(new JwtUtil.VerifiedJwt(UID, 0));
         verify(orderService, times(1)).findMyOrders(any());
     }
 
@@ -134,7 +137,7 @@ class JwtAuthenticationTest {
         mockMvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
 
-        verify(jwtUtil, times(1)).extractUsername(token);
-        verifyNoInteractions(userDetailsService, orderService);
+        verify(jwtUtil, times(1)).verify(token);
+        verifyNoInteractions(authenticator, orderService);
     }
 }

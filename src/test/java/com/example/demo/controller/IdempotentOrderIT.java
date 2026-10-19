@@ -71,7 +71,7 @@ class IdempotentOrderIT {
     @BeforeEach
     void fixtures() {
         assertEquals(0, count("orders"));
-        jdbc.update("INSERT INTO users (id,username,password,role) VALUES (1,'alice','test-hash','ROLE_USER'),(2,'bob','test-hash','ROLE_USER'),(3,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','test-hash','ROLE_USER'),(UUID_v4(),2,'bob','test-hash','ROLE_USER'),(UUID_v4(),3,'admin','test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products (id,name,price,stock,version) VALUES (1,'apple',100,10,0),(2,'orange',200,20,0)");
     }
 
@@ -378,7 +378,7 @@ class IdempotentOrderIT {
             normalized.put(field, Instant.parse(response.path(field).asText()).truncatedTo(ChronoUnit.MICROS).toString());
         return normalized;
     }
-    private String token(String username) { return "Bearer " + jwt.generateToken(username); }
+    private String token(String username) { return "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, username); }
     private String body(int quantity) { return "{\"items\":[{\"productId\":1,\"quantity\":" + quantity + "}]}"; }
     private ResultActions create(String user, String key, String body) throws Exception {
         var request = post(ME).header("Authorization", token(user)).contentType(MediaType.APPLICATION_JSON).content(body);

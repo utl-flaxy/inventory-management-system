@@ -28,13 +28,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 @WebMvcTest(SelfOrderController.class)
 @AutoConfigureMockMvc(print = MockMvcPrint.NONE)
-@Import({SecurityConfig.class, JwtUtil.class, SecurityProblemWriter.class})
+@Import({SecurityConfig.class, JwtUtil.class, SecurityProblemWriter.class, com.example.demo.config.ClockConfiguration.class})
 class JwtDatabaseFailureTest {
     private static final String SECRET = Base64.getEncoder().encodeToString(Jwts.SIG.HS256.key().build().getEncoded());
     private static final String CANARY = "private-db-failure-canary";
     @Autowired MockMvc mvc;
     @MockitoSpyBean JwtUtil jwt;
-    @MockitoBean UserDetailsService users;
+    @MockitoBean JwtUserAuthenticator users;
+    @MockitoBean UserDetailsService unusedStandardUserDetails;
     @MockitoBean OrderService orders;
 
     @DynamicPropertySource
@@ -42,8 +43,9 @@ class JwtDatabaseFailureTest {
 
     @Test
     void deletedUserKeepsUnauthenticated401() throws Exception {
-        String token = jwt.generateToken("deleted-test-user");
-        when(users.loadUserByUsername("deleted-test-user"))
+        String uid = java.util.UUID.randomUUID().toString();
+        String token = jwt.generateToken(uid, 0);
+        when(users.authenticate(new JwtUtil.VerifiedJwt(uid, 0)))
                 .thenThrow(new org.springframework.security.core.userdetails.UsernameNotFoundException(CANARY));
         mvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
                 .andExpect(problem(401, "UNAUTHENTICATED", "Unauthenticated", "/api/v1/me/orders"));
@@ -52,8 +54,8 @@ class JwtDatabaseFailureTest {
 
     @Test
     void unexpectedParserFailureIs500RatherThanAnInvalidToken() throws Exception {
-        String token = jwt.generateToken("private-auth-user-canary");
-        doThrow(new IllegalStateException(CANARY)).when(jwt).extractUsername(token);
+        String token = jwt.generateToken(java.util.UUID.randomUUID().toString(), 0);
+        doThrow(new IllegalStateException(CANARY)).when(jwt).verify(token);
         mvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
                 .andExpect(problem(500, "SYSTEM_ERROR", "System Error", "/api/v1/me/orders"));
         verifyNoInteractions(users, orders);
@@ -62,9 +64,9 @@ class JwtDatabaseFailureTest {
     @ParameterizedTest
     @MethodSource("com.example.demo.exception.ServerFailureResponseTest#failures")
     void validTokenDoesNotTurnServerFailureInto401(RuntimeException failure, int status, String code, String title) throws Exception {
-        String username = "private-auth-user-canary";
-        String token = jwt.generateToken(username);
-        when(users.loadUserByUsername(username)).thenThrow(failure);
+        String username = java.util.UUID.randomUUID().toString();
+        String token = jwt.generateToken(username, 0);
+        when(users.authenticate(new JwtUtil.VerifiedJwt(username, 0))).thenThrow(failure);
         try (var logs = new TestApplicationLogs()) {
             mvc.perform(get("/api/v1/me/orders").header("Authorization", "Bearer " + token))
                     .andExpect(problem(status, code, title, "/api/v1/me/orders"));

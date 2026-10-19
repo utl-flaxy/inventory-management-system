@@ -62,9 +62,10 @@ public final class InitialAdminProvisioner {
                     validatePassword(password);
                     String hash = new BCryptPasswordEncoder().encode(CharBuffer.wrap(password));
                     try (var insert = connection.prepareStatement(
-                            "INSERT INTO users (username, password, role) VALUES (?, ?, 'ROLE_ADMIN')")) {
+                            "INSERT INTO users (username, password, role, auth_uid, token_version) VALUES (?, ?, 'ROLE_ADMIN', ?, 0)")) {
                         insert.setString(1, username);
                         insert.setString(2, hash);
+                        insert.setString(3, java.util.UUID.randomUUID().toString());
                         if (insert.executeUpdate() != 1) throw new SQLException("Insert did not complete");
                     }
                 } finally {
@@ -106,9 +107,19 @@ public final class InitialAdminProvisioner {
         try (var statement = connection.prepareStatement(
                 "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() "
                         + "AND TABLE_NAME = 'users' AND ((CONSTRAINT_NAME = 'uk_users_username' AND CONSTRAINT_TYPE = 'UNIQUE') "
-                        + "OR (CONSTRAINT_NAME = 'ck_users_role_allowed' AND CONSTRAINT_TYPE = 'CHECK'))");
+                        + "OR (CONSTRAINT_NAME = 'ck_users_role_allowed' AND CONSTRAINT_TYPE = 'CHECK') "
+                        + "OR (CONSTRAINT_NAME = 'uk_users_auth_uid' AND CONSTRAINT_TYPE = 'UNIQUE') "
+                        + "OR (CONSTRAINT_NAME IN ('ck_users_auth_uid','ck_users_token_version') AND CONSTRAINT_TYPE = 'CHECK'))");
              var rows = statement.executeQuery()) {
-            if (!rows.next() || rows.getInt(1) != 2) return false;
+            if (!rows.next() || rows.getInt(1) != 5) return false;
+        }
+        try (var statement = connection.prepareStatement("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='flyway_schema_history'");
+             var rows = statement.executeQuery()) {
+            if (!rows.next() || rows.getInt(1) != 1) return false;
+        }
+        try (var statement = connection.prepareStatement("SELECT COUNT(*) FROM flyway_schema_history WHERE version='7' AND success=1 AND checksum=1360701");
+             var rows = statement.executeQuery()) {
+            if (!rows.next() || rows.getInt(1) != 1) return false;
         }
         // Server-local advisory locks cannot serialize writers routed to different Galera nodes.
         try (var statement = connection.prepareStatement("SELECT @@wsrep_on");

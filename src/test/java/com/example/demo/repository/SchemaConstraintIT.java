@@ -44,14 +44,14 @@ class SchemaConstraintIT {
     private JdbcTemplate jdbc;
 
     private static final Map<String, List<String>> COLUMNS = Map.of(
-            "users", List.of("username", "password", "role"),
+            "users", List.of("username", "password", "role", "auth_uid", "token_version"),
             "products", List.of("name", "price", "stock", "version"),
             "orders", List.of("customer_id", "total_price", "status", "ordered_at", "updated_at", "version"),
             "order_items", List.of("quantity", "price", "product_name_snapshot", "order_id", "product_id"));
 
     @BeforeEach
     void fixtures() {
-        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1,'alice','test-hash','ROLE_USER')");
+        jdbc.update("INSERT INTO users (auth_uid,id, username, password, role) VALUES (UUID_v4(),1,'alice','test-hash','ROLE_USER')");
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1,'apple',100,8)");
         jdbc.update("INSERT INTO orders (id, customer_id, total_price, status, ordered_at, updated_at) VALUES (1,1,200,'PENDING',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO order_items (id, quantity, price, product_name_snapshot, order_id, product_id) VALUES (1,2,100,'apple',1,1)");
@@ -101,7 +101,8 @@ class SchemaConstraintIT {
         assertTrue(update.getMostSpecificCause().getMessage().contains(constraint), update.getMessage());
         List<String> columns = COLUMNS.get(table);
         String values = String.join(",", columns.stream().map(name -> name.equals(column) ? value
-                : table.equals("users") && name.equals("username") ? "'another-user'" : name).toList());
+                : table.equals("users") && name.equals("username") ? "'another-user'"
+                : table.equals("users") && name.equals("auth_uid") ? "UUID_v4()" : name).toList());
         var insert = assertThrows(DataIntegrityViolationException.class,
                 () -> jdbc.update("INSERT INTO " + table + " (" + String.join(",", columns) + ") SELECT " + values + " FROM " + table + " WHERE id=1"));
         assertTrue(insert.getMostSpecificCause().getMessage().contains(constraint), insert.getMessage());
@@ -112,7 +113,7 @@ class SchemaConstraintIT {
     @Test
     void duplicateUsernameIsRejectedByTheNamedUniqueIndex() {
         var failure = assertThrows(DataIntegrityViolationException.class, () ->
-                jdbc.update("INSERT INTO users (username,password,role) VALUES ('alice','test-hash','ROLE_USER')"));
+                jdbc.update("INSERT INTO users (auth_uid,username,password,role) VALUES (UUID_v4(),'alice','test-hash','ROLE_USER')"));
         assertTrue(failure.getMostSpecificCause().getMessage().contains("uk_users_username"));
     }
 

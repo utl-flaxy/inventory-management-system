@@ -1,7 +1,7 @@
 # 初期ADMIN provisioning（Issue #77）
 
 Spring Boot 4.1.1 / Java 17、MariaDBの新規環境用。公開registerはROLE_USER固定で、username `admin`も一般ユーザー。
-HTTP endpoint、起動runner、seed/default credential、migrationは追加しない。V1〜V6とJWT/API/DB role CHECKは維持する。
+HTTP endpoint、起動runner、seed/default credentialは追加しない。V1〜V6とDB role CHECKを維持し、B1の追加V7に対応する。
 以下は承認済み新規環境で運用者が明示的に行う手順であり、Deploy workflowからは呼び出さない。
 
 ## 方式と実行権限
@@ -13,7 +13,8 @@ HTTP endpoint、起動runner、seed/default credential、migrationは追加し�
 
 実行権限は、レビュー済みjar/imageを実行するOS/Docker権限と、対象DBのprovisioning用アカウントへのアクセス。
 HTTP/JWTの一般ユーザーにはこの権限を与えない。DB管理者は新規環境で専用DB userを安全な認証手順で用意し、
-対象databaseの`users`にSELECT(username,role) / INSERT(username,password,role)だけを付与する。
+対象databaseの`users`にSELECT(username,role) / INSERT(username,password,role,auth_uid,token_version)、
+`flyway_schema_history`にSELECT(version,success,checksum)だけを付与する。
 既存password hashやidのSELECT、UPDATE/DELETE/DDL/global権限/GRANT OPTIONは不要。rootはCLIで拒否する。
 DB user作成のsecretをSQL履歴・引数・repoへ書く例は提供しない。認証情報は承認済み保管先から非表示で入力する。
 完了後は専用DB userのアクセスを失効し、保管先の一時権限も閉じる。アプリ用DB userの権限・secretは変更しない。
@@ -40,7 +41,9 @@ ADMINのpassword/role/idをUPDATEするSQLはない。BCrypt saltは毎回生成
 
 ## 明示的な対話実行
 
-先に通常の新規環境セットアップでV1〜V6を適用し、Hibernate validateとreadinessを確認する。
+先に通常の新規環境セットアップでV1〜V7を適用し、Hibernate validateとreadinessを確認する。
+CLIはV7成功履歴/checksumと認証制約を確認し、新規uidをJava UUIDv4で生成、世代0を明示INSERTする。
+既存ADMINのuid/世代/hash/roleを変更しない。旧CLIのuidなしINSERTは新schemaで拒否されるため、同じB1版を使用する。
 provisioningはmigrationを実行しない。DB接続先、専用DB user、新しいADMIN usernameを運用者が照合する。
 設定は以下の3つ。password/JWTを環境変数へ追加する必要はない。
 

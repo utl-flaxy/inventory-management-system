@@ -79,8 +79,8 @@ class ProductNotFoundIT {
                     .andExpect(status().isOk());
         }
         jdbc.update("UPDATE users SET role='ROLE_ADMIN' WHERE username='admin'");
-        userToken = jwt.generateToken("alice");
-        adminToken = jwt.generateToken("admin");
+        userToken = com.example.demo.TestAuth.token(jwt, jdbc, "alice");
+        adminToken = com.example.demo.TestAuth.token(jwt, jdbc, "admin");
         productId = json.readTree(mvc.perform(as(adminToken, post("/products").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"apple\",\"price\":100,\"stock\":10}")))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("id").asLong();

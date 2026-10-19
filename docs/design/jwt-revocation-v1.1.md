@@ -1,9 +1,13 @@
 # ADR: v1.1 JWTのユーザー単位失効（Issue #79 / Phase A）
 
-状態: **独立レビュー待ちの設計決定。以下のv1.1仕様は未実装**。2026-10-19 JST。
+状態: **Phase AはPR #135でレビュー済み。Issue #136でB1を実装、B2/B3は未実装**。2026-10-19 JST。
+現行B1は[認証契約](../auth.md#jwtライフサイクルと失効制約)、[移行手順](../security/jwt-revocation-migration.md)、
+[実HTTP・commit/競合IT](../../src/test/java/com/example/demo/security/AuthRevocationIT.java)、
+[V7移行IT](../../src/test/java/com/example/demo/repository/AuthIdentityMigrationIT.java)を参照。
+以下の調査表・「現main」「未実装」はPhase Aの調査時点を記録したもの。設計契約§3〜§7をB1の正本として保持する。
 調査基準はmain [`82d0eaee27215ea5d3e68f6c2e00549a9ba1eb1b`](https://github.com/utl-flaxy/inventory-management-system/tree/82d0eaee27215ea5d3e68f6c2e00549a9ba1eb1b)。
 [着手指示](https://github.com/utl-flaxy/inventory-management-system/issues/79#issuecomment-6256326834)に対応する。
-このPRは文書のみ。現行契約は[認証仕様](../auth.md#jwtライフサイクルと失効制約)が正本であり、
+Phase AのPRは文書のみ。現行契約は[認証仕様](../auth.md#jwtライフサイクルと失効制約)が正本であり、
 Issue #79はPhase B完了までOPENを維持する。ポートフォリオv1.0完成と、実利用者向け **PRODUCTION NO GO** を区別する。
 
 ## 1. 実コード・テストと脅威モデル

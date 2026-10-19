@@ -15,11 +15,12 @@ import java.util.List;
 
 public final class TestOrders {
     private TestOrders() { }
+    private static final String CUSTOMER_UID = java.util.UUID.randomUUID().toString();
 
     public static String key() { return java.util.UUID.randomUUID().toString(); }
 
     public static User customer() {
-        return new User(1L, "alice", "test-password-hash", "ROLE_USER");
+        return User.builder().id(1L).authUid(CUSTOMER_UID).username("alice").password("test-password-hash").role("ROLE_USER").build();
     }
 
     public static OrderRequest request(Long productId, Integer quantity) {
@@ -46,6 +47,6 @@ public final class TestOrders {
 
     public static void authenticate() {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("alice", null, List.of()));
+                new UsernamePasswordAuthenticationToken(new com.example.demo.security.AuthPrincipal(1L, CUSTOMER_UID, 0, "ROLE_USER"), null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))));
     }
 }

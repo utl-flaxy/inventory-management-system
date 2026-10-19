@@ -84,11 +84,11 @@ class InventoryApiIT {
     @BeforeEach void fixtures() {
         for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users"))
             jdbc.update("DELETE FROM " + table);
-        jdbc.update("INSERT INTO users(id,username,password,role) VALUES (1,'alice','private-test-hash','ROLE_USER'),(2,'admin','private-test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','private-test-hash','ROLE_USER'),(UUID_v4(),2,'admin','private-test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products(id,name,price,stock,version) VALUES (1,'apple',100,10,0),(2,'orange',200,5,0)");
     }
     @AfterEach void clearAuthentication() { SecurityContextHolder.clearContext(); }
-    String token(String username) { return "Bearer " + jwt.generateToken(username); }
+    String token(String username) { return "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, username); }
     int count(String table) { return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class); }
     int stock() { return jdbc.queryForObject("SELECT stock FROM products WHERE id=1", Integer.class); }
     Map<String, List<Map<String,Object>>> snapshot() {
@@ -356,8 +356,7 @@ class InventoryApiIT {
     }
 
     void authenticate(String user) {
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null,
-                AuthorityUtils.createAuthorityList(user.equals("admin") ? "ROLE_ADMIN" : "ROLE_USER")));
+        com.example.demo.TestAuth.authenticate(jdbc, user);
     }
     InventoryAdjustmentRequest request(int delta) {
         var request = new InventoryAdjustmentRequest(); request.setDelta(delta); request.setReason(ManualInventoryReason.DAMAGE); return request;

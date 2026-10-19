@@ -73,7 +73,7 @@ class ProductPagingIT {
     void fixtures() {
         jdbc.update("DELETE FROM products");
         jdbc.update("DELETE FROM users");
-        jdbc.update("INSERT INTO users (id,username,password,role) VALUES (1,'alice','test-hash','ROLE_USER'), (2,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','test-hash','ROLE_USER'), (UUID_v4(),2,'admin','test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products (id,name,price,stock) VALUES (1,' apple ',100,10), (2,' apple tart ',100,20), (3,' apple pie ',200,30), (4,'pear',300,40)");
     }
 
@@ -177,7 +177,7 @@ class ProductPagingIT {
     @MethodSource("malformedWireKeywords")
     void realTomcatRejectsMalformedQueryBeforeProductQueryAndKeepsAuthentication(String encoded, boolean authenticated)
             throws Exception {
-        String authorization = authenticated ? "Authorization: Bearer " + jwt.generateToken("alice") + "\r\n" : "";
+        String authorization = authenticated ? "Authorization: Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice") + "\r\n" : "";
         org.mockito.Mockito.clearInvocations(products);
         // Raw HTTP/1.0 avoids URI-client re-encoding and chunking; never log the token or response.
         try (var socket = new java.net.Socket("127.0.0.1", port)) {
@@ -267,7 +267,7 @@ class ProductPagingIT {
     private MockHttpServletRequestBuilder request(String path) { return get(path).param("keyword", "apple"); }
 
     private MockHttpServletRequestBuilder as(String actor, MockHttpServletRequestBuilder request) {
-        return request.header("Authorization", "Bearer " + jwt.generateToken(actor));
+        return request.header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, actor));
     }
 
     private JsonNode read(MockHttpServletRequestBuilder request) throws Exception {

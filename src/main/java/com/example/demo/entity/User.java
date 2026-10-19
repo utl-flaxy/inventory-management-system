@@ -19,6 +19,33 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnore
+    @Setter(AccessLevel.NONE)
+    @Builder.Default
+    @Column(name = "auth_uid", nullable = false, updatable = false, unique = true, length = 36,
+            columnDefinition = "char(36)")
+    private String authUid = java.util.UUID.randomUUID().toString();
+
+    @JsonIgnore
+    @Setter(AccessLevel.NONE)
+    @Builder.Default
+    @Column(name = "token_version", nullable = false, columnDefinition = "bigint default 0")
+    private long tokenVersion = 0;
+
+    public User(Long id, String username, String password, String role) {
+        this();
+        this.id = id;
+        this.username = username;
+        this.password = password;
+        this.role = role;
+    }
+
+    @PrePersist
+    void validateAuthenticationIdentity() {
+        com.example.demo.security.AuthIdentity.requireUid(authUid);
+        if (tokenVersion < 0) throw new IllegalArgumentException("Invalid authentication generation");
+    }
+
     // ユーザー名
     @Column(nullable = false, unique = true)
     private String username;

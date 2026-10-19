@@ -36,8 +36,10 @@ imageだけで鍵の世代は決まらないため、rollback先のコードと�
 本書は実secretの変更や本番rotationを実施したものではない。
 
 クライアントlogout、DB password hash変更、ユーザー不在・role変更の効果、username再利用、
-未実装の失効APIは[JWTライフサイクルと失効制約](../auth.md#jwtライフサイクルと失効制約)を正本とする。
-v1.1候補のtokenVersion＋uidと別段階のjti台帳は[後続方針](../auth.md#v11候補)を参照。
+logout-allと未実装の個別失効等は[JWTライフサイクルと失効制約](../auth.md#jwtライフサイクルと失効制約)を正本とする。
+B1のtokenVersion＋uidとlogout-allは[現行認証契約](../auth.md#jwtライフサイクルと失効制約)、
+旧JWTの一括拒否と旧image/backupへの復帰制約は[移行手順](jwt-revocation-migration.md)を参照。
+jti台帳、password変更、ADMIN強制失効は後続であり未実装。
 
 Java 17とDockerで `./mvnw clean verify`（Windows: `mvnw.cmd clean verify`）を実行する。
 JWTテストには本番の秘密値・DBを使わず、署名検証と実SecurityFilterChainの401/200応答、

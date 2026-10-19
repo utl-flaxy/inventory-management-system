@@ -102,8 +102,8 @@ class InventoryConcurrencyMariaDbIT {
 
     @BeforeEach
     void customer() {
-        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1, 'alice', 'test-hash', 'ROLE_USER')");
-        com.example.demo.TestOrders.authenticate();
+        jdbc.update("INSERT INTO users (auth_uid,id, username, password, role) VALUES (UUID_v4(),1, 'alice', 'test-hash', 'ROLE_USER')");
+        com.example.demo.TestAuth.authenticate(jdbc, "alice");
     }
 
     @AfterEach
@@ -171,7 +171,7 @@ class InventoryConcurrencyMariaDbIT {
         try {
             for (Supplier<?> operation : operations) {
                 futures.add(executor.submit(() -> {
-                    com.example.demo.TestOrders.authenticate();
+                    com.example.demo.TestAuth.authenticate(jdbc, "alice");
                     TransactionTemplate transaction = new TransactionTemplate(transactionManager);
                     transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
                     transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
@@ -238,7 +238,7 @@ class InventoryConcurrencyMariaDbIT {
     void twentyDistinctCustomersCompeteForTenUnitsWithoutOverselling() throws Exception {
         product(1L, 10);
         for (int id = 2; id <= 20; id++)
-            jdbc.update("INSERT INTO users (id,username,password,role) VALUES (?,?,'test-hash','ROLE_USER')",
+            jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (UUID_v4(),?,?,'test-hash','ROLE_USER')",
                     id, "aud06-customer-" + id);
         assertEquals(20, count("users"));
 
@@ -331,8 +331,7 @@ class InventoryConcurrencyMariaDbIT {
 
     private void authenticateBuyer(long id) {
         String username = id == 1 ? "alice" : "aud06-customer-" + id;
-        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(username, null, List.of()));
+        com.example.demo.TestAuth.authenticate(jdbc, username);
     }
 
     private List<List<Map<String, Object>>> orderInventorySnapshot() {
@@ -789,13 +788,11 @@ class InventoryConcurrencyMariaDbIT {
     void ownerCancellationAndAdministratorShipmentCannotBothSucceed() throws Exception {
         product(1L, 10);
         Order order = order(5);
-        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (3,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id, username, password, role) VALUES (UUID_v4(),3,'admin','test-hash','ROLE_ADMIN')");
 
         List<Outcome> outcomes = concurrently(List.of(() -> orderService.cancelMyOrder(order.getId()),
                 () -> {
-                    org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-                            new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin", null,
-                                    List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+                    com.example.demo.TestAuth.authenticate(jdbc, "admin");
                     return orderService.shipOrder(order.getId());
                 }));
 
@@ -813,9 +810,8 @@ class InventoryConcurrencyMariaDbIT {
     void foreignCustomerCannotCancelEvenWhenTheOrderExists() {
         product(1L, 10);
         Order order = order(5);
-        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (2,'bob','test-hash','ROLE_USER')");
-        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("bob", null, List.of()));
+        jdbc.update("INSERT INTO users (auth_uid,id, username, password, role) VALUES (UUID_v4(),2,'bob','test-hash','ROLE_USER')");
+        com.example.demo.TestAuth.authenticate(jdbc, "bob");
 
         assertThrows(com.example.demo.exception.OrderNotFoundException.class, () -> orderService.cancelMyOrder(order.getId()));
         assertEquals(5, stock(1L));

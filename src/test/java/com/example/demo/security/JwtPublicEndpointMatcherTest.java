@@ -33,7 +33,7 @@ class JwtPublicEndpointMatcherTest {
         var request=new MockHttpServletRequest(method,uri);
         request.setContextPath(context);
         request.setQueryString("next=/authority");
-        var filter=new JwtAuthenticationFilter(mock(JwtUtil.class),mock(UserDetailsService.class),mock(SecurityProblemWriter.class));
+        var filter=new JwtAuthenticationFilter(mock(JwtUtil.class),mock(JwtUserAuthenticator.class),mock(SecurityProblemWriter.class));
         assertEquals(expected,JwtAuthenticationFilter.PUBLIC_AUTH_REQUESTS.matches(request));
         assertEquals(expected,filter.shouldNotFilter(request));
     }

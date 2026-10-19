@@ -50,15 +50,22 @@ JSON propertyの順序は契約にしない。
 | 415 | UNSUPPORTED_MEDIA_TYPE | Unsupported Media Type |
 | 429 | LOGIN_RATE_LIMITED | Login Rate Limited |
 | 429 | REGISTRATION_RATE_LIMITED | Registration Rate Limited |
+| 429 | AUTH_MUTATION_RATE_LIMITED | Authentication Mutation Rate Limited |
 | 503 | LOGIN_SOURCE_UNAVAILABLE | Login Source Unavailable |
 | 503 | REGISTRATION_SOURCE_UNAVAILABLE | Registration Source Unavailable |
+| 503 | AUTH_MUTATION_SOURCE_UNAVAILABLE | Authentication Mutation Source Unavailable |
 | 503 | SERVICE_UNAVAILABLE | Service Unavailable |
 | 500 | SYSTEM_ERROR | System Error |
 
-登録・ログインの429には正の秒数の `Retry-After` を付ける。接続元不明503には付けず、運用設定の確認を求める。
-両APIの制限・接続元検証・受付順序は[Auth仕様](auth.md)を参照する。
+登録・ログイン・logout-allの429には正の秒数の `Retry-After` を付ける。接続元不明503には付けず、運用設定の確認を求める。
+各APIの制限・接続元検証・受付順序は[Auth仕様](auth.md)を参照する。
 
 ### DB障害の分類（AUD-10 / Issue #114）
+
+B1のlogout-allとログイン発行確認は、確認済みのUser行ロックtimeout/deadlockだけを503 SERVICE_UNAVAILABLEへ変換する。
+未知/設定エラーは500、旧JWT/世代不一致は401 UNAUTHENTICATED。loginの照合後に世代/hash等が変わった場合は401 INVALID_CREDENTIALS。
+logout-allの成功はcommit後204・bodyなし。同JWTでの再送は401であり、bodyに他人のuidを指定しても操作対象にはならない。
+この認証管理の503と、既存の商品/注文の409 CONCURRENT_UPDATEを混同しない。詳細は[認証契約](auth.md#jwtライフサイクルと失効制約)。
 
 prodの待機上限と停止契約は[DB lifecycle（AUD-11 / Issue #116）](db-lifecycle.md)を参照。
 pool取得・query timeoutの503、行ロック待ちの409と、接続断後の未分類なcommit/rollback失敗500を区別する。

@@ -74,7 +74,7 @@ class ProblemDetailContractIT {
         jdbc.update("DELETE FROM products"); jdbc.update("DELETE FROM users");
         register("alice").andExpect(status().isOk()); register("admin").andExpect(status().isOk());
         jdbc.update("UPDATE users SET role='ROLE_ADMIN' WHERE username='admin'");
-        userToken = jwt.generateToken("alice"); adminToken = jwt.generateToken("admin");
+        userToken = com.example.demo.TestAuth.token(jwt, jdbc, "alice"); adminToken = com.example.demo.TestAuth.token(jwt, jdbc, "admin");
         String body = mvc.perform(as(adminToken, post("/products").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"apple\",\"price\":100,\"stock\":10}")))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -135,12 +135,14 @@ class ProblemDetailContractIT {
     void anonymousInvalidExpiredAndDeletedUserJwtShareSafe401(String scenario) throws Exception {
         String token = switch (scenario) {
             case "invalid" -> "malformed-private-token";
-            case "expired" -> Jwts.builder().subject("alice").issuer(ISSUER)
+            case "expired" -> Jwts.builder().subject(com.example.demo.TestAuth.principal(jdbc,"alice").uid())
+                    .claim("uid",com.example.demo.TestAuth.principal(jdbc,"alice").uid()).claim("tokenVersion","0")
+                    .issuedAt(new Date(System.currentTimeMillis()-3_600_000)).issuer(ISSUER)
                     .expiration(new Date(System.currentTimeMillis() - 60_000))
                     .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8))).compact();
             case "deleted-user" -> {
                 register("deleted-user").andExpect(status().isOk());
-                String issued = jwt.generateToken("deleted-user");
+                String issued = com.example.demo.TestAuth.token(jwt, jdbc, "deleted-user");
                 users.delete(users.findByUsername("deleted-user").orElseThrow());
                 yield issued;
             }

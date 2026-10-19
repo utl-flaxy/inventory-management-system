@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -31,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             || (request.getContextPath() + "/auth/register").equals(request.getRequestURI()));
 
     private final JwtUtil jwtUtil;
-    private final UserDetailsService userDetailsService;
+    private final JwtUserAuthenticator userAuthenticator;
     private final SecurityProblemWriter problemWriter;
 
     @Override
@@ -53,10 +51,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String username;
+        JwtUtil.VerifiedJwt token;
         try {
-            String token = authHeader.substring(7);
-            username = jwtUtil.extractUsername(token);
+            token = jwtUtil.verify(authHeader.substring(7));
         } catch (JwtException | IllegalArgumentException ex) {
             reject(ex);
             filterChain.doFilter(request, response);
@@ -66,16 +63,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         try {
-            if (username != null
-                    && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                AuthPrincipal principal = userAuthenticator.authenticate(token);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                userDetails,
+                                principal,
                                 null,
-                                userDetails.getAuthorities());
+                                principal.authorities());
 
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request));

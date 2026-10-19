@@ -67,7 +67,7 @@ class SalesApiIT {
 
     @BeforeEach
     void fixtures() {
-        jdbc.update("INSERT INTO users (id,username,password,role) VALUES (1,'alice','test-hash','ROLE_USER'),(2,'admin','test-hash','ROLE_ADMIN')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (UUID_v4(),1,'alice','test-hash','ROLE_USER'),(UUID_v4(),2,'admin','test-hash','ROLE_ADMIN')");
         jdbc.update("INSERT INTO products (id,name,price,stock) VALUES (1,'apple',100,100)");
         when(clock.instant()).thenReturn(FROM);
     }
@@ -137,7 +137,7 @@ class SalesApiIT {
     @Test
     void salesRemainAdministratorOnly() throws Exception {
         mvc.perform(get(ADMIN + "/sales").param("from", FROM.toString())).andExpect(status().isUnauthorized());
-        mvc.perform(get(ADMIN + "/sales").header("Authorization", "Bearer " + jwt.generateToken("alice")))
+        mvc.perform(get(ADMIN + "/sales").header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice")))
                 .andExpect(status().isForbidden());
         assertSales(get(ADMIN + "/sales"), 0, 0);
     }
@@ -174,7 +174,7 @@ class SalesApiIT {
     }
 
     private long createOrder() throws Exception {
-        String response = mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).header("Authorization", "Bearer " + jwt.generateToken("alice"))
+        String response = mvc.perform(post("/api/v1/me/orders").header("Idempotency-Key", com.example.demo.TestOrders.key()).header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "alice"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"productId\":1,\"quantity\":1}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.completedAt").value(org.hamcrest.Matchers.nullValue()))
                 .andReturn().getResponse().getContentAsString();
@@ -191,6 +191,6 @@ class SalesApiIT {
     }
 
     private String adminToken() {
-        return "Bearer " + jwt.generateToken("admin");
+        return "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin");
     }
 }

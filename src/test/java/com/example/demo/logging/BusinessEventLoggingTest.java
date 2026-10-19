@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BusinessEventLoggingTest {
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordEncoder passwords = mock(PasswordEncoder.class);
-    private final JwtUtil jwt = mock(JwtUtil.class);
+    private final LoginTokenIssuer jwt = mock(LoginTokenIssuer.class);
     private final OrderService orders = mock(OrderService.class);
     private final InventoryService inventory = mock(InventoryService.class);
     private final User user = new User(7L, "private_username", "private-test-hash", "ROLE_USER");
@@ -82,11 +82,11 @@ class BusinessEventLoggingTest {
     void loginLogsOnlyUserIdAndRoleWithoutTokenOrCredentials() throws Exception {
         when(users.findByUsername(user.getUsername())).thenReturn(Optional.of(user));
         when(passwords.matches("super-secret-password", "private-test-hash")).thenReturn(true);
-        when(jwt.generateToken(user.getUsername())).thenReturn("private-token");
+        when(jwt.issue(any())).thenReturn(new LoginTokenIssuer.Issued("private-token", 7L, "ROLE_USER"));
         assertEvent(post("/auth/login").requestAttr("com.example.demo.security.LoginClientAddressFilter.source", "198.51.100.1").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"private_username\",\"password\":\"super-secret-password\"}"),
                 "auth.login.succeeded", Map.of("userId", 7L, "role", "ROLE_USER"));
-        verify(jwt, times(1)).generateToken(user.getUsername());
+        verify(jwt, times(1)).issue(LoginTokenIssuer.Snapshot.of(user));
     }
 
     @ParameterizedTest

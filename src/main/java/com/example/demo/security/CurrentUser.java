@@ -20,7 +20,19 @@ public class CurrentUser {
                 || authentication instanceof AnonymousAuthenticationToken) {
             throw new AuthenticationCredentialsNotFoundException("認証が必要です");
         }
-        return userRepository.findByUsername(authentication.getName())
+        if (!(authentication.getPrincipal() instanceof AuthPrincipal principal))
+            throw new AuthenticationCredentialsNotFoundException("認証が必要です");
+        return userRepository.findByAuthUid(principal.uid())
+                .filter(user -> user.getId().equals(principal.id()) && user.getTokenVersion() == principal.tokenVersion())
                 .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("認証ユーザーが存在しません"));
+    }
+
+    public AuthPrincipal requirePrincipal() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken
+                || !(authentication.getPrincipal() instanceof AuthPrincipal principal))
+            throw new AuthenticationCredentialsNotFoundException("認証が必要です");
+        return principal;
     }
 }

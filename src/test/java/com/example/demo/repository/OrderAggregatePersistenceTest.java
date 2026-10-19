@@ -50,7 +50,8 @@ class OrderAggregatePersistenceTest {
 
     @BeforeEach
     void setup() {
-        jdbc.update("INSERT INTO users (id, username, password, role) VALUES (1, 'alice', 'test-hash', 'ROLE_USER'), (2, 'bob', 'test-hash', 'ROLE_USER')");
+        jdbc.update("INSERT INTO users (auth_uid,id,username,password,role) VALUES (?,1,'alice','test-hash','ROLE_USER'), (?,2,'bob','test-hash','ROLE_USER')",
+                customer().getAuthUid(), java.util.UUID.randomUUID().toString());
         jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1, 'apple', 100, 10), (2, 'orange', 300, 5)");
         authenticate();
     }

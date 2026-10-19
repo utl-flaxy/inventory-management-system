@@ -26,11 +26,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Disposable demo failed; inspect the value-free
 
 既存のimageを渡す`--image`はbuildを省く別モード。このデモ・CIのclean build証拠には使わない。
 `--baseline-image`、`--boot4-image`、`--capacity-probes`も今回の標準手順では指定しない。
+Windowsのprivate TEMPからのbind mount拒否を避けるため、接続元確認用の公開Javaソースは
+確認用コンテナ内のbounded tmpfsへ書き込む。秘密値を引数へ移す変更ではなく、private env fileの権限は広げない。
 
 ## 実際に行う操作と成功条件
 
 scriptはtoken/passwordをメモリ内で扱い、APIの戻り値・DB状態をassertしてから値を含まない`demo_steps`へ記録する。
-公開registerはUSERだけ。ADMINは使い捨てDBに限定してSELECT(username,role)/INSERT(username,password,role)の専用userを作り、既存のoffline provisioning CLIで用意する。
+公開registerはUSERだけ。ADMINは使い捨てDBに限定してusersのSELECT(username,role)/INSERT(username,password,role,auth_uid,token_version)と
+flyway_schema_historyのSELECT(version,success,checksum)だけの専用userを作り、B1版offline provisioning CLIで用意する。
 
 | 順番 | 操作 | 必須の観測値 |
 |---|---|---|
@@ -45,6 +48,10 @@ scriptはtoken/passwordをメモリ内で扱い、APIの戻り値・DB状態をa
 | 9 | ADMINがGET `/api/v1/admin/orders` | HTTP200、同じ注文1件、CANCELLED |
 
 **在庫10→8→11→13**と金額200を実際の応答で検証する。順番に進めるので正常業務フローであり、負荷測定ではない。
+Issue #136では9段階を維持した後、B1のlogout-all 204、旧JWT/同JWT再送401、再ログイン200、世代1・監査1行、
+別ADMIN有効、同じ注文key再送のDB不変を別の `jwt_revocation` 証跡で確認する。値やJWTは出力しない。
+V1〜V6を保持した追加Java V7が適用され、同一imageのapp-only設定故障復帰後も旧JWT401・新JWT有効・世代/監査不変を検証する。
+旧JWTの移行・異binary/過去DBへの復帰制約は[移行runbook](security/jwt-revocation-migration.md)を参照。
 さらに登録/loginの独立負荷制限・Retry-After、101明細400とDB不変、headers、prod docs/H2の404も既存scriptが確認する。
 JWT未署名・payload/MAC改ざん等6種類の専用検証は[Javaの受入条件](testing.md#jwt否定系の受入条件issue-123-第一pr--aud-23)とfull verifyで行い、Docker scriptだけでその全件を実行したとはしない。
 
@@ -61,7 +68,7 @@ JWT未署名・payload/MAC改ざん等6種類の専用検証は[Javaの受入条
 ## 証跡の確認
 
 成功はprocess exit0かつ`target/portfolio-demo/summary.json`の`result=PASS`。
-`demo_steps`の9段階と期待値、`source_revision`、`revision_label`、image ID、`clean_archive_build`、`migrations`、`rollback`、`image_scan`を確認する。
+`demo_steps`の9段階と期待値、`source_revision`、`revision_label`、image ID、`clean_archive_build`、`migrations`、`jwt_revocation`、`rollback`、`image_scan`を確認する。
 `source_dirty`はjob workspace全体の状態であり、trueならその事実を残す。imageの入力がclean archiveであることと区別する。
 初回buildやオンラインDB取得は失敗し得る。失敗をPASSへ置き換えず、その段階を記録する。
 

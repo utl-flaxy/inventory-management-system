@@ -33,7 +33,7 @@ final class JwtNegativeTokens {
     }
 
     private static String signed(String secret, String subject, String issuer, long expiration) {
-        return Jwts.builder().subject(subject).issuer(issuer).issuedAt(new Date(expiration - 3_600_000))
+        return Jwts.builder().subject(subject).claim("uid", subject).claim("tokenVersion", "0").issuer(issuer).issuedAt(new Date(expiration - 3_600_000))
                 .expiration(new Date(expiration))
                 .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8))).compact();
     }

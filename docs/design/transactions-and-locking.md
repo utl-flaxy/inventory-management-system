@@ -6,6 +6,16 @@ Issue #128で、main `186aad8cb41fa7d7227304aeed4a4c3d6436ad69`の実装を照�
 
 ## 1. Transactionを開始・終了する場所
 
+**B1追加（Issue #136）:** 認証readは[JwtUserAuthenticator](../../src/main/java/com/example/demo/security/JwtUserAuthenticator.java)の
+READ_COMMITTED / readOnly / REQUIRES_NEWとJDBC projectionで、業務のREPEATABLE_READ/Entity cacheから分離する。
+loginはBCryptをTx外で1回行い、[LoginTokenIssuer](../../src/main/java/com/example/demo/service/LoginTokenIssuer.java)の短いREAD_COMMITTED Txで
+Userだけをロック/refreshして事前のuid/hash/username/世代を再確認する。
+[logout-all](../../src/main/java/com/example/demo/service/AuthRevocationTransactions.java)もUserだけをロックし、世代増分と監査を同じTxでcommitする。
+Order/Productのロックを追加取得せず、下記の業務ロック順を変えない。
+commit後の新しい認証readが失効境界であり、先に認証済みの注文が完遂する場合がある。
+根拠: [実MariaDB/HTTPのcommit・競合試験](../../src/test/java/com/example/demo/security/AuthRevocationIT.java)。
+業務の409と認証Userロックの503は区別し、既存の待機予算は維持する。
+
 HTTPの注文操作はControllerからSpring管理の
 [OrderService](../../src/main/java/com/example/demo/service/OrderService.java)へ入り、
 `createOrderResponse` / `cancelMyOrderResponse` / `shipOrderResponse`等のpublicメソッドの

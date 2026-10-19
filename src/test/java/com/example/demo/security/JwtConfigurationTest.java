@@ -34,7 +34,8 @@ class JwtConfigurationTest {
         contextRunner.withPropertyValues("JWT_SECRET=" + secret).run(context -> {
             assertThat(context).hasNotFailed().hasSingleBean(JwtUtil.class);
             JwtUtil jwtUtil = context.getBean(JwtUtil.class);
-            assertThat(jwtUtil.extractUsername(jwtUtil.generateToken("alice"))).isEqualTo("alice");
+            String uid = java.util.UUID.randomUUID().toString();
+            assertThat(jwtUtil.verify(jwtUtil.generateToken(uid, 0)).uid()).isEqualTo(uid);
         });
     }
 
@@ -67,7 +68,7 @@ class JwtConfigurationTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @Import(JwtUtil.class)
+    @Import({JwtUtil.class, com.example.demo.config.ClockConfiguration.class})
     static class JwtConfiguration {
 
         @Bean

@@ -97,9 +97,9 @@ class DatabaseTimeoutIT {
     @BeforeEach
     void seed() {
         for (String table : List.of("inventory_movements", "order_items", "orders", "products", "users")) jdbc.update("DELETE FROM " + table);
-        jdbc.update("INSERT INTO users(id,username,password,role) VALUES(1,'timeout_user','unused-test-hash','ROLE_USER')");
+        jdbc.update("INSERT INTO users(auth_uid,id,username,password,role) VALUES(UUID_v4(),1,'timeout_user','unused-test-hash','ROLE_USER')");
         jdbc.update("INSERT INTO products(id,name,price,stock,version) VALUES(1,'first',100,10,0),(2,'second',200,10,0)");
-        token = jwt.generateToken("timeout_user");
+        token = com.example.demo.TestAuth.token(jwt, jdbc, "timeout_user");
     }
     @AfterEach
     void credentialsNeverEnterProductionConsole(CapturedOutput output) {
