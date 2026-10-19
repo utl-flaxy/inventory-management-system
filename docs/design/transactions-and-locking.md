@@ -1,5 +1,15 @@
 # トランザクション境界と競合制御
 
+## B3追加（Issue #140）
+
+[ADMIN再認証Service](../../src/main/java/com/example/demo/service/AdminTokenRevocationService.java)はPropagation.NEVERでBCryptをTx外に限定する。
+[専用Tx](../../src/main/java/com/example/demo/service/AdminTokenRevocationTransactions.java)はREAD_COMMITTEDでactor/targetのinternal idを重複排除・昇順ロックしrefreshする。
+actorのUID/受信世代/事前hash/現在ROLE_ADMINを再確認し、対象の最新世代を条件付きで増分、FORCE_REVOKE監査と同時commitする。
+Order/Productロックは取得せず既存業務ロック順を変えない。自己失効は1行ロック。
+異なる有効ADMIN要求は成功数だけ増分するが、相互失効では先行commitにより相手actorが失効するため1成功/1旧世代拒否となる。
+[実MariaDB/HTTP IT](../../src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)はconnection ID・Tx存在・ロック順を観測し、
+commit前の旧JWT継続、commit後401、監査故障rollback、logout/password競合を検証する。すべての負荷/スケジュールでdeadlock不在やHTTP SLAを保証しない。
+
 Issue #128で、main `186aad8cb41fa7d7227304aeed4a4c3d6436ad69`の実装を照合した設計説明。
 本書は新しいロック方式や分離レベルを導入するものではない。
 [設計判断](decisions.md)、[冪等性](../orders/idempotency.md)、[在庫台帳](../inventory.md)も参照する。

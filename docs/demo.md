@@ -1,5 +1,15 @@
 # 認証からキャンセルまでの隔離Dockerデモ
 
+## B3追加デモ（元の9段階＋B1/B2を保持）
+
+使い捨て環境だけで `python scripts/docker/verify_image.py --scan` を実行する。
+認証情報はharness内で生成・メモリ保持し、CLI引数・ログ・artifactへ保存しない。
+B3は9段階の業務デモとB1/B2の直後に、USER403、ADMIN本人の誤password401、対象失効204/旧JWT401/再login200、
+ADMIN自己失効204/旧ADMIN JWT401/再login200、FORCE_REVOKE監査2行、注文key replay不変を検証する。
+summaryの `admin_force_revocation`、`migrations`、`database_lifecycle`、`rollback` を確認する。
+最終世代は対象3/ADMIN1、監査計4行。B1/B2 summaryの世代1/2は各段階での観測であり最終値ではない。
+再起動・同一image設定故障復帰後も旧JWT拒否・hash/世代/監査保持を確認する。異なる旧binaryへのrollbackを実証したものではない。
+
 Issue #123第二PR。production資格情報を入力せず、実app / 実MariaDBを固有名の使い捨て環境で動かす。
 これは公的HTTPSの公開デモではない。通信はhostのIPv4 loopback HTTPであり、Caddy/TLSの別テストとは区別する。
 

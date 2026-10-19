@@ -32,7 +32,7 @@ class PasswordAuditMigrationIT {
         var tables = List.of("users", "products", "orders", "order_items", "auth_revocation_audit");
         var rows = tables.stream().map(t -> jdbc.queryForList("SELECT * FROM " + t + " ORDER BY id")).toList();
         var history = jdbc.queryForList("SELECT version,checksum,success,installed_on FROM flyway_schema_history ORDER BY installed_rank");
-        var upgraded = Flyway.configure().dataSource(source).load();assertEquals(1, upgraded.migrate().migrationsExecuted);
+        var upgraded = Flyway.configure().dataSource(source).target("8").load();assertEquals(1, upgraded.migrate().migrationsExecuted);
         for (int i = 0; i < tables.size(); i++) assertTrue(rows.get(i).equals(jdbc.queryForList("SELECT * FROM " + tables.get(i) + " ORDER BY id")), "Migration changed existing rows");
         assertTrue(history.equals(jdbc.queryForList("SELECT version,checksum,success,installed_on FROM flyway_schema_history WHERE version<>'8' ORDER BY installed_rank")), "Historical migration metadata changed");
         assertEquals("8", upgraded.info().current().getVersion().getVersion());

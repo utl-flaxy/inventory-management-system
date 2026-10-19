@@ -34,7 +34,7 @@ TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`di
 |---|---|
 | Java / Framework | Java 17、Spring Boot **4.1.1**、Spring Framework 7.0.9 |
 | Security | Spring Security 7、JJWT 0.12.7、BCrypt、Bearer JWT（HTTP sessionなし・DB世代照合） |
-| Persistence | Spring Data JPA / Hibernate、MariaDB 12.2、Flyway V1〜V6＋Java V7（認証uid/失効世代/監査）＋V8（password変更監査） |
+| Persistence | Spring Data JPA / Hibernate、MariaDB 12.2、Flyway V1〜V6＋Java V7（認証uid/失効世代/監査）＋V8（password変更監査）＋V9（ADMIN強制失効監査） |
 | Web / API docs | Spring MVC、Jakarta Validation、springdoc 3.1.1。Swaggerは明示したlocal profileのみ |
 | Build / Tests | Maven Wrapper、JUnit、Surefire/Failsafe、Testcontainers |
 | Container | digest固定Java17 JDK build + JRE runtime、Compose、UID/GID10001:10001 |
@@ -145,7 +145,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - Deployは**無効**。main CI成功だけで現在配備される状態ではありません。将来の配備はCIの`DEPLOY_SHA`、revision label、app-onlyの`--no-deps --no-build`切替を維持する設計です。
 - 現CI/デモのrollbackは**同一image IDの設定故障から直前設定へ復帰**する試験です。DB container再作成なし・業務データ不変を確認します。異なる旧バイナリと新schemaの互換性、実EC2での復旧を保証しません。
 - app rollbackはDB rollbackではありません。migrationは自動undoせず、[backup/restore](docs/db/backup-restore.md)とschema互換性の判断が別途必要です。
-- B1のUUID主体＋世代と全端末logoutに、B2の `POST /auth/password`（本人のpassword変更＋全JWT失効）を追加しています。旧JWTは401、新passwordで再ログインが必要です。[JWTライフサイクル](docs/auth.md#jwtライフサイクルと失効制約)と[停止移行・rollback制約](docs/security/jwt-revocation-migration.md)を参照。個別JWT失効/refresh・ADMIN強制失効APIは未実装で、[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPENです。旧binary・旧鍵・過去DBへの復帰には再受理リスクがあります。
+- B1のUUID主体＋世代と全端末logoutに、B2の `POST /auth/password`（本人のpassword変更＋全JWT失効）を追加しています。旧JWTは401、新passwordで再ログインが必要です。[JWTライフサイクル](docs/auth.md#jwtライフサイクルと失効制約)と[停止移行・rollback制約](docs/security/jwt-revocation-migration.md)を参照。B3の[ADMIN再認証付き強制失効](docs/auth.md#b3-admin再認証付きの指定uid全端末失効)も実装しています。個別JWT失効/refresh・password reset・role変更APIは未実装で、[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPENです。旧binary・旧鍵・過去DBへの復帰には再受理リスクがあります。
 - Flyway/MariaDB12.2互換性WARN、Trivy OS由来49件を開示して継続監査します。負荷・容量・SLA・実secret・TLS・本番backup/restoreは未検証です。
 - Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
 - Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。S3/RDS/Redisは将来拡張で、現行の完成判定へ含めません。

@@ -1,5 +1,24 @@
 # JWT B1/B2移行・復旧手順（Issue #136 / #138）
 
+## B3追加移行（V8済み環境からV9へ）
+
+[V9](../../src/main/resources/db/migration/V9__allow_admin_force_revocation_audit.sql)は監査actionのCHECKを
+LOGOUT_ALL / PASSWORD_CHANGE / FORCE_REVOKEの3種にする単一ALTERだけ。V1〜V8とusers/hash/UID/世代/業務/FK/監査行は変更しない。
+新規DBはV1〜V9、B2済みDBはV9だけを適用する。[実MariaDB IT](../../src/test/java/com/example/demo/repository/AdminAuditMigrationIT.java)で
+全既存行・V1〜V8履歴/checksum保持、追加actionの許可、未知action拒否、再実行0件、予期しないCHECK欠落時の停止を検証する。
+DDLは全体rollbackや任意のhost crashからの自動再開を保証しない。CHECK欠落の故障注入ではV9成功にならず、旧データは保持されるが運用者のschema確認が必要。
+
+運用者は承認済みbackup、migration権限、監査table容量/ALTER待機を確認し、受付停止/drain後に適用する。
+V9成功履歴と3actionのCHECK実体を照合しB3 binaryだけで再開する。失敗時は停止を保ち、原因と実DDL状態をレビューする。
+自動repair/clean、CHECK無効化、監査削除で復旧しない。旧B2/V8へimageだけ戻すとB3失効APIがなくなるため、forward fixを優先する。
+世代を検証しない旧binaryや古いDB backupへの復帰は失効保証を失う。異版rollbackの安全性は未検証。
+
+専用の使い捨てADMIN/対象で、USER403、ADMIN本人の誤password401、対象強制失効204→旧JWT401→同password再login200、
+自己失効204→旧ADMIN JWT401、FORCE_REVOKE監査のactor/targetを確認する。CLIは既存ADMINのresetや強制失効へ流用しない。
+公開role変更・password reset・個別JWT失効は追加しない。Issue #79は独立レビュー/mergeまでOPEN、本番運用NO GOを維持する。
+
+以下のB1/B2節は各段階の移行契約として保持する。新規受付再開時はV9までの成功を確認する。
+
 契約: [レビュー済みADR](../design/jwt-revocation-v1.1.md) §3〜§7、[認証API](../auth.md#jwtライフサイクルと失効制約)。
 Java17 / Spring Boot4.1.1 / MariaDB12.2.2を対象とする。実環境の移行・鍵変更は実施していない。
 実利用者向け **PRODUCTION NO GO** は継続する。
@@ -101,5 +120,5 @@ password hashも巻き戻り得るため、古いpasswordが再び有効にな�
 復元時は全validator停止、JWT鍵・全JWT拒否方針の独立承認、新規発行まで含めた再検証が必要。
 旧鍵へ戻すと旧署名が再び有効になり得る。漏洩鍵の再利用は禁止。実secretの取得・変更は本PRでは行わない。
 
-B3 ADMIN強制失効、[jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)、
+B3 ADMIN強制失効は上記の契約で実装。[jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)、
 refresh、アカウント停止、MFAは未実装。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPENを維持する。

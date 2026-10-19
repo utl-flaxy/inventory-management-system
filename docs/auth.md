@@ -71,7 +71,7 @@ loginはusername lookupとBCrypt1回をTx外で行い、成功時にだけ短い
 MAX世代では増分・発行を500でfail-closedとし、0へ戻さない。
 
 認証管理専用枠は `app.auth.mutation.rate-limit.` の `source-limit=5`、`max-concurrent=2`、`window=PT1M`、`max-entries=4096`。
-接続元＋操作種別（logout-all / password変更）ごとの固定窓で、同時上限2と状態4096件は両操作で共有する。
+接続元＋操作種別（logout-all / password変更 / ADMIN強制失効）ごとの固定窓で、同時上限2と状態4096件は3操作で共有する。
 login/registerの枠とは独立する。入力検証を通った受付は成功/失敗とも消費し、permitは全経路で解放する。
 超過は429 AUTH_MUTATION_RATE_LIMITED＋正のRetry-After。信頼済みpeer経由の接続元を確認できない場合は
 503 AUTH_MUTATION_SOURCE_UNAVAILABLE（Retry-Afterなし）。偽装XFFやunknownへのfallbackはない。
@@ -87,9 +87,9 @@ Spring Security標準LogoutFilterはlogout-allのaliasではなく、標準 `/lo
 監査tableは内部actor/target ID・操作・結果・時刻・server requestIdを保持し、成功ログはcommit後だけ。
 raw IP/username/password/hash/JWTをログや監査へ出さない。
 [移行・DDL失敗・監査保持・rollback/復元の手順](security/jwt-revocation-migration.md)に従い、
-旧validatorを停止/drain→V7/V8→新binaryのみで再開する。旧binary/旧鍵/古いDB世代への復帰は失効JWTを再受理し得る。
+旧validatorを停止/drain→V7/V8/V9→新binaryのみで再開する。旧binary/旧鍵/古いDB世代への復帰は失効JWTを再受理し得る。
 
-B3 ADMIN強制失効は未実装で[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPEN。
+B3 ADMIN強制失効は下記の認証管理APIとして実装。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPEN。
 [jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)は別段階。実利用者向けPRODUCTION NO GOを継続する。
 根拠: [claims unit](../src/test/java/com/example/demo/security/JwtRevocationClaimsTest.java)、
 [実HTTP・commit/競合IT](../src/test/java/com/example/demo/security/AuthRevocationIT.java)、
@@ -122,6 +122,41 @@ loginもhash/世代をロック下で再確認するため、変更前のパス�
 DTO/一時hashのJava Stringを物理ゼロ化する保証はなく、request完了後のGC対象となる。ADMIN検証の一時char/byte配列は消去する。
 実HTTP/MariaDBの境界・競合・故障・非露出は[AuthPasswordIT](../src/test/java/com/example/demo/security/AuthPasswordIT.java)、
 既存データと履歴保持は[V8移行IT](../src/test/java/com/example/demo/repository/PasswordAuditMigrationIT.java)を参照する。
+
+### B3: ADMIN再認証付きの指定UID全端末失効
+
+`POST /api/v1/admin/users/{uid}/token-revocations` は、現在DBでROLE_ADMINの有効Bearerと、
+JSONの `currentPassword`（**操作ADMIN本人**の現password）を要求する。対象はURLのcanonical lowercase UUIDv4のみ。
+bodyのuid/username/roleは対象・権限を変えない。入力はloginと同じNotBlank、8〜72 UTF-16コードユニット、UTF-8最大72 bytes、trimなし。
+既存ADMINの現passwordに新password用の最低16文字条件を遡及しない。
+
+認証管理の共有permit内、DB Tx外でBCryptを1回だけ照合する。
+READ_COMMITTEDでactor/targetを重複排除して内部ID昇順にロックし、fresh readでactorの内部ID/UID/受信世代/事前hash/現在ADMINを再検証する。
+対象UIDを再確認し、**ロック後の最新対象世代**を条件付きSQLで+1。FORCE_REVOKE監査（actor/target内部ID・結果・時刻・server requestId）と同一Txでcommitして204・空bodyを返す。
+password・roleを変更せず、新JWTは発行しない。監査失敗は世代もrollbackし、成功ログはafterCommitだけ。
+対象不在の404もfreshなactor認可の後に確定する。
+
+| 条件 | 応答 |
+|---|---|
+| 未認証・失効/不正JWT・actorの世代/hash/UID競合 | 401 UNAUTHENTICATED |
+| 有効USER、またはロック下でADMINから降格（世代未変更） | 403 ACCESS_DENIED。対象を開示しない |
+| 現password不一致 | 401 INVALID_CREDENTIALS。対象照会前に拒否 |
+| password入力不正 / 不正な対象UID | 400 VALIDATION_ERROR（errors.currentPassword）/ INVALID_REQUEST |
+| ADMIN再認証済みだが対象UIDが不在/削除済み | 404 USER_NOT_FOUND |
+| 接続元＋操作枠5回/分、または共有同時2件を超過 | 429 AUTH_MUTATION_RATE_LIMITED、正のRetry-After |
+| 安全な接続元を確認不能 / 確認済みDB一時障害・Userロック待機 | 503 AUTH_MUTATION_SOURCE_UNAVAILABLE / SERVICE_UNAVAILABLE。Retry-Afterなし |
+| 未知/設定障害、世代overflow、監査失敗 | 500 SYSTEM_ERROR |
+
+自己失効も204となり、commit後の本人旧JWTは401。別の有効なADMINの独立した再実行は成功ごとに再増分する。
+対象のlogout-all/password変更が先にcommitしても、actorが有効なら最新対象世代を失効する。
+actor自身のlogout-all/password変更/削除が先行した場合は事前proofを使い回さない。
+username再作成先へのfallbackはなく、対象のpasswordを知る主体の再ログインは阻止しない（アカウント停止ではない）。
+将来の正規role変更は昇格/降格とも世代更新と同一Txとし、旧JWTからの権限継承を禁止する。role変更APIは今回追加しない。
+
+根拠: [Service](../src/main/java/com/example/demo/service/AdminTokenRevocationService.java)、
+[ロック/更新/監査Tx](../src/main/java/com/example/demo/service/AdminTokenRevocationTransactions.java)、
+[実MariaDB/HTTPの競合・故障IT](../src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)、
+[V9移行/停止IT](../src/test/java/com/example/demo/repository/AdminAuditMigrationIT.java)。
 
 ### 歴史的記録: v1.0の失効未実装契約
 

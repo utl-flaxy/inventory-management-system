@@ -1,5 +1,15 @@
 # APIエラー契約（Issue #33 / #35 / #39 / #41 / #43）
 
+## B3 ADMIN強制失効の追加契約
+
+`POST /api/v1/admin/users/{uid}/token-revocations` の成功は204・bodyなし。
+現ADMIN本人の再認証失敗は401 INVALID_CREDENTIALS、不正/旧世代JWTと古いproofは401 UNAUTHENTICATED、
+USER/現在権限不足は403 ACCESS_DENIED、再認証済みADMINの対象不在は404 USER_NOT_FOUND。
+入力不正は400 VALIDATION_ERROR＋errors.currentPassword、不正UIDは400 INVALID_REQUEST。
+認証管理用429＋正のRetry-After、接続元不明503、DB一時障害503、未知/設定障害500の既存契約は同じ。
+503へRetry-Afterは付けない。固定detail・ProblemDetail・requestIdを使い、credential/hash/JWT/拒否値は返さない。
+[具体的境界とソース/IT](auth.md#b3-admin再認証付きの指定uid全端末失効)を参照する。
+
 主要REST APIのエラーはSpringの `org.springframework.http.ProblemDetail` をruntime responseに使う。
 Content-Typeは `application/problem+json`。ControllerAdvice、Security filter、method security、firewallで共通契約となる。
 成功レスポンスのJSON/CSV・HTTP statusは維持する。Issue #35でProduct resource未存在を404へ統一する。

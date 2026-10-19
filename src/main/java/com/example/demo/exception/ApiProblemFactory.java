@@ -52,6 +52,7 @@ public final class ApiProblemFactory {
             case "IDEMPOTENCY_KEY_CONFLICT" -> "Idempotency Key Conflict";
             case "UNAUTHENTICATED" -> "Unauthenticated";
             case "ACCESS_DENIED" -> "Access Denied";
+            case "USER_NOT_FOUND" -> "User Not Found";
             case "CONCURRENT_UPDATE" -> "Concurrent Update";
             case "INVALID_PRODUCT_UPDATE" -> "Invalid Product Update";
             case "INVALID_INVENTORY_ADJUSTMENT" -> "Invalid Inventory Adjustment";

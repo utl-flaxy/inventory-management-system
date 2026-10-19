@@ -1,5 +1,11 @@
 # Docker runtime・再現性・メモリ設計 — Issue #76
 
+## B3の動的検証境界
+
+[harness](../scripts/docker/verify_image.py)はV1〜V9、元の9業務段階とB1/B2に加えADMIN再認証付き強制失効・自己失効を検証する。
+対象世代3/ADMIN世代1、監査4行、旧JWT401と再loginを確認し、同一image設定故障復帰後にも保持を照合する。
+Dockerfile/Compose/メモリ/非root/read-only rootfs/Deploy契約は変更しない。別binary rollback・本番容量/SLA/実AWS/実TLSは保証しない。
+
 Issue #128時点の監査snapshot: main **`186aad8cb41fa7d7227304aeed4a4c3d6436ad69`**、Java17 / **Spring Boot4.1.1**。
 [当時のmain CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39123950859): Java2,176、必須5ジョブSUCCESS。
 OSV169 components/0 advisory、Trivy **OS49（MEDIUM27/LOW22）/ library0**。

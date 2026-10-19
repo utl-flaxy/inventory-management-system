@@ -12,7 +12,7 @@ import java.util.LinkedHashMap;
 /** Per-source/operation windows, with one shared bounded concurrency permit for all auth mutations. */
 @Component
 public class AuthMutationRateLimiter {
-    public enum Operation { LOGOUT_ALL, PASSWORD_CHANGE }
+    public enum Operation { LOGOUT_ALL, PASSWORD_CHANGE, FORCE_REVOKE }
     private record SourceOperation(String address, Operation operation) { }
     private static final class SourceWindow {
         private final Instant expires;

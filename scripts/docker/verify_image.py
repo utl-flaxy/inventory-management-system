@@ -362,6 +362,40 @@ def api_regression(port, db, image, network):
                         data={"items": [{"productId": pid, "quantity": 2}]}, extra={"Idempotency-Key": "docker-order-1"})
     assert replay["id"] == order["id"] and db_query(db, order_state_query) == before_retry
     checks.append("B2 password change 204, both earlier generations and replay 401, old password 401, new login 200, generation 2, password audit 1, same order unchanged")
+    # B3 is independent of the original nine business steps and the B1/B2 stage evidence.
+    target_uid = db_query(db, "SELECT auth_uid FROM users WHERE username='docker_user';")
+    admin_uid = db_query(db, "SELECT auth_uid FROM users WHERE role='ROLE_ADMIN';")
+    target_path = f"/api/v1/admin/users/{target_uid}/token-revocations"
+    request(port, target_path, 403, method="POST", token=changed["token"], data={"currentPassword": replacement})
+    wrong, _ = request(port, target_path, 401, method="POST", token=admin,
+                       data={"currentPassword": replacement})
+    assert wrong["code"] == "INVALID_CREDENTIALS"
+    request(port, target_path, 204, method="POST", token=admin, data={"currentPassword": password})
+    tokens["force_revoked_user"] = changed["token"]
+    request(port, "/products", 401, token=changed["token"])
+    request(port, "/api/v1/admin/orders", token=admin)
+    relogin, _ = request(port, "/auth/login", method="POST",
+                         data={"username": "docker_user", "password": replacement},
+                         extra={"X-Forwarded-For": "198.51.100.82"})
+    private_values.append(relogin["token"])
+    tokens["docker_user"] = relogin["token"]
+    assert db_query(db, "SELECT token_version FROM users WHERE username='docker_user';") == "3"
+    request(port, f"/api/v1/admin/users/{admin_uid}/token-revocations", 204, method="POST", token=admin,
+            data={"currentPassword": password})
+    tokens["force_revoked_admin"] = admin
+    request(port, "/api/v1/admin/orders", 401, token=admin)
+    fresh_admin, _ = request(port, "/auth/login", method="POST", data={"username": administrator, "password": password},
+                             extra={"X-Forwarded-For": "198.51.100.83"})
+    tokens["docker_admin"] = fresh_admin["token"]
+    private_values.append(fresh_admin["token"])
+    request(port, "/api/v1/admin/orders", token=fresh_admin["token"])
+    assert db_query(db, "SELECT COUNT(*) FROM auth_revocation_audit WHERE action='FORCE_REVOKE';") == "2"
+    assert db_query(db, "SELECT COUNT(*) FROM auth_revocation_audit WHERE action='FORCE_REVOKE' AND actor_user_id=target_user_id;") == "1"
+    assert db_query(db, "SELECT token_version FROM users WHERE role='ROLE_ADMIN';") == "1"
+    replay, _ = request(port, "/api/v1/me/orders", method="POST", token=relogin["token"],
+                        data={"items": [{"productId": pid, "quantity": 2}]}, extra={"Idempotency-Key": "docker-order-1"})
+    assert replay["id"] == order["id"] and db_query(db, order_state_query) == before_retry
+    checks.append("B3 USER 403, wrong actor password 401, target and self revocation 204, old JWTs 401, target generation 3/admin 1, two FORCE_REVOKE audits, unchanged business state")
     password = replacement
     return checks, tokens, password, pid, demo
 
@@ -488,12 +522,12 @@ def main():
             report["checks"].append("Read-only rootfs, non-root, dropped capabilities, bounded tmpfs")
             report["api_checks"], tokens, password, pid, report["demo_steps"] = api_regression(port, db, image, network)
             migrations = db_query(db, "SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank;").splitlines()
-            assert migrations == ["1", "2", "3", "4", "5", "6", "7", "8"]
+            assert migrations == ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
             report["migrations"] = migrations
             report["app_startup_peak_cgroup_bytes"] = max((s["cgroup_bytes"] or 0) for s in samples)
             report["app_after_api"] = memory(app)
             report["db_after_api"] = memory(db)
-            report["checks"].append("MariaDB connection, unchanged Flyway V1-V7 and additive V8 password audit action")
+            report["checks"].append("MariaDB connection, unchanged Flyway V1-V8 and additive V9 ADMIN force revocation audit action")
             report["database_lifecycle"] = []
             password_signature = db_query(db, "SELECT password FROM users WHERE username='docker_user';")
             def restart_candidate():
@@ -540,9 +574,13 @@ def main():
             request(port, f"/products/{pid}", token=tokens["docker_user"])
             request(port, f"/products/{pid}", 401, token=tokens["revoked_user"])
             request(port, f"/products/{pid}", 401, token=tokens["password_revoked_user"])
+            request(port, f"/products/{pid}", 401, token=tokens["force_revoked_user"])
+            request(port, "/api/v1/admin/orders", 401, token=tokens["force_revoked_admin"])
+            request(port, "/api/v1/admin/orders", token=tokens["docker_admin"])
             assert db_query(db, "SELECT password FROM users WHERE username='docker_user';") == password_signature
-            assert db_query(db, "SELECT token_version FROM users WHERE username='docker_user';") == "2"
-            assert db_query(db, "SELECT COUNT(*) FROM auth_revocation_audit;") == "2"
+            assert db_query(db, "SELECT token_version FROM users WHERE username='docker_user';") == "3"
+            assert db_query(db, "SELECT token_version FROM users WHERE role='ROLE_ADMIN';") == "1"
+            assert db_query(db, "SELECT COUNT(*) FROM auth_revocation_audit;") == "4"
             report["jwt_revocation"] = dict(logout_status=204, old_jwt_status=401, replay_status=401,
                     relogin_status=200, generation=1, audit_rows=1, other_user_isolated=True,
                     order_key_replay_unchanged=True, same_image_restarts_preserve_revocation=True,
@@ -551,6 +589,12 @@ def main():
                     old_password_status=401, new_password_login_status=200, generation=2, password_audit_rows=1,
                     total_audit_rows=2, other_user_isolated=True, order_key_replay_unchanged=True,
                     same_image_restarts_preserve_hash_and_revocation=True, old_binary_rollback_validated=False)
+            report["admin_force_revocation"] = dict(user_status=403, wrong_actor_password_status=401,
+                    target_status=204, target_old_jwt_status=401, target_generation=3,
+                    self_status=204, old_admin_jwt_status=401, admin_generation=1,
+                    force_audit_rows=2, total_audit_rows=4, password_hash_preserved=True,
+                    relogin_status=200, order_key_replay_unchanged=True,
+                    same_image_restarts_preserve_revocation=True, old_binary_rollback_validated=False)
             report["rollback"] = {"actual_app_only_cutover": True, "failed_readiness_then_old_image_restored": True,
                                   "failure_target": "container loopback 127.0.0.1:1",
                                   "db_id_and_start_time_unchanged": True, "order_and_stock_data_unchanged": True,
@@ -648,6 +692,7 @@ def main():
                       "rollback": report["rollback"], "database_lifecycle": report["database_lifecycle"],
                       "jwt_revocation": report["jwt_revocation"],
                       "password_change": report["password_change"],
+                      "admin_force_revocation": report["admin_force_revocation"],
                       "image_scan": report.get("image_scan")}))
 
 

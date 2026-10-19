@@ -82,7 +82,17 @@ public class LoginClientAddressFilter extends OncePerRequestFilter {
     private static boolean isAuthMutation(HttpServletRequest request) {
         return "POST".equals(request.getMethod())
                 && ((request.getContextPath() + "/auth/logout-all").equals(request.getRequestURI())
-                || (request.getContextPath() + "/auth/password").equals(request.getRequestURI()));
+                || (request.getContextPath() + "/auth/password").equals(request.getRequestURI())
+                || isAdminRevocation(request));
+    }
+
+    private static boolean isAdminRevocation(HttpServletRequest request) {
+        String prefix = request.getContextPath() + "/api/v1/admin/users/";
+        String path = request.getRequestURI();
+        if (!path.startsWith(prefix)) return false;
+        // One segment, including malformed UID input, so UID validation cannot bypass source capture.
+        // The container bounds the request line; only verified literal IPs allocate limiter state.
+        return path.substring(prefix.length()).matches("[^/;]+/token-revocations");
     }
 
     static String literalAddress(String value) {

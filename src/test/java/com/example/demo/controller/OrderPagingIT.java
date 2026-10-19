@@ -360,7 +360,7 @@ class OrderPagingIT {
         assertEquals("idx_orders_customer", own.get("key"));
         var items = jdbc.queryForMap("EXPLAIN SELECT id,order_id FROM order_items WHERE order_id IN (101,102) ORDER BY order_id,id");
         assertEquals("idx_order_items_order", items.get("key"));
-        assertEquals(8, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+        assertEquals(9, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
         System.out.println("ORDER_PAGING_EXPLAIN root=PRIMARY self=idx_orders_customer details=idx_order_items_order migrations=6");
     }
 

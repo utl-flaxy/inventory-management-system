@@ -1,5 +1,11 @@
 # FlywayによるDB管理（Issue #15）
 
+## B3の追加V9
+
+[V9](../../src/main/resources/db/migration/V9__allow_admin_force_revocation_audit.sql)で監査CHECKにFORCE_REVOKEを追加する。
+V1〜V8、users/hash/UID/世代、業務/FK/過去監査は不変。運用上の停止・DDL失敗・forward fix・復元制約は
+[移行手順](../security/jwt-revocation-migration.md#b3追加移行v8済み環境からv9へ)を参照。旧実DB/volumeへは今回適用しない。
+
 DB schemaのsource of truthは [SQL V1〜V6](../../src/main/resources/db/migration) と
 [Java V7](../../src/main/java/db/migration/V7__add_auth_identity_and_revocations.java)、
 [V8](../../src/main/resources/db/migration/V8__allow_password_change_audit.sql)（成功監査へPASSWORD_CHANGEを追加。既存データ保持）。
