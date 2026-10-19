@@ -169,6 +169,11 @@ public class GlobalExceptionHandler {
         return ApiProblemFactory.response(HttpStatus.CONFLICT, "ORDER_INVENTORY_RESTORATION_FAILED", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleUserNotFound(UserNotFoundException ex, HttpServletRequest request) {
+        return ApiProblemFactory.response(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(OrderNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleOrderNotFound(OrderNotFoundException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", ex.getMessage(), request);

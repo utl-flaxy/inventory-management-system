@@ -58,7 +58,8 @@ public class OpenApiConfig {
                                     .description("Positive whole seconds until source window expires; 1 second for concurrent saturation. Availability is not guaranteed after waiting.")
                                     .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
                 }
-                if ((path.equals("/auth/logout-all") || path.equals("/auth/password")) && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
+                boolean forceRevocation = path.equals("/api/v1/admin/users/{uid}/token-revocations");
+                if ((path.equals("/auth/logout-all") || path.equals("/auth/password") || forceRevocation) && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
                     operation.setDescription("Authenticated user-wide JWT revocation. Increments the user's generation and inserts an audit row in one transaction; 204 is returned after commit. "
                             + "The same JWT subsequently receives 401, including on retry. No request body is used; the authenticated principal is the only target. "
                             + "Defaults per JVM: 5 admitted attempts per verified source and operation per fixed 60-second window, 2 shared concurrent auth mutations, 4096 source/operation windows. "
@@ -75,15 +76,24 @@ public class OpenApiConfig {
                                 + "BCrypt runs outside the transaction within the shared bounded permit. The user lock rechecks UUID, generation and previous hash. "
                                 + "Password hash, generation increment and PASSWORD_CHANGE audit commit atomically before 204; no token is returned. All old JWTs receive 401; log in with the new password. "
                                 + "Defaults per JVM: 5 admitted attempts per verified source/operation per fixed minute, 2 shared concurrent auth mutations, 4096 bounded windows. Login/register budgets are independent. "
-                                + "Already authenticated in-flight business operations may finish. Multi-instance rate limiting, individual token revocation and ADMIN force revocation are not provided.");
+                                + "Already authenticated in-flight business operations may finish. Multi-instance rate limiting and individual token revocation are not provided.");
                         responses.addApiResponse("400", new ApiResponse().description("VALIDATION_ERROR with errors.currentPassword / errors.newPassword; rejected values are never returned"));
                         responses.addApiResponse("401", new ApiResponse().description("INVALID_CREDENTIALS: wrong current password. UNAUTHENTICATED: invalid/revoked JWT or concurrent generation/hash change"));
+                    }
+                    if (forceRevocation) {
+                        operation.setDescription("Current DB ADMIN plus the actor's own currentPassword (login validation, no trimming). Target is only the canonical lowercase UUID v4 in the path. "
+                                + "One BCrypt check runs outside transactions in the bounded permit. Deduplicated actor/target rows lock in internal ID order and recheck actor UID, generation, hash and ADMIN role. "
+                                + "Fresh target generation increment and FORCE_REVOKE audit commit atomically before 204; no JWT, password or role change. Self-revocation is allowed; the old admin JWT then receives 401. "
+                                + "Independent valid ADMIN calls increment once per success. In-flight requests may finish and password holders can log in again. "
+                                + "Per JVM: 5 attempts per verified source/operation/minute, shared 2 concurrent auth mutations, 4096 windows; independent of login/register. No jti, reset, refresh or role-change API.");
+                        responses.addApiResponse("400", new ApiResponse().description("INVALID_REQUEST: malformed target UID. VALIDATION_ERROR: errors.currentPassword; no rejected values"));
+                        responses.addApiResponse("404", new ApiResponse().description("USER_NOT_FOUND: target absent, only after ADMIN reauthentication"));
                     }
                 }
                 responses.addApiResponse("500", new ApiResponse().description("SYSTEM_ERROR"));
                 responses.putIfAbsent("503", new ApiResponse().description("SERVICE_UNAVAILABLE: temporary database connection/timeout failure; keep a valid JWT. Recovery time is unknown; no Retry-After. Do not blindly replay writes."));
                 if (!path.startsWith("/auth/")) {
-                    responses.addApiResponse("401", new ApiResponse().description("UNAUTHENTICATED"));
+                    responses.addApiResponse("401", new ApiResponse().description(forceRevocation ? "INVALID_CREDENTIALS / UNAUTHENTICATED" : "UNAUTHENTICATED"));
                     responses.addApiResponse("403", new ApiResponse().description("ACCESS_DENIED"));
                 }
                 if (operation.getRequestBody() != null) {

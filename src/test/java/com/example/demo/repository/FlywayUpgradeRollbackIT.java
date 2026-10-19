@@ -49,7 +49,7 @@ class FlywayUpgradeRollbackIT {
             config.getClass().getMethod("locations", String[].class).invoke(config, (Object) new String[]{"classpath:db/migration"});
             Object baseline = config.getClass().getMethod("load").invoke(config);
             Object initial = baselineType.getMethod("migrate").invoke(baseline);
-            assertEquals(8, initial.getClass().getField("migrationsExecuted").get(initial));
+            assertEquals(9, initial.getClass().getField("migrationsExecuted").get(initial));
             jdbc.update("INSERT INTO products (id, name, price, stock) VALUES (1, 'rollback-fixture', 125, 10)");
             var history = jdbc.queryForList("SELECT version, checksum, success FROM flyway_schema_history ORDER BY installed_rank");
 

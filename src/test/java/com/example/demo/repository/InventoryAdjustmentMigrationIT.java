@@ -52,8 +52,8 @@ class InventoryAdjustmentMigrationIT {
 
     @BeforeEach void clearNewRows() { jdbc.update("DELETE FROM inventory_movements WHERE id>2"); }
 
-    @Test void v6ThroughV8PreserveLegacyRowsAndV1ToV5History() throws Exception {
-        assertEquals(3, applied); assertEquals(5, hashes.size()); assertEquals(hashes, migrationHashes());
+    @Test void v6ThroughV9PreserveLegacyRowsAndV1ToV5History() throws Exception {
+        assertEquals(4, applied); assertEquals(5, hashes.size()); assertEquals(hashes, migrationHashes());
         assertEquals(history, jdbc.queryForList("SELECT * FROM flyway_schema_history WHERE version IN ('1','2','3','4','5') ORDER BY installed_rank"));
         assertEquals(legacyMovements, jdbc.queryForList("SELECT " + LEGACY_COLUMNS + " FROM inventory_movements ORDER BY id"));
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM inventory_movements WHERE idempotency_key IS NULL AND request_fingerprint IS NULL", Integer.class));
@@ -132,7 +132,7 @@ class InventoryAdjustmentMigrationIT {
                     "--server.port=0", "--spring.jpa.show-sql=false", "--spring.jpa.hibernate.ddl-auto=validate")) {
                 assertTrue(context.getBean(EntityManagerFactory.class).isOpen());
                 var flyway = context.getBean(Flyway.class);
-                flyway.validate(); assertEquals("8", flyway.info().current().getVersion().getVersion());
+                flyway.validate(); assertEquals("9", flyway.info().current().getVersion().getVersion());
                 assertEquals(0, flyway.info().pending().length); assertEquals(0, flyway.migrate().migrationsExecuted);
             }
             assertEquals(before, jdbc.queryForList("SELECT * FROM inventory_movements ORDER BY id"));

@@ -11,6 +11,33 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordMutationBoundaryTest {
+    @Test void forceRevocationSharesConcurrencyAndHasItsOwnWindow() {
+        var p = new AuthMutationRateLimitProperties();p.setSourceLimit(1);p.setMaxEntries(2);
+        var limiter = new AuthMutationRateLimiter(p, Clock.systemUTC());
+        try (var first = limiter.acquire(AuthMutationRateLimiter.Operation.FORCE_REVOKE, "198.51.100.1");
+             var second = limiter.acquire(AuthMutationRateLimiter.Operation.LOGOUT_ALL, "198.51.100.1")) {
+            assertThrows(AuthMutationRateLimitExceededException.class, () -> limiter.acquire(AuthMutationRateLimiter.Operation.PASSWORD_CHANGE, "198.51.100.2"));
+        }
+        assertThrows(AuthMutationRateLimitExceededException.class, () -> limiter.acquire(AuthMutationRateLimiter.Operation.FORCE_REVOKE, "198.51.100.1"));
+        try (var next = limiter.acquire(AuthMutationRateLimiter.Operation.PASSWORD_CHANGE, "198.51.100.1")) { assertEquals(2, limiter.entryCount()); }
+        assertEquals(0, limiter.inFlightCount());
+    }
+
+    @Test void onlyProtectedAdminRevocationPostsCaptureSourceIncludingMalformedUidAndContextPath() throws Exception {
+        var p = new LoginRateLimitProperties();p.setRequireTrustedProxy(true);p.setTrustedProxies(List.of("127.0.0.1"));
+        var filter = new LoginClientAddressFilter(p, problems());
+        for (String segment : List.of(java.util.UUID.randomUUID().toString(), "malformed", "x".repeat(129))) {
+            var request = new MockHttpServletRequest("POST", "/app/api/v1/admin/users/" + segment + "/token-revocations");
+            request.setContextPath("/app");request.setRemoteAddr("127.0.0.1");request.addHeader("X-Forwarded-For", "198.51.100.1");
+            filter.doFilter(request, new MockHttpServletResponse(), (in, out) -> assertEquals("198.51.100.1", LoginClientAddressFilter.source(request)));
+            var direct = new MockHttpServletRequest("POST", request.getRequestURI());direct.setContextPath("/app");direct.setRemoteAddr("198.51.100.2");direct.addHeader("X-Forwarded-For", "198.51.100.1");
+            var response = new MockHttpServletResponse();filter.doFilter(direct, response, (in, out) -> fail("Untrusted peer admitted"));
+            assertEquals(503, response.getStatus());assertTrue(response.getContentAsString().contains("AUTH_MUTATION_SOURCE_UNAVAILABLE"));
+        }
+        for (String path : List.of("/api/v1/admin/users/a/token-revocations/", "/api/v1/admin/users/a/other", "/api/v1/admin/users/a/b/token-revocations", "/api/v1/admin/orders"))
+            assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("POST", path)));
+        assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/api/v1/admin/users/a/token-revocations")));
+    }
     @Test void separateOperationWindowsShareConcurrencyAndOneStateBound() {
         var p = new AuthMutationRateLimitProperties();p.setSourceLimit(1);p.setMaxEntries(2);
         var limiter = new AuthMutationRateLimiter(p, Clock.systemUTC());

@@ -1,5 +1,12 @@
 # 設定・profile・secret（Issue #37）
 
+## B3認証管理枠の共有
+
+B3は新runtime設定を追加せず、`app.auth.mutation.rate-limit` の既存値を使う。
+接続元＋操作（LOGOUT_ALL / PASSWORD_CHANGE / FORCE_REVOKE）ごとに5回/分、3操作で同時2件・最大4096状態を共有する。
+login/register枠と独立。信頼proxyを確認した正規POSTだけで接続元を捕捉し、不明なら503。任意のXFFやDocker peer推測を信用しない。
+[認証契約](auth.md#b3-admin再認証付きの指定uid全端末失効)を参照する。実稼働設定は未確認。
+
 ## Profiles
 
 | profile | Swagger / OpenAPI | H2 console | SQL stdout / format | 公開Actuator |

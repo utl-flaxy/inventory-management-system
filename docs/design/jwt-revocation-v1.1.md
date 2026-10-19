@@ -1,12 +1,12 @@
 # ADR: v1.1 JWTのユーザー単位失効（Issue #79 / Phase A）
 
-状態: **Phase AはPR #135でレビュー済み。Issue #136でB1、Issue #138でB2を実装。B3は未実装**。2026-10-19 JST。
+状態: **Phase AはPR #135でレビュー済み。Issue #136でB1、Issue #138でB2、Issue #140でB3を実装（独立レビュー待ち）**。2026-10-19 JST。
 現行B1は[認証契約](../auth.md#jwtライフサイクルと失効制約)、[移行手順](../security/jwt-revocation-migration.md)、
 [実HTTP・commit/競合IT](../../src/test/java/com/example/demo/security/AuthRevocationIT.java)、
 [V7移行IT](../../src/test/java/com/example/demo/repository/AuthIdentityMigrationIT.java)を参照。
 以下の調査表・「現main」「未実装」はPhase Aの調査時点を記録したもの。設計契約§3〜§7をB1/B2の正本として保持する。
 実装B2の証拠: [本人変更/競合/rollback IT](../../src/test/java/com/example/demo/security/AuthPasswordIT.java)、
-[追加V8の履歴・既存データ保持IT](../../src/test/java/com/example/demo/repository/PasswordAuditMigrationIT.java)。設計表のB3/Cは未実装のまま。
+[追加V8の履歴・既存データ保持IT](../../src/test/java/com/example/demo/repository/PasswordAuditMigrationIT.java)。B3の証拠は[ADMIN競合IT](../../src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)、[V9 IT](../../src/test/java/com/example/demo/repository/AdminAuditMigrationIT.java)。Cは未実装。
 調査基準はmain [`82d0eaee27215ea5d3e68f6c2e00549a9ba1eb1b`](https://github.com/utl-flaxy/inventory-management-system/tree/82d0eaee27215ea5d3e68f6c2e00549a9ba1eb1b)。
 [着手指示](https://github.com/utl-flaxy/inventory-management-system/issues/79#issuecomment-6256326834)に対応する。
 Phase AのPRは文書のみ。現行契約は[認証仕様](../auth.md#jwtライフサイクルと失効制約)が正本であり、
@@ -114,7 +114,7 @@ role変更は現在公開APIがないため新設しない。将来の正規変�
 降格だけでなく昇格時も旧JWTを失効させ、古いUSER JWTが自動的にADMIN権限を得ないよう再ログインを要求する。
 直SQLでroleだけを書き換える運用はこのv1.1保証外。既に認可済みの要求の完遂可能性は残る。
 
-## 5. 後続APIの契約（いずれも未実装）
+## 5. APIの設計契約（B1〜B3実装、以下はレビュー済み設計）
 
 全APIはBearer headerのみで認証し、body/queryのtoken/username/roleを認証主体として使わない。
 公開除外2パスは維持し、新APIは保護する。JWTをCookieへ移す設計変更は含めない。
@@ -207,7 +207,7 @@ username fallbackや期限内のdual acceptance期間は作らない。既存の
 
 ## 8. 残余・レビューの判断点
 
-Phase Bは未実装。新列/監査table/追加SQL/互換性切替/新API/追加負荷制限を含むため、独立レビューでこの契約を承認してから着手する。
+Phase Bの設計はレビュー済み、B1/B2はmerge済み。B3はIssue #140で実装し独立レビュー/merge待ち。Cの個別JWT失効は未実装。
 未解決のWindows DatabaseTimeoutIT初回DB観測CLI3失敗は根因未確定として保持する。今回/後続の成功で消さない。
 Trivy OS49件の過去観測、Flyway/MariaDB互換性WARN、異版rollback未検証、実AWS/TLS/secret/DB/容量/SLA/復旧の未確認は別の残余である。
 OSV 0件とOS package 0件を混同せず、各PRで対象SHAとscan時点を記録する。実利用者向け本番運用は引き続きNO GO。

@@ -368,6 +368,16 @@ class AuthApiIT {
             assertEquals(8,property.path("minLength").asInt());assertEquals(72,property.path("maxLength").asInt());
             assertTrue(property.path("writeOnly").asBoolean());assertEquals("password",property.path("format").asText());
         }
+        var forced=document.path("paths").path("/api/v1/admin/users/{uid}/token-revocations").path("post");
+        for(String code:List.of("204","400","401","403","404","429","503","500"))assertTrue(forced.path("responses").has(code));
+        assertTrue(forced.path("description").asText().contains("actor's own currentPassword"));
+        assertTrue(forced.path("responses").path("401").path("description").asText().contains("INVALID_CREDENTIALS"));
+        assertFalse(forced.path("responses").path("204").has("content"));
+        assertFalse(forced.path("responses").path("503").path("headers").has("Retry-After"));
+        assertEquals(1,forced.path("responses").path("429").path("headers").path("Retry-After").path("schema").path("minimum").asInt());
+        var reauth=schemas.path("AdminTokenRevocationRequest").path("properties").path("currentPassword");
+        assertTrue(reauth.path("writeOnly").asBoolean());assertEquals("password",reauth.path("format").asText());
+        assertEquals(8,reauth.path("minLength").asInt());assertEquals(72,reauth.path("maxLength").asInt());
         for (String path : List.of("/auth/register", "/auth/login", "/api/v1/me/orders")) {
             String method = path.startsWith("/auth/") ? "post" : "get";
             var serverFailure = document.path("paths").path(path).path(method).path("responses").path("503");

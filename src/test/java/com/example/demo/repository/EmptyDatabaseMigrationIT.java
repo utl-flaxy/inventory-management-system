@@ -64,11 +64,11 @@ class EmptyDatabaseMigrationIT {
             assertTrue(context.getBean(EntityManagerFactory.class).isOpen());
             var flyway = context.getBean(Flyway.class);
             assertEquals(0, flyway.info().pending().length);
-            assertEquals("8", flyway.info().current().getVersion().toString());
+            assertEquals("9", flyway.info().current().getVersion().toString());
             assertEquals(5, domainTables());
         }
         var history = jdbc().queryForList("SELECT version, description, type, script, checksum, success, installed_on FROM flyway_schema_history ORDER BY installed_rank");
-        assertEquals(8, history.size());
+        assertEquals(9, history.size());
         assertEquals("1", history.get(0).get("version"));
         assertEquals("baseline schema", history.get(0).get("description"));
         assertEquals("SQL", history.get(0).get("type"));
@@ -100,6 +100,8 @@ class EmptyDatabaseMigrationIT {
         assertEquals(1360701, ((Number) history.get(6).get("checksum")).intValue());
         assertEquals("8", history.get(7).get("version"));
         assertEquals("V8__allow_password_change_audit.sql", history.get(7).get("script"));
+        assertEquals("9", history.get(8).get("version"));
+        assertEquals("V9__allow_admin_force_revocation_audit.sql", history.get(8).get("script"));
         assertNotNull(history.get(7).get("checksum"));
         jdbc().update("INSERT INTO users (auth_uid,username,password,role) VALUES (UUID_v4(),'alice','test-hash','ROLE_USER')");
         try (var context = start()) {

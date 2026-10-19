@@ -48,9 +48,9 @@ class IdempotencyMigrationIT {
         var before = legacySnapshot();
         var historical = jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");
         Flyway flyway = Flyway.configure().dataSource(dataSource).load();
-        assertEquals(5, flyway.migrate().migrationsExecuted);
+        assertEquals(6, flyway.migrate().migrationsExecuted);
         flyway.validate();
-        assertEquals("8", flyway.info().current().getVersion().getVersion());
+        assertEquals("9", flyway.info().current().getVersion().getVersion());
         assertEquals(before, legacySnapshot());
         assertEquals(historical, jdbc.queryForList("SELECT * FROM flyway_schema_history WHERE version IN ('1','2','3') ORDER BY installed_rank"));
         assertEquals(4, jdbc.queryForObject("SELECT COUNT(*) FROM orders WHERE idempotency_key IS NULL AND request_fingerprint IS NULL", Integer.class));

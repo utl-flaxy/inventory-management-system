@@ -1,5 +1,18 @@
 # テスト品質ゲート
 
+## B3受入試験（Issue #140、2026-10-19）
+
+着手mainは `e332b70209abf1e5de7a91c056e46d8992fc4acb`、[main CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39264090536)はcompleted/success・5ジョブ成功。
+B2基準はJava 1380＋937＝2317件。B3 PR HEADの実測件数・CIはPR本文の検証欄で別に記録する。
+[実HTTP/実MariaDB IT](../src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)はADMIN自身の再認証、自己/他人失効、
+独立並行増分/相互ADMIN/同時自己失効の接続・昇順ロック、actor hash/世代/role/削除、target再作成、logout/password競合、
+commit/rollback・監査故障・overflow・401/403/404/429/503/500・JWT6否定系・秘密非露出・業務不変/pool残留0を確認する。
+[V9 IT](../src/test/java/com/example/demo/repository/AdminAuditMigrationIT.java)は既存行/履歴保持と予期しないDDL状態での停止、
+[境界unit](../src/test/java/com/example/demo/security/PasswordMutationBoundaryTest.java)は操作枠の独立/共有permit/偽装proxyを確認する。
+Dockerでは元9段階とB1/B2を残してB3を追加する。全テストはskip/pool/timeout緩和なしで実施する。
+Windows DatabaseTimeoutIT初回DB観測CLI3失敗、Caddy検証失敗・MariaDB証明書時刻の過去観測は根因未確定のまま保持し、今回の成功で消さない。
+Trivy OS49、Flyway互換性WARN、異版rollback未検証、本番容量/SLA/復旧未保証も残余として扱う。
+
 ## 品質ゲートの参照方針（snapshot / live）
 
 現在の結果は[main push CIのlive一覧](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)を開き、

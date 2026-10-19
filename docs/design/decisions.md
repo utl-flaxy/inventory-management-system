@@ -1,5 +1,15 @@
 # 主要な設計判断とトレードオフ
 
+## B3: ADMIN再認証と二者ロック
+
+JWTのみの窃取で他人の全端末を止められないよう、操作ADMIN本人の現passwordを再認証する。
+BCryptを行ロック中に行う案は待機を延ばすため採用せず、Tx外のproofをロック下で再検証する。
+actor→targetという可変順は相互失効で逆転するため、重複排除した内部ID昇順を採用する。
+対象の事前世代ではなく最新ロック世代を増分し、独立ADMINの正当な連続操作を許可する。
+監査と世代は同じTx、成功ログはafterCommit。reset・停止・role変更・MFA・jti失効は含めない。
+[詳細契約](../auth.md#b3-admin再認証付きの指定uid全端末失効)、[Tx実装](../../src/main/java/com/example/demo/service/AdminTokenRevocationTransactions.java)、
+[競合IT](../../src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)に対応する。
+
 Issue #128 / 基準main `186aad8cb41fa7d7227304aeed4a4c3d6436ad69`。
 実装済みの選択と、比較のための代替案を区別する。代替案は過去に実装して性能比較したという意味ではない。
 [Transactionと行ロック](transactions-and-locking.md)に実行順とテスト対応をまとめた。
