@@ -42,7 +42,7 @@ ProblemDetail・安全なevent/requestId、AUD-11の待機・shutdown契約を�
 
 ## JWTライフサイクルと失効制約
 
-### v1.1 B1の現行契約（Issue #136）
+### v1.1 B1/B2の現行契約（Issue #136 / #138）
 
 [設計契約](design/jwt-revocation-v1.1.md)に従い、ユーザー単位の全端末失効を実装する。
 SecurityのSTATELESSはHTTP sessionを保持しない意味であり、失効状態までサーバーに存在しないという意味ではない。
@@ -71,7 +71,8 @@ loginはusername lookupとBCrypt1回をTx外で行い、成功時にだけ短い
 MAX世代では増分・発行を500でfail-closedとし、0へ戻さない。
 
 認証管理専用枠は `app.auth.mutation.rate-limit.` の `source-limit=5`、`max-concurrent=2`、`window=PT1M`、`max-entries=4096`。
-B1の操作はlogout-allだけ。login/registerの枠とは独立する。成功/失敗とも受付を消費し、permitは全経路で解放する。
+接続元＋操作種別（logout-all / password変更）ごとの固定窓で、同時上限2と状態4096件は両操作で共有する。
+login/registerの枠とは独立する。入力検証を通った受付は成功/失敗とも消費し、permitは全経路で解放する。
 超過は429 AUTH_MUTATION_RATE_LIMITED＋正のRetry-After。信頼済みpeer経由の接続元を確認できない場合は
 503 AUTH_MUTATION_SOURCE_UNAVAILABLE（Retry-Afterなし）。偽装XFFやunknownへのfallbackはない。
 固定窓burst、NAT共有、履歴退避、再起動、複数JVM、分散DoSへの限界は既存の制限と同様に残る。
@@ -86,17 +87,45 @@ Spring Security標準LogoutFilterはlogout-allのaliasではなく、標準 `/lo
 監査tableは内部actor/target ID・操作・結果・時刻・server requestIdを保持し、成功ログはcommit後だけ。
 raw IP/username/password/hash/JWTをログや監査へ出さない。
 [移行・DDL失敗・監査保持・rollback/復元の手順](security/jwt-revocation-migration.md)に従い、
-旧validatorを停止/drain→V7→新binaryのみで再開する。旧binary/旧鍵/古いDB世代への復帰は失効JWTを再受理し得る。
+旧validatorを停止/drain→V7/V8→新binaryのみで再開する。旧binary/旧鍵/古いDB世代への復帰は失効JWTを再受理し得る。
 
-B2 password変更、B3 ADMIN強制失効は未実装で[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPEN。
+B3 ADMIN強制失効は未実装で[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPEN。
 [jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)は別段階。実利用者向けPRODUCTION NO GOを継続する。
 根拠: [claims unit](../src/test/java/com/example/demo/security/JwtRevocationClaimsTest.java)、
 [実HTTP・commit/競合IT](../src/test/java/com/example/demo/security/AuthRevocationIT.java)、
 [V7移行IT](../src/test/java/com/example/demo/repository/AuthIdentityMigrationIT.java)。
 
+#### B2: 本人のpassword変更と全JWT失効
+
+`POST /auth/password` は有効なBearer JWTとJSONの `currentPassword` / `newPassword` を要求する。
+対象はprincipal本人だけで、body/queryのuid・username・roleで選べない。公開除外やADMINの他人操作APIを増やさない。
+現password不一致は401 INVALID_CREDENTIALS、失効済みJWTや並行変更は401 UNAUTHENTICATED。
+成功はhash更新・世代+1・PASSWORD_CHANGE監査の同一Tx commit後204（body/新tokenなし）。全端末の旧JWTを拒否し、新passwordでloginする。
+
+| 入力 | 検証（trimなし） |
+|---|---|
+| currentPassword | LoginRequestと同じNotBlank、8〜72（UTF-16コードユニット）、UTF-8最大72 bytes。ADMINにも新passwordの16文字条件を遡及しない |
+| newPassword / USER | NotBlank、8〜72（UTF-16コードユニット）、UTF-8最大72 bytes。例: 日本語24文字=72 bytesを受理、25文字は拒否 |
+| newPassword / ADMIN | 上記に加え、offline provisioningと同じ最低16文字・制御文字禁止・正しいUTF-8 encodingを要求 |
+
+入力不正は400 VALIDATION_ERROR＋`errors.currentPassword` / `errors.newPassword`。拒否値やhashは返さない。
+変更前後の同値禁止条件は追加しておらず、同値でも再hash・世代増分・全端末失効になる。
+
+BCrypt照合1回と新hash生成は、有界な認証管理permit内・DB Tx外で実行する。
+その後READ_COMMITTEDの短いUser行ロックとfresh readで内部ID/uid/受信世代/事前hash/現在roleを照合し、条件付きSQL更新を行う。
+logout-allや別のpassword変更が先にcommitした場合、古い照合結果から新世代へ繰り上げず401・DB無変更。
+同世代の同時変更は1成功、他は401。監査INSERT失敗ではhash/世代/監査を全rollbackし、commit前に成功ログを発行しない。
+loginもhash/世代をロック下で再確認するため、変更前のパスワード照合から新世代JWTは発行しない。
+確認済みUser行ロックtimeout等は503、未知/設定障害は500。業務409やJWTの401/認可403は変更しない。
+
+秘密入力はHTTP bodyだけで受け、CLI引数・ログ・監査・応答へ保存しない。運用クライアントは承認済みTLS経路を使う。
+DTO/一時hashのJava Stringを物理ゼロ化する保証はなく、request完了後のGC対象となる。ADMIN検証の一時char/byte配列は消去する。
+実HTTP/MariaDBの境界・競合・故障・非露出は[AuthPasswordIT](../src/test/java/com/example/demo/security/AuthPasswordIT.java)、
+既存データと履歴保持は[V8移行IT](../src/test/java/com/example/demo/repository/PasswordAuditMigrationIT.java)を参照する。
+
 ### 歴史的記録: v1.0の失効未実装契約
 
-以下はB1導入前の契約を保存したもの。現在の仕様は上のB1節を参照する。
+以下はB1導入前の契約を保存したもの。現在の仕様は上のB1/B2節を参照する。
 
 <details>
 <summary>v1.0 / Issue #119の記録（遡及変更しない）</summary>

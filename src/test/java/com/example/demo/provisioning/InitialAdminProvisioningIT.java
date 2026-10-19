@@ -116,7 +116,7 @@ class InitialAdminProvisioningIT {
     void ordinaryStartupDoesNotCreateAnAdminOrRegisterAProvisioningBean() {
         assertEquals(0, countAdmins());
         assertTrue(context.getBeansOfType(InitialAdminProvisioner.class).isEmpty());
-        assertEquals(7, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+        assertEquals(8, jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
     }
 
     @Test

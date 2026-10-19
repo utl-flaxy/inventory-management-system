@@ -9,9 +9,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 
-/** B1 supports only LOGOUT_ALL; B2/B3 must explicitly extend the operation key under this shared permit. */
+/** Per-source/operation windows, with one shared bounded concurrency permit for all auth mutations. */
 @Component
 public class AuthMutationRateLimiter {
+    public enum Operation { LOGOUT_ALL, PASSWORD_CHANGE }
+    private record SourceOperation(String address, Operation operation) { }
     private static final class SourceWindow {
         private final Instant expires;
         private int count;
@@ -32,7 +34,7 @@ public class AuthMutationRateLimiter {
     private final Clock clock;
     private final Duration window;
     private final int sourceLimit, maxConcurrent, maxEntries;
-    private final LinkedHashMap<String, SourceWindow> sources = new LinkedHashMap<>();
+    private final LinkedHashMap<SourceOperation, SourceWindow> sources = new LinkedHashMap<>();
     private int inFlight;
     private Instant lastNow = Instant.MIN;
 
@@ -46,9 +48,15 @@ public class AuthMutationRateLimiter {
     }
 
     public Permit acquire(String source) {
+        return acquire(Operation.LOGOUT_ALL, source);
+    }
+
+    public Permit acquire(Operation operation, String source) {
+        java.util.Objects.requireNonNull(operation);
         // Only literal, bounded-length identities captured by the transport filter may allocate state.
         String address = LoginClientAddressFilter.literalAddress(source);
         if (address == null) throw new AuthMutationSourceUnavailableException();
+        var key = new SourceOperation(address, operation);
         synchronized (lock) {
             Instant now = clock.instant();
             if (now.isBefore(lastNow)) now = lastNow;
@@ -58,7 +66,7 @@ public class AuthMutationRateLimiter {
                 if (expired.next().getValue().expires.isAfter(now)) break;
                 expired.remove();
             }
-            SourceWindow counter = sources.get(address);
+            SourceWindow counter = sources.get(key);
             if (counter != null && counter.count >= sourceLimit) {
                 Duration remaining = Duration.between(now, counter.expires);
                 throw new AuthMutationRateLimitExceededException(
@@ -69,7 +77,7 @@ public class AuthMutationRateLimiter {
                 // Do not turn bounded historical state into a service-wide authentication mutation lockout.
                 if (sources.size() == maxEntries) sources.remove(sources.keySet().iterator().next());
                 counter = new SourceWindow(now.plus(window));
-                sources.put(address, counter);
+                sources.put(key, counter);
             }
             counter.count++;
             inFlight++;

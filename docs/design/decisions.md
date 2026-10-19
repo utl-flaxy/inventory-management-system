@@ -94,11 +94,11 @@ tokenのroleを権限の正本とはしない。Servlet自動登録は無効で�
 DB照会によりrole変更/ユーザー不在を次の認証に反映できるが、DB負荷とDB障害時の可用性に依存する。
 不正JWT/未認証401、権限不足403、DB一時障害503、予期しない障害500を分ける。
 
-logout-allの全端末失効を実装し、個別失効/refresh/password変更/ADMIN強制失効APIは未実装。
+logout-allと本人password変更の全端末失効を実装し、個別失効/refresh/ADMIN強制失効APIは未実装。
 TTL既定3600000msは外部設定可能で実稼働値は未確認。password hashだけの直SQL変更は既発行JWTを失効させない。
 uidで同名の別主体から分離するが、旧validator・旧鍵・過去DBへの復帰には再受理リスクがある。
 [認証契約](../auth.md#jwtライフサイクルと失効制約)はv1.0の失効未実装記録も保存する。
-[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はB2/B3が残るためOPEN、jti台帳は別段階とする。
+[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はB3が残るためOPEN、jti台帳は別段階とする。
 
 根拠: [JwtFilterRegistrationIT](../../src/test/java/com/example/demo/security/JwtFilterRegistrationIT.java)、
 [AuthDatabaseFailureIT](../../src/test/java/com/example/demo/security/AuthDatabaseFailureIT.java)。
@@ -161,7 +161,7 @@ username再割当てから主体を分離し、同ユーザーの全JWTを1回�
 通常認証はprimaryへの1 readを維持し、login成功時は短いUser行ロック確認を追加する。
 旧JWTのdual acceptanceを避ける代償として、停止/drainと全端末再ログインが必要。
 同一imageの設定復帰、異binary rollback、過去DB復元は別の保証範囲である。
-jti個別失効、password変更、ADMIN強制失効は未実装で、B1をIssue #79全体の完了とは扱わない。
+jti個別失効、ADMIN強制失効は未実装で、B1/B2をIssue #79全体の完了とは扱わない。
 実装根拠は[認証契約](../auth.md#jwtライフサイクルと失効制約)と[commit/競合IT](../../src/test/java/com/example/demo/security/AuthRevocationIT.java)。
 
 ## 10. 品質ゲートと未保証事項を公開する

@@ -50,7 +50,9 @@ flyway_schema_historyのSELECT(version,success,checksum)だけの専用userを�
 **在庫10→8→11→13**と金額200を実際の応答で検証する。順番に進めるので正常業務フローであり、負荷測定ではない。
 Issue #136では9段階を維持した後、B1のlogout-all 204、旧JWT/同JWT再送401、再ログイン200、世代1・監査1行、
 別ADMIN有効、同じ注文key再送のDB不変を別の `jwt_revocation` 証跡で確認する。値やJWTは出力しない。
-V1〜V6を保持した追加Java V7が適用され、同一imageのapp-only設定故障復帰後も旧JWT401・新JWT有効・世代/監査不変を検証する。
+Issue #138では続けてB2のpassword変更204、旧password/JWT/再送401、新password再login200、世代2・PASSWORD_CHANGE監査1行
+（LOGOUT_ALLと合わせ計2行）、別ADMIN有効、同じ注文key再送のDB不変を `password_change` 証跡で確認する。
+V1〜V7を保持した追加V8が適用され、同一imageのapp-only設定故障復帰後も両旧世代JWT401・新JWT有効・hash/世代/監査不変を検証する。
 旧JWTの移行・異binary/過去DBへの復帰制約は[移行runbook](security/jwt-revocation-migration.md)を参照。
 さらに登録/loginの独立負荷制限・Retry-After、101明細400とDB不変、headers、prod docs/H2の404も既存scriptが確認する。
 JWT未署名・payload/MAC改ざん等6種類の専用検証は[Javaの受入条件](testing.md#jwt否定系の受入条件issue-123-第一pr--aud-23)とfull verifyで行い、Docker scriptだけでその全件を実行したとはしない。
