@@ -29,4 +29,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
             + "and u.tokenVersion = :expected and u.tokenVersion < 9223372036854775807")
     int incrementTokenVersion(String uid, long expected);
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update User u set u.password = :newHash, u.tokenVersion = u.tokenVersion + 1 where u.authUid = :uid "
+            + "and u.tokenVersion = :expected and u.password = :previousHash and u.tokenVersion < 9223372036854775807")
+    int changePasswordAndIncrementVersion(String uid, long expected, String previousHash, String newHash);
+
 }

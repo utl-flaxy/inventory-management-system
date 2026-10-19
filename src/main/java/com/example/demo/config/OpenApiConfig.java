@@ -58,10 +58,10 @@ public class OpenApiConfig {
                                     .description("Positive whole seconds until source window expires; 1 second for concurrent saturation. Availability is not guaranteed after waiting.")
                                     .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
                 }
-                if (path.equals("/auth/logout-all") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
+                if ((path.equals("/auth/logout-all") || path.equals("/auth/password")) && method == io.swagger.v3.oas.models.PathItem.HttpMethod.POST) {
                     operation.setDescription("Authenticated user-wide JWT revocation. Increments the user's generation and inserts an audit row in one transaction; 204 is returned after commit. "
                             + "The same JWT subsequently receives 401, including on retry. No request body is used; the authenticated principal is the only target. "
-                            + "Defaults per JVM: 5 admitted attempts per verified source per fixed 60-second window, 2 concurrent auth mutations, 4096 source windows. "
+                            + "Defaults per JVM: 5 admitted attempts per verified source and operation per fixed 60-second window, 2 shared concurrent auth mutations, 4096 source/operation windows. "
                             + "Independent of login/register. Requests authenticated before commit may finish; individual JWT revocation is not provided.");
                     responses.addApiResponse("401", new ApiResponse().description("UNAUTHENTICATED: missing or invalid JWT; legacy and revoked JWTs are rejected, including a generation change while waiting for the user lock"));
                     responses.addApiResponse("503", new ApiResponse().description("AUTH_MUTATION_SOURCE_UNAVAILABLE: verified client identity unavailable. SERVICE_UNAVAILABLE: confirmed transient DB/row-lock failure; no Retry-After."));
@@ -69,6 +69,16 @@ public class OpenApiConfig {
                             .addHeaderObject("Retry-After", new io.swagger.v3.oas.models.headers.Header()
                                     .description("Positive whole seconds; availability after waiting is not guaranteed")
                                     .schema(new IntegerSchema().minimum(java.math.BigDecimal.ONE))));
+                    if (path.equals("/auth/password")) {
+                        operation.setDescription("Authenticated self-service password change: currentPassword/newPassword, no target identifier. "
+                                + "Current credentials use login validation; new password: USER at least 8 characters, ADMIN at least 16 with no control characters, UTF-8 at most 72 bytes, no trimming. "
+                                + "BCrypt runs outside the transaction within the shared bounded permit. The user lock rechecks UUID, generation and previous hash. "
+                                + "Password hash, generation increment and PASSWORD_CHANGE audit commit atomically before 204; no token is returned. All old JWTs receive 401; log in with the new password. "
+                                + "Defaults per JVM: 5 admitted attempts per verified source/operation per fixed minute, 2 shared concurrent auth mutations, 4096 bounded windows. Login/register budgets are independent. "
+                                + "Already authenticated in-flight business operations may finish. Multi-instance rate limiting, individual token revocation and ADMIN force revocation are not provided.");
+                        responses.addApiResponse("400", new ApiResponse().description("VALIDATION_ERROR with errors.currentPassword / errors.newPassword; rejected values are never returned"));
+                        responses.addApiResponse("401", new ApiResponse().description("INVALID_CREDENTIALS: wrong current password. UNAUTHENTICATED: invalid/revoked JWT or concurrent generation/hash change"));
+                    }
                 }
                 responses.addApiResponse("500", new ApiResponse().description("SYSTEM_ERROR"));
                 responses.putIfAbsent("503", new ApiResponse().description("SERVICE_UNAVAILABLE: temporary database connection/timeout failure; keep a valid JWT. Recovery time is unknown; no Retry-After. Do not blindly replay writes."));

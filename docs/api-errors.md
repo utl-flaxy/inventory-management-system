@@ -57,14 +57,17 @@ JSON propertyの順序は契約にしない。
 | 503 | SERVICE_UNAVAILABLE | Service Unavailable |
 | 500 | SYSTEM_ERROR | System Error |
 
-登録・ログイン・logout-allの429には正の秒数の `Retry-After` を付ける。接続元不明503には付けず、運用設定の確認を求める。
+登録・ログイン・logout-all・password変更の429には正の秒数の `Retry-After` を付ける。接続元不明503には付けず、運用設定の確認を求める。
 各APIの制限・接続元検証・受付順序は[Auth仕様](auth.md)を参照する。
 
 ### DB障害の分類（AUD-10 / Issue #114）
 
-B1のlogout-allとログイン発行確認は、確認済みのUser行ロックtimeout/deadlockだけを503 SERVICE_UNAVAILABLEへ変換する。
+B1のlogout-all、B2のpassword変更とログイン発行確認は、確認済みのUser行ロックtimeout/deadlockだけを503 SERVICE_UNAVAILABLEへ変換する。
 未知/設定エラーは500、旧JWT/世代不一致は401 UNAUTHENTICATED。loginの照合後に世代/hash等が変わった場合は401 INVALID_CREDENTIALS。
 logout-allの成功はcommit後204・bodyなし。同JWTでの再送は401であり、bodyに他人のuidを指定しても操作対象にはならない。
+password変更もcommit後204・body/新tokenなし。currentPassword不一致は401 INVALID_CREDENTIALS、
+世代/hashの競合は401 UNAUTHENTICATED、入力は400 VALIDATION_ERROR＋errors.currentPassword/newPassword（拒否値なし）。
+監査故障等のrollbackではhash/世代/監査は一括不変。通信断等でcommit結果が不明なケースまで未更新と保証しない。
 この認証管理の503と、既存の商品/注文の409 CONCURRENT_UPDATEを混同しない。詳細は[認証契約](auth.md#jwtライフサイクルと失効制約)。
 
 prodの待機上限と停止契約は[DB lifecycle（AUD-11 / Issue #116）](db-lifecycle.md)を参照。

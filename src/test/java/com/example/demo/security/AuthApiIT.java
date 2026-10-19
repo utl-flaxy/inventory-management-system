@@ -356,6 +356,18 @@ class AuthApiIT {
         assertEquals(1,logout.path("responses").path("429").path("headers").path("Retry-After").path("schema").path("minimum").asInt());
         assertEquals("#/components/schemas/ApiProblem",logout.path("responses").path("401")
                 .path("content").path("application/problem+json").path("schema").path("$ref").asText());
+        var passwordChange=document.path("paths").path("/auth/password").path("post");
+        for(String code:List.of("204","400","401","429","503","500"))assertTrue(passwordChange.path("responses").has(code));
+        assertTrue(passwordChange.path("description").asText().contains("commit atomically before 204"));
+        assertTrue(passwordChange.path("responses").path("401").path("description").asText().contains("INVALID_CREDENTIALS"));
+        assertEquals(1,passwordChange.path("responses").path("429").path("headers").path("Retry-After").path("schema").path("minimum").asInt());
+        assertFalse(passwordChange.path("responses").path("503").path("headers").has("Retry-After"));
+        assertFalse(passwordChange.path("responses").path("204").has("content"));
+        for(String field:List.of("currentPassword","newPassword")) {
+            var property=schemas.path("PasswordChangeRequest").path("properties").path(field);
+            assertEquals(8,property.path("minLength").asInt());assertEquals(72,property.path("maxLength").asInt());
+            assertTrue(property.path("writeOnly").asBoolean());assertEquals("password",property.path("format").asText());
+        }
         for (String path : List.of("/auth/register", "/auth/login", "/api/v1/me/orders")) {
             String method = path.startsWith("/auth/") ? "post" : "get";
             var serverFailure = document.path("paths").path(path).path(method).path("responses").path("503");

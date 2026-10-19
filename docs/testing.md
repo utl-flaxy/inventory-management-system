@@ -719,3 +719,22 @@ JWT・鍵・password/hash・DB認証情報をresponse/application event/console�
 これはJWT失効、refresh、アルゴリズムallowlistの新設ではない。
 `signWith(key)`の鍵長に応じた正規のHMAC方式を維持し、HS512という名前だけで拒否する契約は追加しない。
 署名/issuer/期限の検証、DB role認可、公開auth除外、503/500/429等は既存契約を維持する。
+
+## JWT B2の回帰（Issue #138）
+
+基準mainは `3738628deb4bc58c659d82ee871523dbc0f4908d`（B1のJava 2,274件）。過去のsnapshot・計測値は変更しない。
+B2の最終件数とCI URLはPR本文およびそのHEADに対応する実runを参照する。
+
+| 証拠 | 常設する検証 |
+|---|---|
+| [AuthPasswordIT](../src/test/java/com/example/demo/security/AuthPasswordIT.java) | prod実HTTP・MariaDB。本人変更204、hash/世代/監査の原子性、全端末401、新password再login、別ユーザー/ADMIN分離、入力400・current不一致401・429/503/500、秘密非露出 |
+| 同ITの競合 | logout-all/二重変更をlatchで同時開始。ロック前に異なるDB connection ID/Txを観測し、1 commit・1 stale401。BCryptはTx外、変更前login照合からの発行を拒否 |
+| 同ITの境界/故障 | 未commit前の旧JWT認証とcommit後の拒否、rollback・監査INSERT故障時のhash/世代/audit不変、実5秒Userロックtimeout503、MAX世代500、同名再作成の旧uid拒否 |
+| [PasswordMutationBoundaryTest](../src/test/java/com/example/demo/security/PasswordMutationBoundaryTest.java) | 操作別source窓、共有同時permit/状態上限、正確な保護POSTのsource捕捉、偽装XFF拒否。B1の21件limiter/9件sourceテストも維持 |
+| [PasswordAuditMigrationIT](../src/test/java/com/example/demo/repository/PasswordAuditMigrationIT.java) | V7既存hash/非zero世代/注文/FK/audit・V1〜V7履歴を保持してV8適用、両actionだけ許可、repeat0件。新規DB/backup/旧Flyway補助の既存ITもV8まで検証 |
+| [Docker検証](../scripts/docker/verify_image.py) | 従来9段階+B1を維持しB2を別検証。hash/世代2/監査計2行、旧password/JWT401、新login200、同一image設定故障復帰後も状態保持。旧binary rollbackの証明にはしない |
+
+初回対象検証では、trim後6文字を401と期待したfixtureと、Java HttpClientが未対surrogateを送信時に置換したfixtureの2件が失敗した。
+既存LoginRequestの8文字条件に合わせたfixtureと、明示JSON escapeによる不正Unicode入力へ是正した。実装の検査を弱めず再検証する。
+Windowsの過去DatabaseTimeoutIT初回3失敗と証明書時刻の観測は根因未確定のまま保持する。今回の成功で過去の観測を消さない。
+pool/timeout/lock予算、既存テスト、JWT否定系6種、業務認可・冪等性は緩和しない。

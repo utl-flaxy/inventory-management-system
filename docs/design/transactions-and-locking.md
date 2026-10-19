@@ -156,6 +156,12 @@ Dockerの現行復帰試験は同一image IDの故障設定復帰であり、旧
 
 ## 6. 検証できていることとテストへの入口
 
+B2の本人password変更は[PasswordChangeService](../../src/main/java/com/example/demo/service/PasswordChangeService.java)で
+有界permit内・Tx外のBCryptを行い、[専用Tx](../../src/main/java/com/example/demo/service/PasswordChangeTransactions.java)で
+READ_COMMITTEDのUser行ロック/fresh readと事前hash/世代再確認、条件付きhash更新＋世代増分＋監査INSERTを一括commitする。
+logout-allとの競合は同じUser行で直列化し、古いproofは401。商品・注文のロック順やTx境界は変更しない。
+[AuthPasswordIT](../../src/test/java/com/example/demo/security/AuthPasswordIT.java)で別接続の競合・commit/rollback・audit故障を検証する。
+
 | 論点 | テストと確認点 |
 |---|---|
 | 別顧客の販売超過/更新消失 | [InventoryConcurrencyMariaDbIT](../../src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java) の `twentyDistinctCustomersCompeteForTenUnitsWithoutOverselling`。20実DB顧客、在庫10、10成功/10不足、20接続、注文/明細/台帳/version/金額、3反復 |

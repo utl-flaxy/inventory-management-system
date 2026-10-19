@@ -134,7 +134,7 @@ class BackupRestoreIT {
         var flyway = Flyway.configure().dataSource(dataSource(target)).locations("classpath:db/migration").load();
         flyway.validate();
         assertEquals(0, flyway.info().pending().length);
-        assertEquals(7, flyway.info().applied().length);
+        assertEquals(8, flyway.info().applied().length);
         var before = rows(targetJdbc);
         try (var context = new SpringApplicationBuilder(DemoApplication.class).profiles("prod").run(
                 "--spring.datasource.url=" + target.getJdbcUrl(), "--spring.datasource.username=inventory_app",
@@ -237,8 +237,8 @@ class BackupRestoreIT {
         var history = targetJdbc.queryForList("SELECT version,description,type,checksum,success FROM flyway_schema_history ORDER BY installed_rank");
         assertEquals(3L, targetJdbc.queryForObject("SELECT token_version FROM users WHERE id=10",Long.class));
         assertEquals(1, targetJdbc.queryForObject("SELECT COUNT(*) FROM auth_revocation_audit",Integer.class));
-        assertEquals(7, history.size());
-        for (int i = 0; i < 7; i++) {
+        assertEquals(8, history.size());
+        for (int i = 0; i < 8; i++) {
             assertEquals(Integer.toString(i + 1), history.get(i).get("version"));
             assertEquals(true, history.get(i).get("success"));
             assertNotNull(history.get(i).get("checksum"));

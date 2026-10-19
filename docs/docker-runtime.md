@@ -15,6 +15,8 @@ OSV169 components/0 advisory、Trivy **OS49（MEDIUM27/LOW22）/ library0**。
 ## イメージと移行
 
 Issue #136のB1ではruntime/Composeの権限・メモリ設定を変えず、Java V7とUUID/世代JWTを追加する。
+Issue #138のB2も同設定を維持し、V8の監査action拡張と本人password変更を追加する。
+従来9段階とB1に続き、新passwordで再login・両旧世代JWT401・更新hash/世代/監査の同一image再起動後の保持を検証する。
 旧validatorの停止/drainと再ログインが必要。[専用runbook](security/jwt-revocation-migration.md)を参照。
 Dockerデモのrollbackは同じB1 imageの設定復帰だけで、世代を読まない旧binaryへ戻す許可ではない。
 上記v1.0監査snapshotは歴史的な値を保持し、B1の再計測は当該PR/新HEADのCIで確認する。

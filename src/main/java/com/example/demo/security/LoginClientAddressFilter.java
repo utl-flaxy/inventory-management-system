@@ -81,7 +81,8 @@ public class LoginClientAddressFilter extends OncePerRequestFilter {
 
     private static boolean isAuthMutation(HttpServletRequest request) {
         return "POST".equals(request.getMethod())
-                && (request.getContextPath() + "/auth/logout-all").equals(request.getRequestURI());
+                && ((request.getContextPath() + "/auth/logout-all").equals(request.getRequestURI())
+                || (request.getContextPath() + "/auth/password").equals(request.getRequestURI()));
     }
 
     static String literalAddress(String value) {

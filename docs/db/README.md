@@ -1,7 +1,8 @@
 # FlywayによるDB管理（Issue #15）
 
 DB schemaのsource of truthは [SQL V1〜V6](../../src/main/resources/db/migration) と
-[Java V7](../../src/main/java/db/migration/V7__add_auth_identity_and_revocations.java)。
+[Java V7](../../src/main/java/db/migration/V7__add_auth_identity_and_revocations.java)、
+[V8](../../src/main/resources/db/migration/V8__allow_password_change_audit.sql)（成功監査へPASSWORD_CHANGEを追加。既存データ保持）。
 B1の停止移行・旧JWT拒否・部分DDL・backup巻戻りの制約は[専用runbook](../security/jwt-revocation-migration.md)を参照。
 通常起動はSpring BootがFlyway migrateを実行した後、HibernateがEntityとの一致をvalidateする。
 Hibernateはテーブルを作成・変更しない。Entity annotationはmapping/validation補助として使う。
@@ -22,7 +23,7 @@ ComposeのMARIADB_USER/MARIADB_PASSWORDとdb-init scriptは空volumeの初期化
 既存volumeのuser/password/権限はenvironment変更だけでは更新されない。volumeを削除して移行しない。
 
 必要な権限はSELECT/INSERT/UPDATE/DELETE（業務処理とFlyway history）と
-CREATE/ALTER/INDEX/REFERENCES（V1〜V7のtable/column/index/FK変更）。
+CREATE/ALTER/INDEX/REFERENCES（V1〜V8のtable/column/index/FK/CHECK変更）。
 global ALL、GRANT OPTIONは付与しない。clean-disabled=trueなのでDROPは不要。
 将来migrationが別の権限を必要とする場合は、そのmigrationと権限を一緒にレビューする。
 新規Compose DBはscripts/db-init/01-app-privileges.shが同じ権限を設定する。

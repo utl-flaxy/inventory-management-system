@@ -35,6 +35,13 @@ import java.util.TreeMap;
 @Hidden // OpenAPIのerror契約は共通customizerで定義する。
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(InvalidNewPasswordException.class)
+    public ResponseEntity<ProblemDetail> handleNewPassword(InvalidNewPasswordException ex, HttpServletRequest request) {
+        var problem = ApiProblemFactory.create(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "入力内容にエラーがあります", request);
+        problem.setProperty("errors", Map.of("newPassword", InvalidNewPasswordException.DETAIL));
+        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_PROBLEM_JSON).body(problem);
+    }
+
     @ExceptionHandler(AuthMutationSourceUnavailableException.class)
     public ResponseEntity<ProblemDetail> handleAuthMutationSource(AuthMutationSourceUnavailableException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_MUTATION_SOURCE_UNAVAILABLE",

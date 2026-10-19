@@ -1,4 +1,4 @@
-# JWT B1移行・復旧手順（Issue #136）
+# JWT B1/B2移行・復旧手順（Issue #136 / #138）
 
 契約: [レビュー済みADR](../design/jwt-revocation-v1.1.md) §3〜§7、[認証API](../auth.md#jwtライフサイクルと失効制約)。
 Java17 / Spring Boot4.1.1 / MariaDB12.2.2を対象とする。実環境の移行・鍵変更は実施していない。
@@ -15,6 +15,23 @@ Java17 / Spring Boot4.1.1 / MariaDB12.2.2を対象とする。実環境の移行
   古いvalidatorは世代を検証しないため、追加schemaだけで安全な互換運転にはならない。
   アプリ、バッチ、ADMIN CLI、運用ツールをすべて版管理する。
 
+## B2の追加移行（V7済み環境からV8へ）
+
+[V8](../../src/main/resources/db/migration/V8__allow_password_change_audit.sql)は、監査actionのCHECKを
+LOGOUT_ALL / PASSWORD_CHANGEの2種類へ拡張する一つのALTER TABLEだけ。V1〜V7、既存user/hash/uid/世代/業務/監査行は変更しない。
+新規DBはV1〜V8、B1済みDBはV8だけを適用し、履歴/checksum・既存行保持・再実行0件を
+[実MariaDB移行IT](../../src/test/java/com/example/demo/repository/PasswordAuditMigrationIT.java)で確認する。
+
+運用者は承認済み保全先、DDL権限、監査tableの実サイズとALTER待機を確認し、受付停止/drain後に適用する。
+V8成功履歴とCHECK定義の一致を確認してからB2 binaryで受付再開する。V8未適用でpassword変更を稼働させない。
+Flyway失敗履歴・予期しないschemaでは停止を維持し、状態を確認してレビューする。自動repair/clean、CHECK無効化、
+監査行の削除による復旧は行わない。DDLの途中失敗・あらゆるhost crashからの無条件な再開を保証するものではない。
+ADMIN CLIはB1のV7 checksum確認・INSERT専用最小権限を維持し、password変更や既存ADMINのresetには使わない。
+
+専用の使い捨て検証アカウントで、`POST /auth/password` の204→旧JWT全401→旧password login401→新password login200を確認する。
+bodyはcurrentPassword/newPasswordだけを安全なクライアントで送る。値をshell引数・history・ログ・artifactへ保存しない。
+実環境のTLS・運用者設定や実ユーザーのpassword変更はこのPRで実施していない。
+
 ## 運用者が実環境で確認する手順
 
 1. 承認済み停止時間、全validator/CLIの所在、対象DB、移行権限、復旧用の保全先を確認する。
@@ -29,6 +46,7 @@ Java17 / Spring Boot4.1.1 / MariaDB12.2.2を対象とする。実環境の移行
    V7はJava migration `db.migration.V7__add_auth_identity_and_revocations`、固定checksum `1360701`。
    SQL migrationのディレクトリにV7.sqlを追加する方式ではない。公開後はV7を書き換えない。
 5. 成功したV7履歴、uidの非NULL/一意/UUIDv4形式、非負世代、監査table、既存PK/FK/件数の保全を確認する。
+   B2 binaryでは続けて上記V8を適用し、V8成功と両actionのCHECKを確認する。
    管理者向けの集計結果だけを残し、uid・username・hashをartifactへ出さない。
 6. 新binaryだけを起動し、readiness、旧JWT401、新ログイン、USER/ADMIN境界、注文/在庫を確認する。
    `POST /auth/logout-all` の204→旧JWT401→再ログインも専用検証アカウントで確認する。
@@ -53,7 +71,7 @@ restartableなmigration本体と、Flywayの失敗履歴を自動的に消すこ
 ## 失効・監査・不確実な応答
 
 logout-allは本人Userだけをロックし、受信世代を再照合してSQL増分と監査INSERTを同じTxでcommitする。
-監査はactor/targetの内部ID、LOGOUT_ALL、SUCCEEDED、時刻、server requestIdのみ。
+監査はactor/targetの内部ID、LOGOUT_ALLまたはPASSWORD_CHANGE、SUCCEEDED、時刻、server requestIdのみ。
 password/hash/JWT/username/raw IPを含めず、User削除にcascadeしない。アプリに監査閲覧APIや自動削除処理はない。
 閲覧は承認済みDB権限に限定し、保存期間・容量・保全/削除の運用承認は公開前の課題とする。
 通常ログの成功eventはcommit後だけ発行する。失敗ログには安全な型とrequestIdを使う。
@@ -62,11 +80,14 @@ password/hash/JWT/username/raw IPを含めず、User削除にcascadeしない。
 認証readがcommit後なら旧世代は401だが、既に認証済みの業務を取り消す機能ではない。
 Tx rollbackでは世代/監査の両方を戻す。一方、通信断やcommit時の障害で結果が不明な場合、
 500/503を「必ず未commit」と決めつけない。再認証と承認済み監査確認で判断し、盲目的な書込みretryをしない。
+password変更も、事前の現password照合と新hash計算はTx外・共有permit内で行い、短いロック下でuid/内部ID/世代/事前hash/roleを再確認する。
+hash更新・世代増分・成功監査を同一Txにし、logout-all/二重変更との競合で古い認証結果から新世代へ更新しない。
+明確なrollback時は3点すべて不変。commit後は全端末で新passwordによる再loginが必要（新JWTは204に含めない）。
 
 ## rollback / backup復元の制約
 
-Docker検証のrollbackは**同じB1 image IDの設定故障からのapp-only復帰**である。
-DBコンテナを再作成せず、世代と監査を保持し、旧JWT401/再ログインJWT有効を確認する。
+Docker検証のrollbackは**同じB1/B2 image IDの設定故障からのapp-only復帰**である。
+DBコンテナを再作成せず、更新hash・世代と監査を保持し、旧JWT401/再ログインJWT有効を確認する。
 異なる旧アプリバイナリへの安全なrollbackを実証したものではない。
 
 世代検証のない旧imageへ戻すことは禁止。旧imageは旧JWTを再受理し得る。
@@ -75,9 +96,10 @@ DBコンテナを再作成せず、世代と監査を保持し、旧JWT401/再�
 問題時は停止を維持し、新validatorを保持した修正版による復旧を優先する。
 
 DBを過去backupへ復元するとtoken_versionも古くなり、以前失効したJWTが再受理され得る。
+password hashも巻き戻り得るため、古いpasswordが再び有効になるリスクを含めて判断する。
 復元テストはuid/世代/監査を保存できることを示すだけで、失効の単調性を復元越しに保証しない。
 復元時は全validator停止、JWT鍵・全JWT拒否方針の独立承認、新規発行まで含めた再検証が必要。
 旧鍵へ戻すと旧署名が再び有効になり得る。漏洩鍵の再利用は禁止。実secretの取得・変更は本PRでは行わない。
 
-B2 password変更、B3 ADMIN強制失効、[jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)、
+B3 ADMIN強制失効、[jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)、
 refresh、アカウント停止、MFAは未実装。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPENを維持する。
