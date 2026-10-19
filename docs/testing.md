@@ -736,5 +736,9 @@ B2の最終件数とCI URLはPR本文およびそのHEADに対応する実runを
 
 初回対象検証では、trim後6文字を401と期待したfixtureと、Java HttpClientが未対surrogateを送信時に置換したfixtureの2件が失敗した。
 既存LoginRequestの8文字条件に合わせたfixtureと、明示JSON escapeによる不正Unicode入力へ是正した。実装の検査を弱めず再検証する。
+B2初回full verifyでは、未変更のCaddyProxyITの2件で証明書/hostnameを検証するローカルOpenSSL clientがexit1となった。
+clientの診断fileは当該テストのcleanupで破棄されており、初回原因を証明書時刻やEOF等に断定できない。
+変更していないcompiled testを3つの新規使い捨てcontainerで別途実行した診断（4メソッド×3回）は成功し、検証無効化はしていない。
+この再現不成立だけで初回失敗を解決済みとは扱わず、後続のfull verify/CI結果を区別して記録する。
 Windowsの過去DatabaseTimeoutIT初回3失敗と証明書時刻の観測は根因未確定のまま保持する。今回の成功で過去の観測を消さない。
 pool/timeout/lock予算、既存テスト、JWT否定系6種、業務認可・冪等性は緩和しない。
