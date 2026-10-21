@@ -88,6 +88,9 @@ jobs:
         working-directory: terraform
         run: terraform test -no-color
 
+      - name: Isolated backend/bootstrap contracts and negative mutations (no AWS operations)
+        run: python3 scripts/ci/terraform_offline.py
+
   secret-scan:
     name: secret-scan
     runs-on: ubuntu-latest

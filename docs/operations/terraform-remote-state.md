@@ -1,6 +1,6 @@
 # Terraform remote state移行・復旧手順案（TF-A）
 
-**未実装・未実行の運用案**。2026-10-21、[Issue #75 / TF-A指示](https://github.com/utl-flaxy/inventory-management-system/issues/75#issuecomment-6315668832)。
+**移行・復旧は未実行の運用案**（TF-Bで静的定義のみ追加）。2026-10-21、[Issue #75 / TF-A指示](https://github.com/utl-flaxy/inventory-management-system/issues/75#issuecomment-6315668832)。
 [設計ADR](../design/terraform-remote-state.md)を先に確認する。
 この文書やPRのmergeはAWSアクセス・backend作成・既存stateの読み出し/移行を許可しない。
 今回のCodex作業では、以下の移行/復旧command、AWS確認、既存state/secretへの操作を**実行しない**。
@@ -112,3 +112,20 @@ TF-Aの受入は文書リンク・設計契約のレビューと、変更HEADの
 TF-C/Dの記録には承認対象、lock競合/拒否の実測、復元対象/比較合否、暗号化・権限・監査、RPO/RTO、担当者引継ぎを私有証跡として残し、公開報告は秘密を含まない要約だけにする。
 本PRだけで#75をcloseしない。実backend・実state移行・IAM/S3/KMS・復旧性能は未検証。
 Trivy OS31、Flyway WARN、#145 Windows不安定、#134 jti保留、異版rollback/本番復旧未確認を保持し、Deploy disabled・**本番運用NO GO**を継続する。
+
+## 9. TF-B静的実装後の確認（2026-10-21）
+
+[bootstrap README](../../terraform-bootstrap/README.md)にrole分離・既存role/trust/management権限の前提を記載した。
+新規rootの初回stateは私有暗号化保管で別管理し、作成予定のbucketを自身の初回backendに使わない。
+hostはS3部分設定のみ。実値入りbackend設定をこのrepositoryへ追加しない。
+外部非credential設定の許可項目はbucket/key/region/kms_key_id/allowed_account_ids/workspace_key_prefix。
+`use_lockfile=true`・`encrypt=true`をファイル/CLIで上書きしない。二者で承認対象と出力座標を照合する。
+
+公開ソースをindexへ登録して `python3 scripts/ci/terraform_offline.py` を実行すると、新規directoryに両rootと参照scriptだけをexportする。
+state/tfvars/private backend/saved plan/credentialのGit混入は、ignoreに加えてSecretゲート/exportのpath検査で拒否する。
+provider lockfileはGitへ保持する。通常init/real plan/apply、backend接続、既存stateの有無確認はこの検証に含まれない。
+
+TF-Cでは既存4 role/trust/MFA・管理用identity policy・SCP・account public blockを承認し、隔離AWS/synthetic stateだけで実効権限・unlock・監査配送・復旧を確認する。
+management roleがkey policyを更新できることと、通常operatorがstateを削除できずlockを解放できることを両方確認する。
+mock成功で本書2〜8節の停止条件を緩めない。実環境値/credentialを含むCLI出力、state/plan/backend cacheはartifactへ保存しない。
+費用・保持・責任者・RPO/RTOが未合意ならTF-C/Dを開始しない。Issue #75はOPEN、本番運用NO GOを継続する。

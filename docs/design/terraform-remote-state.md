@@ -1,14 +1,15 @@
 # ADR: Terraform remote state・排他・復旧（Issue #75 / TF-A）
 
-状態: **設計提案・独立レビュー待ち**。2026-10-21。
+状態: **TF-Aは[PR #147](https://github.com/utl-flaxy/inventory-management-system/pull/147)で採択済み**。2026-10-21。
+TF-Bの静的実装は[bootstrap README](../../terraform-bootstrap/README.md)を参照。以下の現状表・提案はTF-A時点の設計記録であり、実AWS受入の記録ではない。
 [TF-A指示](https://github.com/utl-flaxy/inventory-management-system/issues/75#issuecomment-6315668832)に対応する。
 基準mainは`ecf10462b145bbb8fd2d7a5c4a7ed51d323c71f6`。
-本変更は文書のみ。backend/resource/IAM/CI設定を追加せず、AWS・既存state・secretにはアクセスしない。
+TF-Aは文書のみでbackend/resource/IAM/CIを追加しなかった。TF-BでもAWS・既存state・secretにはアクセスしない。
 **Issue #75はOPEN、実利用者向け本番運用NO GOを維持する。** 本ADRのmergeは実装・移行・実AWS操作の承認ではない。
 
 ## 1. 現状と判断の根拠
 
-|現mainの正本|確認したこと / 未保証事項|
+|TF-A基準mainの正本|確認したこと / 未保証事項|
 |---|---|
 |[provider.tf](../../terraform/provider.tf)|CLIは`= 1.15.6`、AWS provider制約`~> 6.0`。backend宣言なし。既定local backend|
 |[provider lockfile](../../terraform/.terraform.lock.hcl)|解決版6.68.0と配布checksum。これは**依存の固定でありstate排他ではない**|

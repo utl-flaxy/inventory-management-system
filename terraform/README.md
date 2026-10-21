@@ -50,14 +50,21 @@ replacementや破壊的変更を確認し、必要なimport/state移行は別途
 AMIはAWS公式SSM public parameterの現行値を解決するため、後日のplanでAMIが変わる場合がある。
 運用時には保存したplanをレビューし、そのplanを適用する。package patch versionやGit mainは
 時点で変わり得る。CLI/provider/Composeを固定しており、完全なimmutable imageではない。
-stateはローカルのままであり、remote backend/state lockingは別Issue。
+S3 backendの部分設定をTF-Bで追加したが、remote基盤作成・既存state確認/移行は未実施。現在の実stateの権威を調べたわけではない。通常のinit/plan/applyは、[remote state手順](../docs/operations/terraform-remote-state.md)の別承認と停止条件を満たすまで実行しない。
 
-## Remote state設計（Issue #75 / TF-A）
+## Remote state静的実装（Issue #75 / TF-B）
 
-[ADR](../docs/design/terraform-remote-state.md)と[移行・復旧手順案](../docs/operations/terraform-remote-state.md)は独立レビュー用の提案。
-Terraform1.15.6のS3 native lockfile・暗号化・IAM・bootstrap・移行を設計するが、実backend/resourceは未追加、実AWS/既存stateは未操作。
-上のbackend=false・credentials不要のmock27を維持し、実backend作成・移行・復旧は別承認の後続段階とする。Issue #75はOPEN、本番運用NO GO。
-隔離検証ではGit管理下の`terraform/`に加え、main.tf参照先の`scripts/tls/install-caddy.sh`も相対配置を保ってexportする。既存state/tfvarsは含めない。
+[採択済みADR](../docs/design/terraform-remote-state.md)に従い、`backend.tf`は`use_lockfile=true`と`encrypt=true`だけを固定する。
+実bucket/key/region/KMS/account/workspace prefixは承認済みのcheckout外の非credential設定へ分離し、固定値を上書きしない。
+backend内にvar/locals/resource参照を置かない。**通常のinitやremote backend接続は今回禁止**。
+[独立bootstrap root](../terraform-bootstrap/README.md)はS3/KMS/IAM/auditの静的定義であり、host rootに組み込まない。
+
+安全なローカル検証はrepository rootから `python3 scripts/ci/terraform_offline.py` を使う。
+indexに登録された公開ソースだけを隔離し、main.tf参照先の`scripts/tls/install-caddy.sh`もexportする。
+既存state/tfvars/cacheを持ち込まず、両rootでbackend=falseのinit/validate/mockと否定系mutationを実行する。
+host mock27は従来どおり、bootstrap mockは別の14件。CIの必須5ジョブと無認証条件を維持する。
+[移行・復旧手順](../docs/operations/terraform-remote-state.md)のfreeze/backup/独立承認を省略しない。
+実backend作成・IAM/lock/監査/復旧のTF-Cと実state移行TF-Dは別承認。Issue #75はOPEN、本番運用NO GO。
 
 ## Network / EC2
 

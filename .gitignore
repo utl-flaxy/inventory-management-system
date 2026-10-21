@@ -80,6 +80,30 @@ mariadb_data/
 # Terraform
 # ==========================================
 
+# Applies to every bootstrap/migration root; dependency lockfiles remain tracked.
+.terraform/
+*.tfstate*
+*.tfvars*
+*.tfbackend
+*.backend.hcl
+*.backend.conf
+backend.hcl
+backend.conf
+backend-*.hcl
+backend-*.conf
+backend-private*
+backend.private*
+*.tfplan
+*.tfplan.*
+*.plan
+*.plan.*
+tfplan*
+plan
+plan.*
+.aws/
+credentials
+credentials.*
+.terraformrc
 terraform/.terraform/
 
 terraform/*.tfstate
