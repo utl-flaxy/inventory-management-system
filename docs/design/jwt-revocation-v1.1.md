@@ -1,5 +1,9 @@
 # ADR: v1.1 JWTのユーザー単位失効（Issue #79 / Phase A）
 
+**後続設計への入口（2026-10-21）:** B1〜B3はmainへmerge済みでIssue #79はCLOSED。
+以下は当時の設計・レビュー履歴として保持する。jti単体失効は未実装で、
+[Issue #134 / C-Aの必要性評価と設計提案](jwt-individual-revocation.md)を別に参照する。
+
 状態: **Phase AはPR #135でレビュー済み。Issue #136でB1、Issue #138でB2、Issue #140でB3を実装（独立レビュー待ち）**。2026-10-19 JST。
 現行B1は[認証契約](../auth.md#jwtライフサイクルと失効制約)、[移行手順](../security/jwt-revocation-migration.md)、
 [実HTTP・commit/競合IT](../../src/test/java/com/example/demo/security/AuthRevocationIT.java)、
