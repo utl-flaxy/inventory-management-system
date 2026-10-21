@@ -119,13 +119,20 @@ Terraform1.15.6はlock fileを条件付き作成し、unlock時にlock IDを照�
 任意の別keyへ逃げるためにIAMを広げない。初回bootstrap stateは新設sandbox資産のprivate inventoryであり、公開可能なfixtureではない。
 既存stateを流用せず、故障注入/旧version比較はsynthetic test stateだけに限定する。
 
+### C05: digest検証toolの権限は未充足と扱う
+
+TF-Bのaudit inline policyにはS3 GetBucketLocationやCloudTrail APIのgrantがない。
+[公式CLI検証手順](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-cli.html)はGetBucketLocation等を必要とする。
+検証用の[region別公開鍵](https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_ListPublicKeys.html)の取得を含め、採用するCLI/tool版のAPI一覧、prefix、KMS権限をB05/B13で審査する。
+既存roleに追加権限があるかは不明であり、TF-Bのgrantだけでdigest検証が使えるとはしない。必要な最小変更が判明しても今回は権限を追加しない。
+
 ## 5. IAM許可・拒否の実証表（全てBLOCKED / NOT RUN）
 
 これは試験の期待値であり、新規権限の付与表ではない。実効policyはB04〜B06で別審査する。
 
 |主体|許可を実証する操作|拒否/分離を実証する操作|
 |---|---|---|
-|operator / migration（別session）|限定ListBucket、正確なstate Get/Put、lock Get/Put/Delete、state CMKのEncrypt/Decrypt/GenerateDataKey（指定context/ViaService）|state Delete/永久version削除、lock version永久削除、非default workspace、対象外namespace、過去state version取得、audit閲覧/鍵管理|
+|operator / migration（別session）|限定ListBucket、正確なstate Get/Put、lock Get/Put/Delete、S3経由のstate CMK利用（指定context/ViaService）|state Delete/永久version削除、lock version永久削除、非default workspace、対象外namespace、過去state version取得、audit閲覧/鍵管理、ViaServiceを満たさない直接KMS呼出し|
 |recovery|通常操作＋対象prefix ListBucketVersions/GetObjectVersion、同じstate CMKで復号/復旧write|他環境/他key/永久削除/通常の監査破棄。実stateへの権限を試しに使わない|
 |audit|audit prefixのList/versions/Get、audit CMK復号とdigest検証|state/lockアクセス、audit書込み/削除、state CMK利用|
 |management|承認されたsandbox資源の作成/設定/読取と対象roleへのinline policy、KMS Describe/Get/PutKeyPolicy等|変更前policyのままでstate/audit本文を直接取得できないこと。自分でpolicyを変更できる特権は残るため絶対分離とはしない|
@@ -135,6 +142,7 @@ Terraform1.15.6はlock fileを条件付き作成し、unlock時にlock IDを照�
 bootstrap管理に必要なS3/IAM/KMS/CloudTrail APIの詳細、タグ条件、初期CreateKey等のResource制約は、provider6.68.0と許可資源のprivate manifestに対して別審査する。
 `iam:*`やaccount-wideのデータ読取、恒久的なAdministratorAccessを便宜上使わない。
 identity policyだけでなくresource/key policy・session・boundary・SCP/RCP/endpointも評価する。単純な「Allowが見つかったから成功」で確定しない。
+KMSのEncrypt/Decrypt/GenerateDataKeyのgrantはソース上区別するが、S3経由で実際に呼ばれたAPIだけを実測済みとする。観測されないEncrypt等をGet/Put成功から推定しない。
 
 ## 6. 後続TF-Cの試験順序と合否（全てBLOCKED / NOT RUN）
 
