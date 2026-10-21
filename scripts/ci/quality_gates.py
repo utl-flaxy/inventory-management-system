@@ -117,6 +117,23 @@ def download(tool, output):
     summary(f"Installed {tool} {TOOLS[tool]['version']}; reviewed SHA256 verified")
 
 
+def forbidden_terraform_path(name):
+    """Reject private/generated Terraform inputs before reading their contents.
+
+    Gitignore does not protect an already tracked or force-added file. Apply this
+    policy across bootstrap, migration and future roots, independent of content.
+    Provider dependency lockfiles are intentionally permitted.
+    """
+    path = PurePosixPath(name.replace("\\", "/"))
+    base = path.name.lower()
+    return (".terraform" in path.parts or ".aws" in path.parts or
+            ".tfstate" in base or ".tfvars" in base or ".tfplan" in base or ".plan." in base or
+            base.endswith((".tfbackend", ".backend.hcl", ".backend.conf", ".tfplan", ".plan")) or
+            base in {"backend.hcl", "backend.conf", "plan", "credentials", "credentials.tfrc.json", ".terraformrc"} or
+            base.startswith(("tfplan", "plan.", "credentials.", "backend-private", "backend.private")) or
+            base.startswith("backend-") and base.endswith((".hcl", ".conf")))
+
+
 def tracked_snapshot(root, destination):
     result = execute(["git", "ls-files", "--stage", "-z"], root)
     if result.returncode:
@@ -132,6 +149,8 @@ def tracked_snapshot(root, destination):
             raise OperationalError("Symlinks, submodules and unresolved entries are unsupported")
         if relative.is_absolute() or ".." in relative.parts or ".git" in relative.parts:
             raise OperationalError("Unsafe tracked path")
+        if forbidden_terraform_path(name):
+            raise Violation("Tracked private/generated Terraform file rejected (contents not read)")
         source = root / name
         if not source.is_file() or source.is_symlink() or not source.resolve().is_relative_to(root):
             raise OperationalError("Missing or unsafe tracked file")

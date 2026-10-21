@@ -755,3 +755,16 @@ clientの診断fileは当該テストのcleanupで破棄されており、初回
 この再現不成立だけで初回失敗を解決済みとは扱わず、後続のfull verify/CI結果を区別して記録する。
 Windowsの過去DatabaseTimeoutIT初回3失敗と証明書時刻の観測は根因未確定のまま保持する。今回の成功で過去の観測を消さない。
 pool/timeout/lock予算、既存テスト、JWT否定系6種、業務認可・冪等性は緩和しない。
+
+## Terraform remote state TF-B（Issue #75、2026-10-21）
+
+基準main `7c29e4c2be685c583d0390aa33aa4ac4f0c7f6e0` のJava2,370件・Python29件・host mock27件を維持する。
+[offline runner](../scripts/ci/terraform_offline.py)はGit indexの公開ソースだけを新規directoryへexportし、両rootでfmt/backend=false init/validate/plan-only mockを行う。
+bootstrap14件はstorage/IAM/KMS/CloudTrail/入力境界を検証する。state Delete許可・KMS権限欠落・management監査無効化の3 mutationを使い捨てコピーへ入れ、assertion失敗を必須とする。
+[Python追加テスト](../scripts/ci/tests/test_terraform_safety.py)はprivate pathの強制Git追加をSecretゲートで拒否し、backend lock無効化・bootstrap remote backend・削除保護欠落・apply fixtureなどを拒否する。
+既存29件に11件を追加して40件。通常CIのhost27と新規bootstrap14の件数は区別し、mockを実AWSのIAM/lock/復旧の証明とはしない。
+
+Java full verify、Docker業務9段階+B1/B2/B3、Secret例外0、SpotBugs、OSV、Trivyの実結果は変更HEADのPR/CIに記録する。
+Windows #145のcertificate/Wait strategy/Caddy/DB CLIの過去失敗と根因未確定を保持し、今回成功しても解決扱いにしない。
+Trivy OS31（MEDIUM27/LOW4）、Flyway WARN、#134 jti保留、異版rollback/本番復旧未検証を残す。
+AWS/remote init/既存state/実secretへのアクセスはなく、Issue #75はOPEN、本番運用NO GO。
