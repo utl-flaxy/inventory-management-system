@@ -129,3 +129,9 @@ TF-Cでは既存5 role/trust/MFA・管理用identity policy・SCP・account publ
 management roleがkey policyを更新できることと、通常operatorがstateを削除できずlockを解放できることを両方確認する。
 mock成功で本書2〜8節の停止条件を緩めない。実環境値/credentialを含むCLI出力、state/plan/backend cacheはartifactへ保存しない。
 費用・保持・責任者・RPO/RTOが未合意ならTF-C/Dを開始しない。Issue #75はOPEN、本番運用NO GOを継続する。
+
+## 10. TF-C0事前審査（2026-10-21）
+
+[資料審査・BLOCKED台帳・sandbox試験計画](terraform-remote-state-preflight-2026-10-21.md)を追加した。
+TF-A/TF-B採用や文書PRのmergeは実AWS実験の承認ではない。対象・権限・費用・担当・cleanup等のB01〜B14が未確認のため、TF-CはBLOCKEDのまま。
+実AWS/remote init/実plan/apply/既存state・secretには今回アクセスせず、maintainerの別途明示承認を待つ。
