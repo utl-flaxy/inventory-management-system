@@ -59,7 +59,7 @@ resource "aws_iam_role_policy" "audit" {
     },
     {
       Sid       = "DecryptAudit", Effect = "Allow", Action = ["kms:Decrypt"], Resource = [aws_kms_key.audit.arn],
-      Condition = { StringEquals = { "kms:ViaService" = "s3.${var.region}.amazonaws.com", "kms:EncryptionContext:aws:cloudtrail:arn" = local.trail_arn } }
+      Condition = { StringEquals = { "kms:ViaService" = "s3.${var.region}.amazonaws.com" }, StringLike = { "kms:EncryptionContext:aws:cloudtrail:arn" = local.trail_context_arn } }
     }
   ] })
 }

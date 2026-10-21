@@ -19,7 +19,8 @@ Issue #75はOPEN、実利用者向け本番運用は**NO GO**。
 
 通常operatorのKMS権限は、state CMKのEncrypt/Decrypt/GenerateDataKeyだけ。
 `kms:ViaService`は同region S3、encryption contextはstate/lockの正確なobject ARNに限定する。
-CloudTrailによるaudit暗号化は、そのtrail ARNとCloudTrail encryption contextに限定する。
+CloudTrailによるaudit暗号化はSourceArnをhome regionの正確なtrail ARNへ固定する。
+公式policyに合わせ、multi-regionのencryption contextはregionだけをwildcardにし、accountとtrail名は固定する。audit復号も同じcontextへ限定する。
 key policy内の`Resource="*"`は**そのCMK自身**を表す。identity policyのKMS ResourceはCMKの正確なARN。
 
 通常unlockとforce-unlockは同じDeleteObject権限を使う。IAMだけで承認の有無を判定できない。

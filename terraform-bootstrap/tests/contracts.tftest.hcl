@@ -138,7 +138,7 @@ run "audit_delivery" {
         )
       )
       ]) && alltrue([for s in jsondecode(aws_kms_key.audit.policy).Statement : s.Sid != "TrailEncrypt" || (
-        s.Principal.Service == "cloudtrail.amazonaws.com" && s.Action == ["kms:GenerateDataKey*"] && s.Condition.StringEquals["aws:SourceArn"] == local.trail_arn && s.Condition.StringEquals["kms:EncryptionContext:aws:cloudtrail:arn"] == local.trail_arn
+        s.Principal.Service == "cloudtrail.amazonaws.com" && s.Action == ["kms:GenerateDataKey*"] && s.Condition.StringEquals["aws:SourceArn"] == local.trail_arn && s.Condition.StringLike["kms:EncryptionContext:aws:cloudtrail:arn"] == "arn:aws:cloudtrail:*:123456789012:trail/inv-sandbox-123456789012-ap-northeast-1-state"
     )])
     error_message = "CloudTrail delivery must be bound to its exact source ARN, account path and separate audit key."
   }
@@ -147,7 +147,7 @@ run "audit_delivery" {
       for s in jsondecode(aws_iam_role_policy.audit.policy).Statement : s.Effect == "Allow" && (
         s.Sid == "ListAudit" ? toset(s.Action) == toset(["s3:ListBucket", "s3:ListBucketVersions"]) && s.Resource == [local.audit_bucket_arn] && s.Condition.StringLike["s3:prefix"] == ["${local.log_prefix}*"] :
         s.Sid == "ReadAudit" ? toset(s.Action) == toset(["s3:GetObject", "s3:GetObjectVersion"]) && s.Resource == ["${local.audit_bucket_arn}/${local.log_prefix}*"] :
-        s.Sid == "DecryptAudit" ? s.Action == ["kms:Decrypt"] && s.Resource == [aws_kms_key.audit.arn] && s.Condition.StringEquals["kms:EncryptionContext:aws:cloudtrail:arn"] == local.trail_arn : false
+        s.Sid == "DecryptAudit" ? s.Action == ["kms:Decrypt"] && s.Resource == [aws_kms_key.audit.arn] && s.Condition.StringLike["kms:EncryptionContext:aws:cloudtrail:arn"] == "arn:aws:cloudtrail:*:123456789012:trail/inv-sandbox-123456789012-ap-northeast-1-state" : false
       )
       ]) && alltrue([for s in jsondecode(aws_s3_bucket_policy.audit.policy).Statement :
       s.Sid == "ProtectAuditVersions" ? s.Effect == "Deny" && toset(s.Action) == toset(["s3:DeleteObject", "s3:DeleteObjectVersion"]) && s.Resource == "${local.audit_bucket_arn}/*" :

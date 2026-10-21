@@ -1,14 +1,15 @@
 locals {
-  name             = "inv-${var.environment}-${var.account_id}-${var.region}"
-  state_bucket_arn = "arn:aws:s3:::${local.name}-state"
-  audit_bucket_arn = "arn:aws:s3:::${local.name}-audit"
-  state_key        = "inventory/${var.environment}/${var.region}/host/terraform.tfstate"
-  workspace_prefix = "inventory/${var.environment}/${var.region}/workspaces"
-  state_arn        = "${local.state_bucket_arn}/${local.state_key}"
-  lock_arn         = "${local.state_arn}.tflock"
-  trail_arn        = "arn:aws:cloudtrail:${var.region}:${var.account_id}:trail/${local.name}-state"
-  log_prefix       = "state-audit/AWSLogs/${var.account_id}/"
-  list_prefixes    = [local.state_key, "${local.workspace_prefix}/"]
+  name              = "inv-${var.environment}-${var.account_id}-${var.region}"
+  state_bucket_arn  = "arn:aws:s3:::${local.name}-state"
+  audit_bucket_arn  = "arn:aws:s3:::${local.name}-audit"
+  state_key         = "inventory/${var.environment}/${var.region}/host/terraform.tfstate"
+  workspace_prefix  = "inventory/${var.environment}/${var.region}/workspaces"
+  state_arn         = "${local.state_bucket_arn}/${local.state_key}"
+  lock_arn          = "${local.state_arn}.tflock"
+  trail_arn         = "arn:aws:cloudtrail:${var.region}:${var.account_id}:trail/${local.name}-state"
+  trail_context_arn = "arn:aws:cloudtrail:*:${var.account_id}:trail/${local.name}-state"
+  log_prefix        = "state-audit/AWSLogs/${var.account_id}/"
+  list_prefixes     = [local.state_key, "${local.workspace_prefix}/"]
   key_admin_actions = [
     "kms:DescribeKey", "kms:GetKeyPolicy", "kms:PutKeyPolicy", "kms:EnableKeyRotation",
     "kms:GetKeyRotationStatus", "kms:ListResourceTags", "kms:TagResource", "kms:UntagResource", "kms:UpdateKeyDescription"
@@ -77,7 +78,7 @@ resource "aws_kms_key" "audit" {
     {
       Sid       = "TrailEncrypt", Effect = "Allow", Principal = { Service = "cloudtrail.amazonaws.com" },
       Action    = ["kms:GenerateDataKey*"], Resource = "*",
-      Condition = { StringEquals = { "aws:SourceArn" = local.trail_arn, "kms:EncryptionContext:aws:cloudtrail:arn" = local.trail_arn } }
+      Condition = { StringEquals = { "aws:SourceArn" = local.trail_arn }, StringLike = { "kms:EncryptionContext:aws:cloudtrail:arn" = local.trail_context_arn } }
     },
     {
       Sid    = "TrailDescribe", Effect = "Allow", Principal = { Service = "cloudtrail.amazonaws.com" },
@@ -86,7 +87,7 @@ resource "aws_kms_key" "audit" {
     {
       Sid       = "AuditRead", Effect = "Allow", Principal = { AWS = var.roles.audit },
       Action    = ["kms:Decrypt"], Resource = "*",
-      Condition = { StringEquals = { "kms:ViaService" = "s3.${var.region}.amazonaws.com", "kms:EncryptionContext:aws:cloudtrail:arn" = local.trail_arn } }
+      Condition = { StringEquals = { "kms:ViaService" = "s3.${var.region}.amazonaws.com" }, StringLike = { "kms:EncryptionContext:aws:cloudtrail:arn" = local.trail_context_arn } }
     }
   ] })
   bypass_policy_lockout_safety_check = false
