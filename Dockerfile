@@ -18,6 +18,7 @@ RUN --mount=type=cache,target=/root/.m2,sharing=locked \
 FROM eclipse-temurin:17-jre-noble@sha256:900322f4cc1b9da9d730ae4bb56d8a1dabbaa9cfa32809fc8b542b600370a045 AS runtime
 # Published Ubuntu security fixes newer than the base image; exact versions, no blanket upgrade.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl=8.5.0-2ubuntu10.16 libcurl4t64=8.5.0-2ubuntu10.16 \
     libfreetype6=2.13.2+dfsg-1ubuntu0.2 libpng16-16t64=1.6.43-5ubuntu0.7 && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* && \
     rm -f /var/log/apt/history.log /var/log/apt/term.log /var/log/dpkg.log

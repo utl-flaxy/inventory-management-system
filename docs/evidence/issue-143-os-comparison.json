@@ -1,0 +1,908 @@
+{
+  "issue": 143,
+  "date": "2026-10-21",
+  "platform": "linux/amd64",
+  "baseline_main": "96b423e2d17b801ac89e28d0320027832b3077a0",
+  "main_ci": "https://github.com/utl-flaxy/inventory-management-system/actions/runs/39549981382",
+  "scanner": {
+    "scanner": "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa",
+    "files": {
+      "db/metadata.json": "d88252dba1e1dd4372595a157e86b5fbd5442619992009a1c87c63ef1fcaf5aa",
+      "db/trivy.db": "cebd71da82277c10d5b659c90546bd52613a66b30ab83d144433f896dc249fa8",
+      "java-db/metadata.json": "d51c8c3aea07ab909ecf5d3388cfd7d7a21dd8a53312f5e5115e52a4aec8cda0",
+      "java-db/trivy-java.db": "66022df1cadd2f6ce89faa3db79eb485a1c4fe095cff3662bf4e67186de6f7ab"
+    },
+    "metadata": {
+      "db": {
+        "Version": 2,
+        "NextUpdate": "2026-10-22T07:13:45.702546867Z",
+        "UpdatedAt": "2026-10-21T07:13:45.702547343Z",
+        "DownloadedAt": "2026-10-21T09:11:26.352654894Z"
+      },
+      "java-db": {
+        "Version": 1,
+        "NextUpdate": "2026-10-24T01:09:45.346257739Z",
+        "UpdatedAt": "2026-10-21T01:09:45.346257859Z",
+        "DownloadedAt": "2026-10-21T09:13:23.447682273Z"
+      }
+    }
+  },
+  "comparison": {
+    "baseline": {
+      "image_id": "sha256:bf0dceddc01d1fed7ac740d14a6f7e0bea5983dda20db94c74e9e7313b17317b",
+      "bytes": 509237635,
+      "created_at": "2026-10-21T09:13:24.616632456Z",
+      "trivy": {
+        "Version": "0.75.0"
+      },
+      "count": 49,
+      "severity": {
+        "LOW": 22,
+        "MEDIUM": 27
+      },
+      "unfixed": 31,
+      "unique_cve": 33,
+      "package_changes": {}
+    },
+    "narrow": {
+      "image_id": "sha256:a96c5ff98d3dfb678ebc2e9f1c649752cfcd5a020611c9b641bc10fbc9181f8c",
+      "bytes": 510964114,
+      "created_at": "2026-10-21T09:13:58.791039642Z",
+      "trivy": {
+        "Version": "0.75.0"
+      },
+      "count": 31,
+      "severity": {
+        "MEDIUM": 27,
+        "LOW": 4
+      },
+      "unfixed": 31,
+      "unique_cve": 24,
+      "removed": [
+        [
+          "curl",
+          "CVE-2026-86409"
+        ],
+        [
+          "curl",
+          "CVE-2026-86414"
+        ],
+        [
+          "curl",
+          "CVE-2026-87862"
+        ],
+        [
+          "curl",
+          "CVE-2026-87863"
+        ],
+        [
+          "curl",
+          "CVE-2026-87864"
+        ],
+        [
+          "curl",
+          "CVE-2026-92388"
+        ],
+        [
+          "curl",
+          "CVE-2026-92389"
+        ],
+        [
+          "curl",
+          "CVE-2026-92391"
+        ],
+        [
+          "curl",
+          "CVE-2026-94266"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-86409"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-86414"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-87862"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-87863"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-87864"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-92388"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-92389"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-92391"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-94266"
+        ]
+      ],
+      "added": [],
+      "package_changes": {
+        "curl": {
+          "before": "8.5.0-2ubuntu10.15",
+          "after": "8.5.0-2ubuntu10.16"
+        },
+        "libcurl4t64:amd64": {
+          "before": "8.5.0-2ubuntu10.15",
+          "after": "8.5.0-2ubuntu10.16"
+        }
+      }
+    },
+    "refreshed": {
+      "image_id": "sha256:1b34ad94aea565a01aade29634cbfacc1d0c964f1a2e36c67eeb1468a68d3e82",
+      "bytes": 498158107,
+      "created_at": "2026-10-21T09:14:30.84662135Z",
+      "trivy": {
+        "Version": "0.75.0"
+      },
+      "count": 31,
+      "severity": {
+        "MEDIUM": 27,
+        "LOW": 4
+      },
+      "unfixed": 31,
+      "unique_cve": 24,
+      "removed": [
+        [
+          "curl",
+          "CVE-2026-86409"
+        ],
+        [
+          "curl",
+          "CVE-2026-86414"
+        ],
+        [
+          "curl",
+          "CVE-2026-87862"
+        ],
+        [
+          "curl",
+          "CVE-2026-87863"
+        ],
+        [
+          "curl",
+          "CVE-2026-87864"
+        ],
+        [
+          "curl",
+          "CVE-2026-92388"
+        ],
+        [
+          "curl",
+          "CVE-2026-92389"
+        ],
+        [
+          "curl",
+          "CVE-2026-92391"
+        ],
+        [
+          "curl",
+          "CVE-2026-94266"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-86409"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-86414"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-87862"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-87863"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-87864"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-92388"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-92389"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-92391"
+        ],
+        [
+          "libcurl4t64",
+          "CVE-2026-94266"
+        ]
+      ],
+      "added": [],
+      "package_changes": {
+        "curl": {
+          "before": "8.5.0-2ubuntu10.15",
+          "after": "8.5.0-2ubuntu10.16"
+        },
+        "libaudit-common": {
+          "before": "1:3.1.2-2.1build1.1",
+          "after": "1:3.1.2-2.1ubuntu0.1"
+        },
+        "libaudit1:amd64": {
+          "before": "1:3.1.2-2.1build1.1",
+          "after": "1:3.1.2-2.1ubuntu0.1"
+        },
+        "libcurl4t64:amd64": {
+          "before": "8.5.0-2ubuntu10.15",
+          "after": "8.5.0-2ubuntu10.16"
+        },
+        "tzdata": {
+          "before": "2026c-0ubuntu0.24.04.1",
+          "after": "2026e-0ubuntu0.24.04.1"
+        }
+      }
+    }
+  },
+  "baseline_findings": [
+    {
+      "package": "curl",
+      "cve": "CVE-2026-86409",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-86409",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-86414",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-86414",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-87862",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-87862",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-87863",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-87863",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-87864",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-87864",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-92388",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-92388",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-92389",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-92389",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-92391",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-92391",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "curl",
+      "cve": "CVE-2026-94266",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-94266",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "dash",
+      "cve": "CVE-2026-102473",
+      "installed": "0.5.12-6ubuntu5",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "dash",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-102473",
+      "candidate_installed": "0.5.12-6ubuntu5"
+    },
+    {
+      "package": "dash",
+      "cve": "CVE-2026-102474",
+      "installed": "0.5.12-6ubuntu5",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "dash",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-102474",
+      "candidate_installed": "0.5.12-6ubuntu5"
+    },
+    {
+      "package": "libc-bin",
+      "cve": "CVE-2026-18374",
+      "installed": "2.39-0ubuntu8.9",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "glibc",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-18374",
+      "candidate_installed": "2.39-0ubuntu8.9"
+    },
+    {
+      "package": "libc-bin",
+      "cve": "CVE-2026-89092",
+      "installed": "2.39-0ubuntu8.9",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "glibc",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89092",
+      "candidate_installed": "2.39-0ubuntu8.9"
+    },
+    {
+      "package": "libc6",
+      "cve": "CVE-2026-18374",
+      "installed": "2.39-0ubuntu8.9",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "glibc",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-18374",
+      "candidate_installed": "2.39-0ubuntu8.9"
+    },
+    {
+      "package": "libc6",
+      "cve": "CVE-2026-89092",
+      "installed": "2.39-0ubuntu8.9",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "glibc",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89092",
+      "candidate_installed": "2.39-0ubuntu8.9"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-86409",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-86409",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-86414",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-86414",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-87862",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-87862",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-87863",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-87863",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-87864",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-87864",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-92388",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-92388",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-92389",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-92389",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-92391",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-92391",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libcurl4t64",
+      "cve": "CVE-2026-94266",
+      "installed": "8.5.0-2ubuntu10.15",
+      "fixed": "8.5.0-2ubuntu10.16",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "curl",
+      "ubuntu_noble_status": "Fixed in 8.5.0-2ubuntu10.16",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-94266",
+      "candidate_installed": "8.5.0-2ubuntu10.16"
+    },
+    {
+      "package": "libexpat1",
+      "cve": "CVE-2025-66382",
+      "installed": "2.6.1-2ubuntu0.6",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "expat",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2025-66382",
+      "candidate_installed": "2.6.1-2ubuntu0.6"
+    },
+    {
+      "package": "libgnutls30t64",
+      "cve": "CVE-2026-67693",
+      "installed": "3.8.3-1.1ubuntu3.6",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "gnutls28",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-67693",
+      "candidate_installed": "3.8.3-1.1ubuntu3.6"
+    },
+    {
+      "package": "libgnutls30t64",
+      "cve": "CVE-2026-88647",
+      "installed": "3.8.3-1.1ubuntu3.6",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "gnutls28",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-88647",
+      "candidate_installed": "3.8.3-1.1ubuntu3.6"
+    },
+    {
+      "package": "libgnutls30t64",
+      "cve": "CVE-2026-95184",
+      "installed": "3.8.3-1.1ubuntu3.6",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "gnutls28",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-95184",
+      "candidate_installed": "3.8.3-1.1ubuntu3.6"
+    },
+    {
+      "package": "libgnutls30t64",
+      "cve": "CVE-2026-95209",
+      "installed": "3.8.3-1.1ubuntu3.6",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "gnutls28",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-95209",
+      "candidate_installed": "3.8.3-1.1ubuntu3.6"
+    },
+    {
+      "package": "libgnutls30t64",
+      "cve": "CVE-2026-95210",
+      "installed": "3.8.3-1.1ubuntu3.6",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "gnutls28",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-95210",
+      "candidate_installed": "3.8.3-1.1ubuntu3.6"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "cve": "CVE-2026-103111",
+      "installed": "10.42-4ubuntu2.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "pcre2",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-103111",
+      "candidate_installed": "10.42-4ubuntu2.1"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "cve": "CVE-2026-86145",
+      "installed": "10.42-4ubuntu2.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "pcre2",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-86145",
+      "candidate_installed": "10.42-4ubuntu2.1"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "cve": "CVE-2026-89156",
+      "installed": "10.42-4ubuntu2.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "pcre2",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89156",
+      "candidate_installed": "10.42-4ubuntu2.1"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "cve": "CVE-2026-89157",
+      "installed": "10.42-4ubuntu2.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "pcre2",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89157",
+      "candidate_installed": "10.42-4ubuntu2.1"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "cve": "CVE-2026-89158",
+      "installed": "10.42-4ubuntu2.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "pcre2",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89158",
+      "candidate_installed": "10.42-4ubuntu2.1"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "cve": "CVE-2026-89160",
+      "installed": "10.42-4ubuntu2.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "pcre2",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89160",
+      "candidate_installed": "10.42-4ubuntu2.1"
+    },
+    {
+      "package": "libpcre2-8-0",
+      "cve": "CVE-2026-89161",
+      "installed": "10.42-4ubuntu2.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "pcre2",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89161",
+      "candidate_installed": "10.42-4ubuntu2.1"
+    },
+    {
+      "package": "libsasl2-2",
+      "cve": "CVE-2026-107161",
+      "installed": "2.1.28+dfsg1-5ubuntu3.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "cyrus-sasl2",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-107161",
+      "candidate_installed": "2.1.28+dfsg1-5ubuntu3.1"
+    },
+    {
+      "package": "libsasl2-modules-db",
+      "cve": "CVE-2026-107161",
+      "installed": "2.1.28+dfsg1-5ubuntu3.1",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "cyrus-sasl2",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-107161",
+      "candidate_installed": "2.1.28+dfsg1-5ubuntu3.1"
+    },
+    {
+      "package": "libsystemd0",
+      "cve": "CVE-2026-40228",
+      "installed": "255.4-1ubuntu8.17",
+      "fixed": "",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "systemd",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-40228",
+      "candidate_installed": "255.4-1ubuntu8.17"
+    },
+    {
+      "package": "libudev1",
+      "cve": "CVE-2026-40228",
+      "installed": "255.4-1ubuntu8.17",
+      "fixed": "",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "systemd",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-40228",
+      "candidate_installed": "255.4-1ubuntu8.17"
+    },
+    {
+      "package": "locales",
+      "cve": "CVE-2026-18374",
+      "installed": "2.39-0ubuntu8.9",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "glibc",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-18374",
+      "candidate_installed": "2.39-0ubuntu8.9"
+    },
+    {
+      "package": "locales",
+      "cve": "CVE-2026-89092",
+      "installed": "2.39-0ubuntu8.9",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "glibc",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-89092",
+      "candidate_installed": "2.39-0ubuntu8.9"
+    },
+    {
+      "package": "login",
+      "cve": "CVE-2024-56433",
+      "installed": "1:4.13+dfsg1-4ubuntu3.2",
+      "fixed": "",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "shadow",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2024-56433",
+      "candidate_installed": "1:4.13+dfsg1-4ubuntu3.2"
+    },
+    {
+      "package": "passwd",
+      "cve": "CVE-2024-56433",
+      "installed": "1:4.13+dfsg1-4ubuntu3.2",
+      "fixed": "",
+      "severity": "LOW",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "shadow",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2024-56433",
+      "candidate_installed": "1:4.13+dfsg1-4ubuntu3.2"
+    },
+    {
+      "package": "tar",
+      "cve": "CVE-2026-18477",
+      "installed": "1.35+dfsg-3ubuntu0.4",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "tar",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-18477",
+      "candidate_installed": "1.35+dfsg-3ubuntu0.4"
+    },
+    {
+      "package": "tar",
+      "cve": "CVE-2026-18508",
+      "installed": "1.35+dfsg-3ubuntu0.4",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "tar",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-18508",
+      "candidate_installed": "1.35+dfsg-3ubuntu0.4"
+    },
+    {
+      "package": "wget",
+      "cve": "CVE-2021-31879",
+      "installed": "1.21.4-1ubuntu4.5",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "wget",
+      "ubuntu_noble_status": "Vulnerable, fix deferred",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2021-31879",
+      "candidate_installed": "1.21.4-1ubuntu4.5"
+    },
+    {
+      "package": "zlib1g",
+      "cve": "CVE-2026-85091",
+      "installed": "1:1.3.dfsg-3.1ubuntu2.2",
+      "fixed": "",
+      "severity": "MEDIUM",
+      "source": "ubuntu",
+      "kind": "os-pkgs",
+      "source_package": "zlib",
+      "ubuntu_noble_status": "Vulnerable",
+      "ubuntu_cve_url": "https://ubuntu.com/security/CVE-2026-85091",
+      "candidate_installed": "1:1.3.dfsg-3.1ubuntu2.2"
+    }
+  ],
+  "all_findings_visible": true,
+  "production_operations": false,
+  "jwt_individual_revocation_implemented": false,
+  "runtime_base_retained": "sha256:900322f4cc1b9da9d730ae4bb56d8a1dabbaa9cfa32809fc8b542b600370a045",
+  "refreshed_base_not_adopted": {
+    "index": "sha256:07fa0356cf354c5252947575f42ed42aa6fd921f36438b7bc77ad81c31c537dd",
+    "amd64": "sha256:e7ee15413d334217ca732978500b310e1a0bb8a5e54d9b6dd12509f636cda99e",
+    "source_commit": "511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07"
+  }
+}
