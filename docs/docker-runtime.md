@@ -1,5 +1,15 @@
 # Docker runtime・再現性・メモリ設計 — Issue #76
 
+## Issue #143のOS package更新（2026-10-21）
+
+main `96b423e2d17b801ac89e28d0320027832b3077a0`のOS49件を全件照合した。
+既存JRE17/Nobleのdigestとfreetype/png固定版を維持し、curl/libcurl4t64だけを
+`8.5.0-2ubuntu10.16`へ完全版固定で更新する。同一Trivy scanner/DBで
+**OS49（MEDIUM27/LOW22）→31（MEDIUM27/LOW4）、library0、新規finding0**。
+全台帳、公式配布根拠、採用しなかった公式JRE候補とDB hashは[比較監査](audit/2026-10-21-os-package-remediation.md)を参照。
+以下のOS49や旧snapshotは過去の証跡として保持する。新HEADの回帰結果は当該PR/CIで別に確認する。
+Trivyはaudit-onlyを維持し、残31件・Flyway WARN・同一image設定復帰に限るrollback・本番NO GOを保持する。
+
 ## B3の動的検証境界
 
 [harness](../scripts/docker/verify_image.py)はV1〜V9、元の9業務段階とB1/B2に加えADMIN再認証付き強制失効・自己失効を検証する。
