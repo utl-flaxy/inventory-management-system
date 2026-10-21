@@ -116,6 +116,10 @@ class TerraformSafetyTest(unittest.TestCase):
             self.assertEqual("", Path(env["AWS_CONFIG_FILE"]).read_text(encoding="utf-8"))
 
     def test_mutation_must_fail_an_assertion_not_a_scanner_error(self):
+        for output in (b"Success! 0 passed, 0 failed.", b"Success! 26 passed, 0 failed.", b"incomplete"):
+            with patch.object(offline.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, output, b"")):
+                with self.assertRaises(gates.OperationalError):
+                    offline.terraform(Path("."), ["test"], {}, expected_tests=27)
         for code, output in ((0, b"Success!"), (1, b"Provider error"), (2, b"Test assertion failed")):
             with patch.object(offline.subprocess, "run", return_value=subprocess.CompletedProcess([], code, output, b"")):
                 with self.assertRaises(gates.OperationalError):

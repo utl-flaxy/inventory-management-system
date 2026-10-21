@@ -76,7 +76,7 @@ def safe_environment(directory):
     return env
 
 
-def terraform(directory, arguments, env, expected_failure=False):
+def terraform(directory, arguments, env, expected_failure=False, expected_tests=None):
     result = subprocess.run(["terraform", *arguments], cwd=directory, env=env, capture_output=True, timeout=180)
     output = (result.stdout + result.stderr).decode("utf-8", errors="replace")
     for line in output.splitlines():
@@ -89,6 +89,10 @@ def terraform(directory, arguments, env, expected_failure=False):
         # Inputs and output here are exclusively exported source/synthetic mocks.
         print(output[-9000:], flush=True)
         raise gates.OperationalError("Offline Terraform command failed")
+    elif expected_tests is not None:
+        counts = re.search(r"Success!\s+(\d+) passed, (\d+) failed\.", output)
+        if not counts or tuple(map(int, counts.groups())) != (expected_tests, 0):
+            raise gates.OperationalError("Offline test coverage is missing or below the required exact baseline")
 
 
 def main():
@@ -107,7 +111,7 @@ def main():
                 terraform(directory, ["fmt", "-check", "-recursive"], env)
                 terraform(directory, ["init", "-backend=false", "-input=false", "-lockfile=readonly"], env)
                 terraform(directory, ["validate", "-no-color"], env)
-                terraform(directory, ["test", "-no-color"], env)
+                terraform(directory, ["test", "-no-color"], env, expected_tests=27 if name == "terraform" else 14)
             bootstrap = source / "terraform-bootstrap"
             mutations = [
                 ("iam.tf", 'Action = ["s3:GetObject", "s3:PutObject"], Resource = [local.state_arn]',
