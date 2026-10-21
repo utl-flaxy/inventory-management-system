@@ -117,6 +117,10 @@ Swagger UIはprodで無効です。local開発設定は[設定文書](docs/confi
 先頭runの対象SHAが[main HEAD](https://github.com/utl-flaxy/inventory-management-system/commits/main/)と一致するか、必須5ジョブがすべてcompleted/successかを確認します。
 新しいrunが未完了・失敗なら、下の過去の成功を現在の成功へ読み替えません。PRのCIはPR本文で別に確認します。
 
+依存監査の[2026-10-21追補](docs/audit/2026-10-21-dependency-rebaseline-supplement.md)では、
+旧Boot3.5のJava advisory66件と、main `7d10cca` のOSV169 components/0件・Trivy OS31件を区別しています。
+Boot4のソース採用済みと本番導入・復旧・異版rollback未検証も別に判定します。以下の10月18日snapshotは当時の記録として保持します。
+
 ### 監査基準snapshot（2026-10-18 UTC確認）
 
 以下はmain **`0614d7d306fed5a3ec43ba7a7502b8bf7e65f3ed`**（PR #131 merge後）の
