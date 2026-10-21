@@ -154,6 +154,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
 - Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。S3/RDS/Redisは将来拡張で、現行の完成判定へ含めません。
   [remote state ADR](docs/design/terraform-remote-state.md)に従うS3部分設定と[独立bootstrap root](terraform-bootstrap/README.md)を静的実装しています。実AWSでのbackend作成・移行・IAM/排他/復旧は未検証です。[移行・復旧手順](docs/operations/terraform-remote-state.md)は別承認が必要で、Issue #75はOPENです。
+  [AWS無接続のsynthetic検証と拒否ゲート](terraform-sandbox-tests/README.md)を追加しています。B01〜B14は未承認、実TF-CはBLOCKEDで、CI成功はAWS実行許可を意味しません。
 
 詳細: [Docker/メモリ](docs/docker-runtime.md)、[TLS](docs/tls.md)、[Terraform](terraform/README.md)、[配備/rollback](docs/deployment.md)、[監査状況](docs/release-status.md)。
 

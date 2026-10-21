@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "mode": "offline-only",
+  "gates": {
+    "B01": "BLOCKED", "B02": "BLOCKED", "B03": "BLOCKED", "B04": "BLOCKED",
+    "B05": "BLOCKED", "B06": "BLOCKED", "B07": "BLOCKED", "B08": "BLOCKED",
+    "B09": "BLOCKED", "B10": "BLOCKED", "B11": "BLOCKED", "B12": "BLOCKED",
+    "B13": "BLOCKED", "B14": "BLOCKED"
+  },
+  "tests": {
+    "T01": "NOT_RUN", "T02": "NOT_RUN", "T03": "NOT_RUN", "T04": "NOT_RUN",
+    "T05": "NOT_RUN", "T06": "NOT_RUN", "T07": "NOT_RUN", "T08": "NOT_RUN",
+    "T09": "NOT_RUN", "T10": "NOT_RUN", "T11": "NOT_RUN", "T12": "NOT_RUN",
+    "T13": "NOT_RUN", "T14": "NOT_RUN", "T15": "NOT_RUN", "T16": "NOT_RUN", "T17": "NOT_RUN"
+  },
+  "unresolved": {"C01": "BLOCKED", "C02": "BLOCKED", "C05": "BLOCKED"}
+}
