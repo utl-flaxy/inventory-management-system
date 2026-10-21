@@ -32,6 +32,14 @@ resource "aws_iam_role_policy" "operator" {
   policy = jsonencode({ Version = "2012-10-17", Statement = local.operator_statements })
 }
 
+# Migration uses a separately approved short session, without historical version
+# reads. Its state access is otherwise identical to the ordinary backend client.
+resource "aws_iam_role_policy" "migration" {
+  name   = "inventory-state-migration-${var.environment}"
+  role   = reverse(split("/", var.roles.migration))[0]
+  policy = jsonencode({ Version = "2012-10-17", Statement = local.operator_statements })
+}
+
 resource "aws_iam_role_policy" "recovery" {
   name = "inventory-state-recovery-${var.environment}"
   role = reverse(split("/", var.roles.recovery))[0]

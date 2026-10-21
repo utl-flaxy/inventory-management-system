@@ -38,6 +38,7 @@ variables {
   roles = {
     management = "arn:aws:iam::123456789012:role/inventory-sandbox-state-management"
     operator   = "arn:aws:iam::123456789012:role/inventory-sandbox-state-operator"
+    migration  = "arn:aws:iam::123456789012:role/inventory-sandbox-state-migration"
     recovery   = "arn:aws:iam::123456789012:role/inventory-sandbox-state-recovery"
     audit      = "arn:aws:iam::123456789012:role/inventory-sandbox-state-audit"
   }
@@ -86,7 +87,7 @@ run "state_resource_policy" {
       s.Sid == "NoPermanentLockDeletion" ? s.Resource == [local.lock_arn] && s.Action == ["s3:DeleteObjectVersion"] :
       s.Sid == "RequireApprovedKey" ? s.Condition.StringNotEquals["s3:x-amz-server-side-encryption-aws-kms-key-id"] == aws_kms_key.state.arn :
       s.Sid == "RequireKms" ? s.Condition.StringNotEquals["s3:x-amz-server-side-encryption"] == "aws:kms" :
-      s.Sid == "StateRolesOnly" ? toset(s.Condition.ArnNotEquals["aws:PrincipalArn"]) == toset([var.roles.operator, var.roles.recovery]) && toset(s.Action) == toset(["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:DeleteObject"]) && toset(s.Resource) == toset([local.state_arn, local.lock_arn]) :
+      s.Sid == "StateRolesOnly" ? toset(s.Condition.ArnNotEquals["aws:PrincipalArn"]) == toset([var.roles.operator, var.roles.migration, var.roles.recovery]) && toset(s.Action) == toset(["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:DeleteObject"]) && toset(s.Resource) == toset([local.state_arn, local.lock_arn]) :
       s.Condition.Bool == { "aws:SecureTransport" = "false", "aws:PrincipalIsAWSService" = "false" }
     ])
     error_message = "State policy must reject deletion, wrong encryption/key/principal and non-TLS, while preserving ordinary unlock."
@@ -99,7 +100,7 @@ run "recovery_separation" {
     condition = length(jsondecode(aws_iam_role_policy.recovery.policy).Statement) == length(local.operator_statements) + 2 && alltrue([
       for s in jsondecode(aws_iam_role_policy.recovery.policy).Statement : s.Sid == "ReadStateVersion" ? s.Action == ["s3:GetObjectVersion"] && s.Resource == [local.state_arn] :
       s.Sid == "ListStateVersions" ? s.Action == ["s3:ListBucketVersions"] && s.Resource == [local.state_bucket_arn] && s.Condition.StringEquals["s3:prefix"] == [local.state_key] : contains(local.operator_statements, s)
-    ]) && aws_iam_role_policy.operator.role != aws_iam_role_policy.recovery.role && aws_iam_role_policy.audit.role != aws_iam_role_policy.operator.role
+    ]) && aws_iam_role_policy.migration.policy == aws_iam_role_policy.operator.policy && aws_iam_role_policy.migration.role != aws_iam_role_policy.operator.role && aws_iam_role_policy.migration.role != aws_iam_role_policy.recovery.role && aws_iam_role_policy.operator.role != aws_iam_role_policy.recovery.role && aws_iam_role_policy.audit.role != aws_iam_role_policy.operator.role
     error_message = "Recovery adds only bounded version listing/read, with different pre-existing roles and no permanent deletion."
   }
 }
@@ -113,7 +114,7 @@ run "key_separation" {
         toset(s.Action) == toset(local.key_admin_actions) && !contains(s.Action, "kms:Decrypt") && !contains(s.Action, "kms:ScheduleKeyDeletion"))
       ])
       ]) && alltrue([for s in jsondecode(aws_kms_key.state.policy).Statement : s.Sid != "StateUse" || (
-        toset(s.Principal.AWS) == toset([var.roles.operator, var.roles.recovery]) && s.Condition == local.state_kms_condition
+        toset(s.Principal.AWS) == toset([var.roles.operator, var.roles.migration, var.roles.recovery]) && s.Condition == local.state_kms_condition
     )])
     error_message = "State/log keys, key administration and decrypt roles must remain separate, with rotation and policy-lockout checks."
   }
@@ -201,6 +202,7 @@ run "shared_roles" {
     roles = {
       management = "arn:aws:iam::123456789012:role/inventory-sandbox-state-operator"
       operator   = "arn:aws:iam::123456789012:role/inventory-sandbox-state-operator"
+      migration  = "arn:aws:iam::123456789012:role/inventory-sandbox-state-migration"
       recovery   = "arn:aws:iam::123456789012:role/inventory-sandbox-state-recovery"
       audit      = "arn:aws:iam::123456789012:role/inventory-sandbox-state-audit"
     }

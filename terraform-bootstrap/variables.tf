@@ -29,10 +29,11 @@ variable "environment" {
 }
 
 variable "roles" {
-  description = "Four pre-existing, separately approved roles. Trust/MFA/SSO and provisioning permissions are external prerequisites, not created here."
+  description = "Five pre-existing, separately approved roles. Trust/MFA/SSO and provisioning permissions are external prerequisites, not created here."
   type = object({
     management = string
     operator   = string
+    migration  = string
     recovery   = string
     audit      = string
   })
@@ -40,7 +41,7 @@ variable "roles" {
   validation {
     condition = alltrue([for purpose, arn in var.roles : can(regex(
       "^arn:aws:iam::${var.account_id}:role/([A-Za-z0-9_+=,.@-]+/)*inventory-${var.environment}-state-${purpose}$", arn
-    ))]) && length(distinct(values(var.roles))) == 4
+    ))]) && length(distinct(values(var.roles))) == 5
     error_message = "Roles must be distinct, in the approved account, and named inventory-<environment>-state-<purpose>."
   }
 }

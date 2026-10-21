@@ -125,7 +125,7 @@ hostはS3部分設定のみ。実値入りbackend設定をこのrepositoryへ追
 state/tfvars/private backend/saved plan/credentialのGit混入は、ignoreに加えてSecretゲート/exportのpath検査で拒否する。
 provider lockfileはGitへ保持する。通常init/real plan/apply、backend接続、既存stateの有無確認はこの検証に含まれない。
 
-TF-Cでは既存4 role/trust/MFA・管理用identity policy・SCP・account public blockを承認し、隔離AWS/synthetic stateだけで実効権限・unlock・監査配送・復旧を確認する。
+TF-Cでは既存5 role/trust/MFA・管理用identity policy・SCP・account public blockを承認し、隔離AWS/synthetic stateだけで実効権限・unlock・監査配送・復旧を確認する。
 management roleがkey policyを更新できることと、通常operatorがstateを削除できずlockを解放できることを両方確認する。
 mock成功で本書2〜8節の停止条件を緩めない。実環境値/credentialを含むCLI出力、state/plan/backend cacheはartifactへ保存しない。
 費用・保持・責任者・RPO/RTOが未合意ならTF-C/Dを開始しない。Issue #75はOPEN、本番運用NO GOを継続する。

@@ -62,7 +62,7 @@ resource "aws_kms_key" "state" {
   enable_key_rotation     = true
   deletion_window_in_days = 30
   policy = jsonencode({ Version = "2012-10-17", Statement = [local.key_admin, {
-    Sid    = "StateUse", Effect = "Allow", Principal = { AWS = [var.roles.operator, var.roles.recovery] },
+    Sid    = "StateUse", Effect = "Allow", Principal = { AWS = [var.roles.operator, var.roles.migration, var.roles.recovery] },
     Action = ["kms:Encrypt", "kms:Decrypt", "kms:GenerateDataKey"], Resource = "*", Condition = local.state_kms_condition
   }] })
   # Keep the AWS policy-lockout safety check enabled (provider default false).
@@ -127,7 +127,7 @@ resource "aws_s3_bucket_policy" "state" {
     {
       Sid       = "StateRolesOnly", Effect = "Deny", Principal = "*",
       Action    = ["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:DeleteObject"], Resource = [local.state_arn, local.lock_arn],
-      Condition = { ArnNotEquals = { "aws:PrincipalArn" = [var.roles.operator, var.roles.recovery] } }
+      Condition = { ArnNotEquals = { "aws:PrincipalArn" = [var.roles.operator, var.roles.migration, var.roles.recovery] } }
     },
     {
       Sid       = "RequireKms", Effect = "Deny", Principal = "*", Action = ["s3:PutObject"], Resource = ["${local.state_bucket_arn}/*"],

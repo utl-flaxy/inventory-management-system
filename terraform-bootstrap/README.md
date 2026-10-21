@@ -28,7 +28,7 @@ state Get権限は機密snapshot全体の閲覧権限になる。PR reviewerや�
 
 ## 既存roleを用いる理由と前提
 
-このrootはroleや信頼policyを新設せず、**事前承認済みの4 role**へ限定したinline backend policyを付与する。
+このrootはroleや信頼policyを新設せず、**事前承認済みの5 role**へ限定したinline backend policyを付与する。
 SSO/MFA・短期session・誰がAssumeRoleできるかは組織側の設定と別レビューが必要。
 account全体のrootを信頼する新role、長期access key、CI用OIDC/credentialは追加しない。
 
@@ -36,6 +36,7 @@ account全体のrootを信頼する新role、長期access key、CI用OIDC/creden
 |---|---|
 |`inventory-<environment>-state-management`|bootstrap実行・S3/IAM/trail管理。providerはこのroleをAssumeRoleする。CMK policyの管理権限を持つが直接Decryptは付与しない|
 |`inventory-<environment>-state-operator`|host backendの通常操作。host resource作成用の権限はこのrootに含めない|
+|`inventory-<environment>-state-migration`|移行時だけの承認済み短期session。通常backendと同じGet/Put/lock/List/KMSのみ。過去versionの取得権限は持たない|
 |`inventory-<environment>-state-recovery`|通常操作に加え、state keyのversion一覧/取得。常時利用させず、承認後の短期sessionで運用|
 |`inventory-<environment>-state-audit`|audit prefixの一覧・version取得とaudit CMKの復号。state操作権限なし|
 
@@ -44,7 +45,7 @@ providerにも`allowed_account_ids`を設定する。別account/環境のrole、
 これは入力の整合検査であり、運用者が**正しい環境自体を選択したこと**の証明にはならない。承認票との二者照合が必要。
 
 management roleの**初回provisioning用identity policyとtrust policyは外部前提**。
-対象S3名、二つのCMK、trail、3 roleのinline policyだけを管理できる権限をTF-C前に別レビューする。
+対象S3名、二つのCMK、trail、4 roleのinline policyだけを管理できる権限をTF-C前に別レビューする。
 CMK作成時の実行主体はこのmanagement roleで、key policyのPutKeyPolicy権限を維持する。
 role不在/AssumeRole不能/鍵のpolicy-lockout検査失敗は停止条件であり、検査を無効化しない。
 managementはpolicy変更権限を持つ特権主体であり、将来の権限昇格をこの構成だけで防げるとは主張しない。
