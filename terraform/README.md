@@ -52,6 +52,13 @@ AMIはAWS公式SSM public parameterの現行値を解決するため、後日の
 時点で変わり得る。CLI/provider/Composeを固定しており、完全なimmutable imageではない。
 stateはローカルのままであり、remote backend/state lockingは別Issue。
 
+## Remote state設計（Issue #75 / TF-A）
+
+[ADR](../docs/design/terraform-remote-state.md)と[移行・復旧手順案](../docs/operations/terraform-remote-state.md)は独立レビュー用の提案。
+Terraform1.15.6のS3 native lockfile・暗号化・IAM・bootstrap・移行を設計するが、実backend/resourceは未追加、実AWS/既存stateは未操作。
+上のbackend=false・credentials不要のmock27を維持し、実backend作成・移行・復旧は別承認の後続段階とする。Issue #75はOPEN、本番運用NO GO。
+隔離検証ではGit管理下の`terraform/`に加え、main.tf参照先の`scripts/tls/install-caddy.sh`も相対配置を保ってexportする。既存state/tfvarsは含めない。
+
 ## Network / EC2
 
 - 専用VPC `10.20.0.0/16` にpublic subnet `10.20.1.0/24` を1つ作成する。

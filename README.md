@@ -153,6 +153,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - Flyway/MariaDB12.2互換性WARN、Trivy OS由来49件を開示して継続監査します。負荷・容量・SLA・実secret・TLS・本番backup/restoreは未検証です。
 - Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
 - Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。S3/RDS/Redisは将来拡張で、現行の完成判定へ含めません。
+  [remote state ADR](docs/design/terraform-remote-state.md)と[移行・復旧手順案](docs/operations/terraform-remote-state.md)は設計段階です。実backend・移行・AWS操作は未実施です。
 
 詳細: [Docker/メモリ](docs/docker-runtime.md)、[TLS](docs/tls.md)、[Terraform](terraform/README.md)、[配備/rollback](docs/deployment.md)、[監査状況](docs/release-status.md)。
 
