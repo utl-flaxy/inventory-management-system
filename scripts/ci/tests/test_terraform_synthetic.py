@@ -204,6 +204,19 @@ class SyntheticSafetyTest(unittest.TestCase):
         self.assertEqual("", Path(env["AWS_CONFIG_FILE"]).read_text(encoding="utf-8"))
         self.assertEqual("", Path(env["AWS_SHARED_CREDENTIALS_FILE"]).read_text(encoding="utf-8"))
 
+    def test_environment_names_are_filtered_before_credential_values_are_read(self):
+        class UnreadableCredentials(dict):
+            def __getitem__(self, key):
+                if key.upper().startswith(("AWS_", "TF_", "TFC_", "HCP_")):
+                    raise AssertionError("Credential value must not be read")
+                return super().__getitem__(key)
+
+        names = UnreadableCredentials(AWS_ACCESS_KEY_ID=None, AWS_CONFIG_FILE=None, TF_TOKEN_app_terraform_io=None, PATH="synthetic")
+        with patch.object(os, "environ", names):
+            env = offline.safe_environment(self.root)
+        self.assertEqual("synthetic", env["PATH"])
+        self.assertNotIn("AWS_ACCESS_KEY_ID", env)
+
     def test_extra_source_and_external_provider_lock_are_rejected(self):
         for name in ("extra.tf", ".terraform.lock.hcl", "state.json"):
             path = self.fixture / name

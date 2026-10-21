@@ -75,7 +75,8 @@ def exported_source(root, destination):
 
 
 def safe_environment(directory):
-    env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("AWS_", "TF_", "TFC_", "HCP_"))}
+    # Filter names first; do not even retrieve inherited credential values.
+    env = {k: os.environ[k] for k in os.environ if not k.upper().startswith(("AWS_", "TF_", "TFC_", "HCP_"))}
     empty = directory / "empty-config"
     empty.write_text("", encoding="utf-8")
     cache = directory / "public-provider-cache"
