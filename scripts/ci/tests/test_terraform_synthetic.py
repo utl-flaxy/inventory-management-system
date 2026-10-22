@@ -46,6 +46,33 @@ class SyntheticSafetyTest(unittest.TestCase):
             execute.assert_not_called()
         self.assertEqual("BLOCKED", json.loads(output.getvalue())["decision"])
 
+    def cli(self, arguments, invalid_fixture=False):
+        # A fresh public fixture lets us test the real process exit, including
+        # argparse's implicit exits, without editing the repository fixture.
+        scripts = self.root / "scripts/ci"
+        scripts.mkdir(parents=True, exist_ok=True)
+        for name in ("terraform_preflight.py", "quality_gates.py"):
+            shutil.copyfile(REPO / "scripts/ci" / name, scripts / name)
+        if invalid_fixture:
+            self.write("preflight.public.json", {})
+        return subprocess.run([sys.executable, str(scripts / "terraform_preflight.py"), *arguments],
+                              cwd=self.root, capture_output=True, timeout=10)
+
+    def test_real_cli_blocked_help_and_unsupported_exit_codes(self):
+        for arguments, code in (([], 1), (["-h"], 2), (["--help"], 2),
+                                (["--operation", "apply"], 2), (["--approval-ticket", "synthetic-private-marker"], 2)):
+            with self.subTest(arguments=arguments):
+                result = self.cli(arguments)
+                self.assertEqual(code, result.returncode)
+                self.assertNotIn(b"synthetic-private-marker", result.stdout + result.stderr)
+                if not arguments:
+                    self.assertEqual("BLOCKED", json.loads(result.stdout)["decision"])
+
+    def test_real_cli_invalid_fixture_cannot_succeed_through_help(self):
+        for arguments in ([], ["-h"], ["--help"], ["--allow-cloud"]):
+            with self.subTest(arguments=arguments):
+                self.assertEqual(2, self.cli(arguments, invalid_fixture=True).returncode)
+
     def test_each_unapproved_gate_cannot_be_marked_ready(self):
         for identifier in preflight.GATES:
             document = self.read("preflight.public.json")
@@ -151,6 +178,58 @@ class SyntheticSafetyTest(unittest.TestCase):
             self.write("tests/contracts.tftest.json", document)
             with self.assertRaises(gates.Violation):
                 synthetic.validate(self.fixture)
+
+    def test_each_negative_run_cannot_be_replaced_by_a_passing_positive(self):
+        original = self.read("tests/contracts.tftest.json")
+        for name in ("unknown_label", "empty_label", "negative_sequence", "above_boundary", "fractional_sequence"):
+            document = copy.deepcopy(original)
+            document["run"][name] = copy.deepcopy(original["run"]["defaults"])
+            self.assertEqual(8, len(document["run"]))
+            self.write("tests/contracts.tftest.json", document)
+            with self.subTest(run=name), self.assertRaises(gates.Violation):
+                synthetic.validate(self.fixture)
+
+    def test_run_renames_are_rejected_even_when_eight_runs_remain(self):
+        original = self.read("tests/contracts.tftest.json")
+        for name in original["run"]:
+            document = copy.deepcopy(original)
+            document["run"]["renamed_run"] = document["run"].pop(name)
+            self.assertEqual(8, len(document["run"]))
+            self.write("tests/contracts.tftest.json", document)
+            with self.subTest(run=name), self.assertRaises(gates.Violation):
+                synthetic.validate(self.fixture)
+
+    def test_eight_passing_positives_cannot_replace_all_five_negatives(self):
+        original = self.read("tests/contracts.tftest.json")
+        document = copy.deepcopy(original)
+        for name in ("unknown_label", "empty_label", "negative_sequence", "above_boundary", "fractional_sequence"):
+            document["run"][name] = copy.deepcopy(original["run"]["defaults"])
+        self.assertEqual(8, len(document["run"]))
+        self.write("tests/contracts.tftest.json", document)
+        with self.assertRaises(gates.Violation):
+            synthetic.validate(self.fixture)
+
+    def test_run_inputs_and_expected_failure_variables_cannot_be_changed(self):
+        original = self.read("tests/contracts.tftest.json")
+        for name, run in original["run"].items():
+            document = copy.deepcopy(original)
+            document["run"][name]["variables"] = {} if run.get("variables") else {"sequence": 1}
+            self.write("tests/contracts.tftest.json", document)
+            with self.subTest(run=name, mutation="input"), self.assertRaises(gates.Violation):
+                synthetic.validate(self.fixture)
+            if "expect_failures" in run:
+                document = copy.deepcopy(original)
+                document["run"][name]["expect_failures"] = [
+                    "var.sequence" if run["expect_failures"] == ["var.fixture_label"] else "var.fixture_label"]
+                self.write("tests/contracts.tftest.json", document)
+                with self.subTest(run=name, mutation="expected-variable"), self.assertRaises(gates.Violation):
+                    synthetic.validate(self.fixture)
+            else:
+                document = copy.deepcopy(original)
+                document["run"][name]["expect_failures"] = ["var.sequence"]
+                self.write("tests/contracts.tftest.json", document)
+                with self.subTest(run=name, mutation="positive-as-negative"), self.assertRaises(gates.Violation):
+                    synthetic.validate(self.fixture)
 
     def test_test_expressions_cannot_read_files_or_override_modules(self):
         original = self.read("tests/contracts.tftest.json")

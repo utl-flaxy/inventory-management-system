@@ -9,6 +9,18 @@ import quality_gates as gates
 from terraform_preflight import blocked_record, strict_json
 
 FILES = {"README.md", "backend.tf.json", "main.tf.json", "tests/contracts.tftest.json", "preflight.public.json"}
+# Run identity, exact public input and expected failing variable form one
+# contract. Eight passing runs alone must not erase the five negative cases.
+RUN_CONTRACTS = {
+    "defaults": ({}, None),
+    "separate_fixture": ({"fixture_label": "synthetic-b", "sequence": 1}, None),
+    "upper_boundary": ({"sequence": 2}, None),
+    "unknown_label": ({"fixture_label": "invalid-fixture"}, "var.fixture_label"),
+    "empty_label": ({"fixture_label": ""}, "var.fixture_label"),
+    "negative_sequence": ({"sequence": -1}, "var.sequence"),
+    "above_boundary": ({"sequence": 3}, "var.sequence"),
+    "fractional_sequence": ({"sequence": 0.5}, "var.sequence"),
+}
 
 
 def require(condition):
@@ -47,20 +59,18 @@ def validate(directory):
         require(isinstance(validation["error_message"], str) and validation["error_message"] in {
             "Only public synthetic labels are accepted.", "Use an integer from zero through two."})
     tests = read("tests/contracts.tftest.json")
-    require(isinstance(tests, dict) and set(tests) == {"run"} and isinstance(tests["run"], dict) and len(tests["run"]) == 8)
+    require(isinstance(tests, dict) and set(tests) == {"run"} and isinstance(tests["run"], dict) and set(tests["run"]) == set(RUN_CONTRACTS))
     for name, run in tests["run"].items():
-        require(re.fullmatch(r"[a-z_]+", name) is not None)
+        expected_inputs, expected_failure = RUN_CONTRACTS[name]
         require(isinstance(run, dict) and set(run) <= {"command", "variables", "assert", "expect_failures"})
         require(run.get("command") == "plan")  # Terraform's omitted default is apply.
         inputs = run.get("variables", {})
-        require(isinstance(inputs, dict) and set(inputs) <= {"fixture_label", "sequence"})
-        label = inputs.get("fixture_label", "synthetic-a")
-        require(isinstance(label, str) and label in {"synthetic-a", "synthetic-b", "invalid-fixture", ""})
-        sequence = inputs.get("sequence", 0)
-        require(type(sequence) in {int, float} and sequence in {-1, 0, 0.5, 1, 2, 3})
-        if "expect_failures" in run:
-            require("assert" not in run and run["expect_failures"] in (["var.fixture_label"], ["var.sequence"]))
+        require(isinstance(inputs, dict) and set(inputs) == set(expected_inputs))
+        require(all(type(inputs[key]) is type(value) and inputs[key] == value for key, value in expected_inputs.items()))
+        if expected_failure is not None:
+            require(set(run) == {"command", "variables", "expect_failures"} and run["expect_failures"] == [expected_failure])
         else:
+            require("expect_failures" not in run)
             require(isinstance(run.get("assert"), list) and len(run["assert"]) > 0)
             for assertion in run["assert"]:
                 require(isinstance(assertion, dict) and set(assertion) == {"condition", "error_message"})

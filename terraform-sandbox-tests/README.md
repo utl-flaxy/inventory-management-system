@@ -16,7 +16,7 @@
 - [HashiCorpの仕様](https://developer.hashicorp.com/terraform/language/v1.15.x/resources/terraform-data)に従い外部providerは不要。provider lockfileを持ち込まない。host/bootstrapは既存の同一review済みAWS provider lockを維持する。
 - [backend.tf.json](backend.tf.json)はS3部分設定の`use_lockfile=true`と`encrypt=true`のみ。実bucket/key/region/role/credentialを埋めない。これだけではremote initできない。
 - mainはJSON HCL。入力は公開dummy labelと0〜2の整数だけ。認証情報、既存stateや業務データを入力しない。
-- [8テスト](tests/contracts.tftest.json)は全て明示した`command=plan`。[Terraform testの既定はapply](https://developer.hashicorp.com/terraform/language/tests)なので省略も禁止する。3正常系＋5入力拒否。S3接続もresource stateの保存も行わない。
+- [8テスト](tests/contracts.tftest.json)は全て明示した`command=plan`。[Terraform testの既定はapply](https://developer.hashicorp.com/terraform/language/tests)なので省略も禁止する。3正常系＋5入力拒否のrun名・入力・期待失敗変数を固定し、総数8件を保った置換も拒否する。S3接続もresource stateの保存も行わない。
 - [静的capability検査](../scripts/ci/terraform_synthetic.py)は限定JSON構文のallowlistであり一般HCL parserではない。file関数、外部source、provider、provisioner、別test fileの追加を拒否する。拡張にはコードレビューが必要。
 
 repository rootから次だけを使う。先に変更をGit indexへstageする（exportはworking treeでなくindexが対象）。
@@ -29,6 +29,7 @@ python3 scripts/ci/terraform_preflight.py
 
 Windowsは`python3`を使用するPython 3実行ファイルへ読み替える。
 最後のcommandの**正常な拒否はexit 1 / decision BLOCKED**。入力不正・読取失敗はexit 2で、exit 0 / READY経路はない。
+`-h` / `--help`も未対応引数としてexit 2で拒否する。実CLI subprocessで正規/不正fixtureの終了コードを検証する。
 `|| true`等で実行許可として扱わない。CIは公開拒否記録の静的妥当性と拒否経路を検査して成功する。
 
 offline runnerはGit indexの公開sourceだけを新規tempへexportし、private/generated pathは本文を読む前に拒否する。

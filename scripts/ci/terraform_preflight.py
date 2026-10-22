@@ -50,7 +50,7 @@ def main():
             # argparse's default echoes unknown arguments, which may be private.
             self.exit(2, "preflight: unsupported arguments; cloud execution denied\n")
 
-    parser = PublicParser(description=__doc__)
+    parser = PublicParser(description=__doc__, add_help=False)
     # Deliberately no private approval file, command, operation or override option.
     parser.parse_args()
     path = Path(__file__).resolve().parents[2] / "terraform-sandbox-tests/preflight.public.json"
