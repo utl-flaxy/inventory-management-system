@@ -64,6 +64,8 @@ B10のsource準備が進んでも、実barrier/abort/watchdog、所有者、環�
 
 ### C05の資料上の追加確認（実APIは未実行）
 
+2026-10-23の[固定CLI source / IAM対応表・A/B案の設計追補](../docs/audit/cloudtrail-digest-c05-design-2026-10-23.md)で、下記の確認を詳述する。C05とTF-Cは引き続きBLOCKED。
+
 比較対象を**AWS CLI 2.31.18**に固定してsourceを読む。最新版・本番推奨版の認定ではなく、将来の採用版では再評価する。
 公式tagはcommit **`f4f66e65e70f23f1bf232ecb4a6d8696f4dda3bc`**（GitHub公開tag objectも照合）。CLIのinstall/実行、AWS接続はしない。
 
