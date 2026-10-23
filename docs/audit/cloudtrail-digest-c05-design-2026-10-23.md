@@ -16,7 +16,7 @@ remote init、実plan/apply、既存state・tfvars・secret・本番DB・既存v
 この「オフライン」は**AWS実環境に無接続**の意味。公開資料の取得と通常のCI依存取得までネットワーク不使用だったとは主張しない。
 
 比較対象はAWS CLI **2.31.18**。最新・推奨版の認定ではない。
-[公式tag](https://github.com/aws/aws-cli/releases/tag/2.31.18)のannotated tag object `a0dda1d7449a81d2be6f1a6a669de30452487169`を辿り、commit **`f4f66e65e70f23f1bf232ecb4a6d8696f4dda3bc`**と一致させた。
+[公式tag](https://github.com/aws/aws-cli/tree/2.31.18)のannotated tag object `a0dda1d7449a81d2be6f1a6a669de30452487169`を辿り、commit **`f4f66e65e70f23f1bf232ecb4a6d8696f4dda3bc`**と一致させた。GitHub Releaseの存在を前提としない。
 以下のblob IDは取得bytesからGit blob形式でも再計算し、公式GitHubのcontents応答と照合した。
 
 |固定source|Git blob ID|取得bytesのSHA-256|
@@ -183,6 +183,7 @@ Java 17 full verify、Python68件、Terraform host27＋bootstrap14＋synthetic8�
 通常の品質ゲート成功はAWS認可・配送・暗号検証の受入を代替しない。
 
 Issue #145のWindows起動/証明書/Wait Strategy/DB CLIの根因未確定、#134 jti保留、#86/#87/#89の本番運用条件未達を維持。
-Trivy基準OS31（MEDIUM27/LOW4）、Flyway/MariaDB互換性WARN、異版binary rollback・本番復旧・容量/SLA未検証も残る。
+Trivyの過去基準OS31（MEDIUM27/LOW4）は保存する。今回独立確認した基準mainの[CI run 39930161386](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39930161386)は全5ジョブ成功だが、Trivyは**OS32（MEDIUM28/LOW4）、library0**。直前のPR #151のCI証跡との差分は`libgnutls30t64` `3.8.3-1.1ubuntu3.6`の`CVE-2026-88648`（MEDIUM、修正版表示なし）1件追加、消失0件だった。同じ定義でも監査DBの検出は時点で変わるため31へ固定して報告しない。最終PR HEADの再測定はPR本文に分離する。
+Flyway/MariaDB互換性WARN、異版binary rollback・本番復旧・容量/SLA未検証も残る。
 同image IDによる設定故障復帰を旧binary rollbackの実証にしない。
 PR #103はDraft/OPEN・対象外、Deploy disabled、Issue #75 OPEN、TF-C BLOCKED、**本番運用NO GO**を変更しない。
