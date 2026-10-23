@@ -1,3 +1,30 @@
+# 応募版のテストを再現する — 2026-10-23 / Issue #153
+
+Java17＋Docker daemonでrepository rootから実行する。通常の全回帰は次のコマンドで、unitだけ/対象ITだけをfull verify成功としない。
+
+```bash
+./mvnw verify
+python3 -m unittest discover -s scripts/ci/tests -v
+python3 scripts/ci/terraform_offline.py
+python3 scripts/docker/verify_image.py --scan --output target/portfolio-demo
+```
+
+Windowsは`.\mvnw.cmd`とPython3.12以上の`python`へ読み替える。Terraform runnerはCLI1.15.6をPATHから使用し、Git indexの公開sourceを隔離exportする。手順と実行境界は[synthetic README](../terraform-sandbox-tests/README.md)を参照。
+Dockerは使い捨てMariaDB、Terraformはbackend=false/plan-only mockを使う。既存state/DB/volume・実secret・AWSへ接続しない。
+
+今回確認したmain **`1632db72ebedfdc3cf316c442f199022e253133d`** / [push CI39937244198](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39937244198)は全5ジョブSUCCESS。
+Java **Surefire1,384＋Failsafe986＝2,370、F/E/S 0**、Python **68**、Terraform **27＋14＋8＝49**とmutation拒否 **3**を実ログで照合した。
+Secret例外0/未解決0、SpotBugs SECURITY151 classes/0、OSV169 components/0、Trivy OS32（MEDIUM28/LOW4）/library0、Docker9＋B1/B2/B3・V1〜V9。
+これは日付固定のsnapshot。[現在のmain CI](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)とPR HEADのrunは別に照合する。
+3テーマの対象ITコマンドと実メソッドは[面接用walkthrough](portfolio-walkthrough.md)、全DoD/保証限界は[受入追補](audit/portfolio-application-acceptance-2026-10-23.md)へ。
+
+Windows #145の証明書時刻/Wait strategy/Caddy初回/DB観測CLI初回3失敗は根因未確定。成功で履歴を消さず、skip・retry追加・pool/timeout緩和をしない。
+Flyway WARN、OS32、#134 jti保留、#75 TF-C BLOCKED、異版rollback/実本番復旧未検証、PRODUCTION NO GOを維持する。
+
+## 当時の品質ゲートsnapshotとIssue別の検証記録
+
+以下の元本文は全文保存する。「今回」「現行」、2,176件/29/27/OS49・OS31等は各節の日付/SHAの意味であり、上の10月23日mainを上書きしない。
+
 # テスト品質ゲート
 
 ## B3受入試験（Issue #140、2026-10-19）

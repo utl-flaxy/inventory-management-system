@@ -89,7 +89,7 @@ raw IP/username/password/hash/JWTをログや監査へ出さない。
 [移行・DDL失敗・監査保持・rollback/復元の手順](security/jwt-revocation-migration.md)に従い、
 旧validatorを停止/drain→V7/V8/V9→新binaryのみで再開する。旧binary/旧鍵/古いDB世代への復帰は失効JWTを再受理し得る。
 
-B3 ADMIN強制失効は下記の認証管理APIとして実装。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はOPEN。
+B3 ADMIN強制失効は下記の認証管理APIとして実装。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はB1〜B3適用後CLOSED（2026-10-23確認）。個別jti失効の未実装課題とは分ける。
 [jti個別失効](https://github.com/utl-flaxy/inventory-management-system/issues/134)は別段階。実利用者向けPRODUCTION NO GOを継続する。
 根拠: [claims unit](../src/test/java/com/example/demo/security/JwtRevocationClaimsTest.java)、
 [実HTTP・commit/競合IT](../src/test/java/com/example/demo/security/AuthRevocationIT.java)、

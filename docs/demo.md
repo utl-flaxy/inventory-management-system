@@ -1,5 +1,8 @@
 # 認証からキャンセルまでの隔離Dockerデモ
 
+応募用の見る順番は[3シナリオと実装・テスト](portfolio-walkthrough.md): ①登録/注文/取消、②在庫競合と冪等性、③JWT全端末失効。
+本ページは既存harnessの実行・隔離の詳細。[2026-10-23のmain実測](audit/portfolio-application-acceptance-2026-10-23.md)と、実行したHEADのsummaryを分けて確認する。
+
 ## B3追加デモ（元の9段階＋B1/B2を保持）
 
 使い捨て環境だけで `python scripts/docker/verify_image.py --scan` を実行する。
@@ -80,15 +83,15 @@ JWT未署名・payload/MAC改ざん等6種類の専用検証は[Javaの受入条
 ## 証跡の確認
 
 成功はprocess exit0かつ`target/portfolio-demo/summary.json`の`result=PASS`。
-`demo_steps`の9段階と期待値、`source_revision`、`revision_label`、image ID、`clean_archive_build`、`migrations`、`jwt_revocation`、`rollback`、`image_scan`を確認する。
+`demo_steps`の9段階と期待値、`source_revision`、`revision_label`、image ID、`clean_archive_build`、`migrations`、`jwt_revocation`、`password_change`、`admin_force_revocation`、`rollback`、`image_scan`を確認する。
 `source_dirty`はjob workspace全体の状態であり、trueならその事実を残す。imageの入力がclean archiveであることと区別する。
 初回buildやオンラインDB取得は失敗し得る。失敗をPASSへ置き換えず、その段階を記録する。
 
 ```bash
-python3 -c "import json; p=json.load(open('target/portfolio-demo/summary.json')); print(json.dumps({k:p[k] for k in ('source_revision','result','demo_steps','image_scan')},indent=2))"
+python3 -c "import json; p=json.load(open('target/portfolio-demo/summary.json',encoding='utf-8')); print(json.dumps({k:p[k] for k in ('source_revision','result','demo_steps','migrations','jwt_revocation','password_change','admin_force_revocation','image_scan')},indent=2))"
 ```
 
-このPRで実行したlocalの値を除去した証跡は[demo JSON](evidence/issue-123-demo.json)へ保存する。
+Issue #123当時のlocal証跡は[demo JSON](evidence/issue-123-demo.json)へ保存している。これは歴史snapshotであり、現在のB1/B2/B3実行結果ではない。現在の結果は実行したHEADのsummaryと対応CI artifactを使う。
 最終PR HEADのCIでは同じscriptをfull verify後に実行し、run URLと`docker-validation-<headSHA>/summary.json`をPR本文へ記録する。
 CIがPR merge commitをcheckoutした場合、run headとcheckout SHAを区別してtreeを照合する。
 Java/Python/Terraform/Securityの結果と、localデモ・CIデモの結果は別の証跡として示す。
@@ -104,7 +107,7 @@ DBのID・起動時刻・注文/在庫・ADMIN状態が不変であることを�
 Issue76の旧JDK/root image対照実験は[当時のJSON](audits/issue-76-validation.json)に分け、今回の主張へ流用しない。
 このscriptはapp-only切替操作の実証で、production用deploy.shの全経路を実EC2で検証したものではない。
 
-Trivyはapp runtime imageだけを監査する。OSVのMaven依存監査と別で、OS49等のfindingが残ってもaudit処理は成功し得る。
+Trivyはapp runtime imageだけを監査する。OSVのMaven依存監査と別で、findingが残ってもaudit処理は成功し得る。10月23日の確認はOS32、過去のOS49/OS31は当時のsnapshotとして区別する。
 tool/DB取得/JSON解析エラーは失敗。finding非0の監査成功を脆弱性ゼロとは報告しない。
 DockerのHTTP /readyz成功と、State.Health.Statusのhealthyを明示assertした証拠も区別する。
 公的TLS/DNS、MariaDB/Caddy/host全体のscan、長時間負荷・容量・SLA・本番復旧は未検証。
