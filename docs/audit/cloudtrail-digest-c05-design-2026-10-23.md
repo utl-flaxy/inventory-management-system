@@ -42,12 +42,12 @@ API call名/keyword、Prefix不在、date付きListPublicKeys、previous bucket�
 
 |処理・source箇所|API / IAM action|区分|現在のaudit設定と不整合|
 |---|---|---|---|
-|`S3ClientProvider._get_bucket_region` (L182–189)|S3 GetBucketLocation / `s3:GetBucketLocation`|必須。bucketごとにcache|直接grantなし。GetObjectやListBucketでは代替しない。bucket ARNへの別許可が必要|
-|`DigestProvider.load_digest_keys_in_range` (L265–301)|S3 ListObjects v1 / `s3:ListBucket`|必須。paginatorによる全page、Markerのみ|`ListAudit`は`s3:prefix`のStringLike付き。Prefixなしrequestはこのallow条件と整合しない|
-|`fetch_digest` (L303–325)|S3 GetObject / `s3:GetObject`|必須。本文と署名metadataを同時取得|`ReadAudit`は`state-audit/AWSLogs/<account>/`以下のみ。元のbucket/keyと一致するdigestが対象|
+|`S3ClientProvider._get_bucket_region` (L196–203)|S3 GetBucketLocation / `s3:GetBucketLocation`|必須。bucketごとにcache|直接grantなし。GetObjectやListBucketでは代替しない。bucket ARNへの別許可が必要|
+|`DigestProvider.load_digest_keys_in_range` (L265–298)|S3 ListObjects v1 / `s3:ListBucket`|必須。paginatorによる全page、Markerのみ|`ListAudit`は`s3:prefix`のStringLike付き。Prefixなしrequestはこのallow条件と整合しない|
+|`fetch_digest` (L300–325)|S3 GetObject / `s3:GetObject`|必須。本文と署名metadataを同時取得|`ReadAudit`は`state-audit/AWSLogs/<account>/`以下のみ。元のbucket/keyと一致するdigestが対象|
 |`CloudTrailValidateLogs._download_log` (L910–939)|S3 GetObject / `s3:GetObject`|参照logがある場合に必須|同じReadAudit境界。digestが指す別bucket/prefixを自動で許可しない|
-|`PublicKeyProvider.get_public_keys` ([utils L48–67](https://github.com/aws/aws-cli/blob/f4f66e65e70f23f1bf232ecb4a6d8696f4dda3bc/awscli/customizations/cloudtrail/utils.py#L48-L67))|CloudTrail ListPublicKeys / `cloudtrail:ListPublicKeys`|必須。指定期間と検証regionの署名公開鍵|CloudTrail actionの直接grantなし。KMS鍵の公開鍵取得では代替不可|
-|`create_digest_traverser` (L123–164) → `get_trail_by_arn`|CloudTrail DescribeTrails / `cloudtrail:DescribeTrails`|bucket未指定時のみ|grantなし。引数なしで取得後にARNで絞る。bucketとprefixを承認済みmanifestで明示する案なら、このcallを避けられる|
+|`PublicKeyProvider.get_public_keys` ([utils L58–73](https://github.com/aws/aws-cli/blob/f4f66e65e70f23f1bf232ecb4a6d8696f4dda3bc/awscli/customizations/cloudtrail/utils.py#L58-L73))|CloudTrail ListPublicKeys / `cloudtrail:ListPublicKeys`|必須。指定期間と検証regionの署名公開鍵|CloudTrail actionの直接grantなし。KMS鍵の公開鍵取得では代替不可|
+|`create_digest_traverser` (L84–175) → `get_trail_by_arn`|CloudTrail DescribeTrails / `cloudtrail:DescribeTrails`|bucket未指定時のみ|grantなし。引数なしで取得後にARNで絞る。bucketとprefixを承認済みmanifestで明示する案なら、このcallを避けられる|
 |同functionの`IsOrganizationTrail`分岐|Organizations DescribeOrganization / `organizations:DescribeOrganization`|bucket自動解決かつorganization trailのみ|TF-Bは通常trail。今回不要。organization対応を主張せず、判明したら別審査|
 |SSE-KMS objectのGetに伴うS3側処理|KMS Decrypt / `kms:Decrypt`|暗号化objectの読取に必要。validatorからの直接KMS callは0|`DecryptAudit`とaudit keyの`AuditRead`あり。指定CMK/S3 ViaService/trail context限定。実context一致・復号は未実証|
 |version取得、bucket一覧、書込、管理|ListObjectVersions/GetObjectVersion、ListBuckets、Put/Delete、KMS Encrypt/GenerateDataKey/Sign/Verify等|このvalidatorの読取pathには不要|既存version読取権限は復旧/証拠審査と分離して評価。digest検証を理由に追加しない。CloudTrail配送側のGenerateDataKey/DescribeKeyとは主体が異なる|
@@ -74,13 +74,13 @@ TF-Bのaudit CMKはbucketと同region、Bucket Keys無効、ViaServiceは**S3 bu
 
 |観点|固定sourceから確認した範囲|未実証・後続の受入条件|
 |---|---|---|
-|原位置とdigest署名|`_load_and_validate_digest` L572–605でbucket/key一致とfingerprintを確認。`Sha256RSADigestValidator` L626–678で膨張後bytesのSHA-256を含む署名対象とRSA PKCS#1 v1.5 SHA-256を使用|本物の署名・改ざん・移動・metadata欠落による拒否は未実行。JSONの再serializeやgzip bytes自体のhashと取り違えない|
+|原位置とdigest署名|`_load_and_validate_digest` L573–605でbucket/key一致とfingerprintを確認。`Sha256RSADigestValidator` L626–678で膨張後bytesのSHA-256を含む署名対象とRSA PKCS#1 v1.5 SHA-256を使用|本物の署名・改ざん・移動・metadata欠落による拒否は未実行。JSONの再serializeやgzip bytes自体のhashと取り違えない|
 |log完全性|`_download_log`はgzip展開後のlogをstream hashし、digest内のhashValueと比較。不存在・不正format/hashをinvalidに数える|対象は**digestが参照したlogだけ**。未配送eventやtrail開始前/停止中のevent全件を証明しない|
 |連鎖と鍵rotate|previousDigestS3Bucket/Objectを遡り各digestを検証。公開鍵は指定期間のfingerprint辞書。署名対象はpreviousDigestSignatureを含む|previousDigestHashValueの明示比較、子が持つprevious signatureと取得親metadata署名の明示突合は当該sourceに見つからない。仕様に基づく連鎖受入fixtureで確認が必要。暗号破綻を実証したとは言わない|
 |公開鍵期間|呼ぶのは`get_public_keys(start,end)`。`get_public_key(...+20days)`はvalidate-logs経路から呼ばない|APIのNextTokenは公式仕様上reserved。固定版は1応答を辞書化する。将来paginationが必要なら再審査。終了後1時間のspilloverや期間外の親に必要な鍵が欠けた場合も勝手に有効扱いしない|
 |regionと境界越え|CLI global regionをsource region/公開鍵clientに使う。trail ARN regionはhome。previous bucketが変わるとLocation/Listを再取得。logのbucketも参照する|multi-regionの各regionを明示。別bucket/prefix/region/organizationは承認allowlist外なら停止。自動権限拡張しない|
 |時間・gap・空集合|start/end、終了+1時間の列挙、後方走査を実装。missing/invalidはcounter増分後に走査継続。gapは通知だけ|CLIのexit 0をT14 PASSと同一視しない。指定窓全体、連続性、全region、期待log/digestの存在を別判定する|
-|backfill|固定版にはbackfill専用の列挙/分離処理を確認できない。`extract_digest_key_date` L60–67は末尾の固定slice、regexは通常名を前提とする|現行公式手順のbackfill別chain処理を**この版が保証するとしない**。backfill fixtureを含む対応版または改修を先に実証する|
+|backfill|固定版にはbackfill専用の列挙/分離処理を確認できない。`extract_digest_key_date` L56–63は末尾の固定slice、regexは通常名を前提とする|現行公式手順のbackfill別chain処理を**この版が保証するとしない**。backfill fixtureを含む対応版または改修を先に実証する|
 
 [公式検証手順](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-cli.html)にはbackfill別連鎖の説明があるが、**更新される手順を固定版実装の証拠に置換しない**。
 [digest構造](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-digest-file-structure.html)の`_backfill`名は通常名と異なる。
