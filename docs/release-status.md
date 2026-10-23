@@ -1,3 +1,39 @@
+# 応募版の構成と監査証跡 — 2026-10-23 / Issue #153
+
+**PORTFOLIO GOは今回の提案。独立レビューによる正式承認を待つ。PRODUCTION NO GOは継続。**
+10月18日の[独立受入GO](https://github.com/utl-flaxy/inventory-management-system/issues/130#issuecomment-6251677031)は当時の記録として保存し、拡張後の応募版の提案と区別する。
+
+## 今回照合したmain snapshot
+
+main **`1632db72ebedfdc3cf316c442f199022e253133d`** / [push CI39937244198](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39937244198)。
+event=push・head一致・completed/success・必須5/5 SUCCESSをログ/artifactで確認した。
+未来のmainの成功とは主張せず、[main pushのlive一覧](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)と[main HEAD](https://github.com/utl-flaxy/inventory-management-system/commits/main/)を再照合する。PR HEADの結果はPR本文の別run。
+
+|検証|このmain/runの実測と限界|
+|---|---|
+|Java17 / Python|1,384＋986＝**2,370件、F/E/S 0/0/0** / **68件成功**|
+|Terraform|host27＋bootstrap14＋synthetic8＝**49件成功**、mutation3件をassertionで拒否。backend=false、AWS受入0件|
+|Secret / static|397 files、例外0/未解決0 / SpotBugs SECURITY151 classes・違反0。正常/異常self-test成功|
+|依存 / image|OSV169 components・advisory0 / Trivy **OS32（MEDIUM28/LOW4）、library0**。監査成功は全脆弱性0ではない|
+|Docker / DB|clean archive、JRE17、10001:10001、read-only、業務9段階＋B1/B2/B3、Flyway V1〜V9、shutdown/同image設定故障復帰成功|
+
+出典、DoD16、残存Issueと応募用判断は[受入追補](audit/portfolio-application-acceptance-2026-10-23.md)。
+実装と常設ITを辿る入口は[3シナリオ](portfolio-walkthrough.md)、[Dockerデモ](demo.md)、[テスト手順](testing.md)。
+
+## 本番への未達条件
+
+AWS実配備・公的TLS/実DNS・実secret/信頼proxy peer・本番DB復旧、異なる旧binaryへのrollback、実host負荷/容量/監視/SLA/RPO/RTOは未検証。
+#75 OPEN / TF-C BLOCKED（C01/C02/C05、B01〜B14未承認）、#145 Windows根因未確定、#134 jti保留、Flyway WARNとOS32を保持する。
+#79はB1〜B3適用後CLOSEDであり、全端末失効とjti単体失効を同じ未実装課題にしない。
+Deploy disabled、PR #103 Draft/OPEN・対象外。既存state/DB/volume/実secretやAWSをこの作業で参照・操作していない。
+
+## 以前の固定snapshotと是正記録
+
+以下は元のrelease-status全文。2,176件/Python29/Terraform27/OS49、古いIssue状態や提案は当時の値として保持し、上のsnapshotへ読み替えない。
+
+<details>
+<summary>2026-10-18以前のrelease-status全文（履歴原文）</summary>
+
 # 構成と監査証跡 — snapshot / live（Issue #132）
 
 **portfolio v1.0の正式GOは独立レビュー・最終承認後。実利用者向け本番運用はNO GO。**
@@ -153,5 +189,7 @@ Draft PR #103は過去の統合検証用で、マージ対象・現行mainの証
 2. JWT失効（#79、v1.1候補）、OS49 findings、Flyway/MariaDB互換性WARN、過去の証明書時刻問題を追跡する。0件のスキャンは将来の安全保証ではない。
 3. 本番運用前には容量・負荷・TLS・信頼proxy・鍵/権限・backup/restore・異版rollback・監視/復旧目標を実環境で別途判断。今回それらを実行しない。
 4. Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定。対象IT再実行9件の成功と区別し、[監査§10](audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)の失敗を保持する。skip・pool/timeout緩和は行わない。
+
+</details>
 
 </details>
