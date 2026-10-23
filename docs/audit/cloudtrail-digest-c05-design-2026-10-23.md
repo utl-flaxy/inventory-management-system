@@ -50,7 +50,8 @@ API call名/keyword、Prefix不在、date付きListPublicKeys、previous bucket�
 |`create_digest_traverser` (L84–175) → `get_trail_by_arn`|CloudTrail DescribeTrails / `cloudtrail:DescribeTrails`|bucket未指定時のみ|grantなし。引数なしで取得後にARNで絞る。bucketとprefixを承認済みmanifestで明示する案なら、このcallを避けられる|
 |同functionの`IsOrganizationTrail`分岐|Organizations DescribeOrganization / `organizations:DescribeOrganization`|bucket自動解決かつorganization trailのみ|TF-Bは通常trail。今回不要。organization対応を主張せず、判明したら別審査|
 |SSE-KMS objectのGetに伴うS3側処理|KMS Decrypt / `kms:Decrypt`|暗号化objectの読取に必要。validatorからの直接KMS callは0|`DecryptAudit`とaudit keyの`AuditRead`あり。指定CMK/S3 ViaService/trail context限定。実context一致・復号は未実証|
-|version取得、bucket一覧、書込、管理|ListObjectVersions/GetObjectVersion、ListBuckets、Put/Delete、KMS Encrypt/GenerateDataKey/Sign/Verify等|このvalidatorの読取pathには不要|既存version読取権限は復旧/証拠審査と分離して評価。digest検証を理由に追加しない。CloudTrail配送側のGenerateDataKey/DescribeKeyとは主体が異なる|
+|SSE-KMSの追加権限の要否|`kms:GenerateDataKey`|CLIからの直接callなし。間接的な必要権限は下記の仕様差があり未確定|audit roleにgrantなし。必要とも不要とも実証していない。読取権限案に無条件追加しない|
+|version取得、bucket一覧、書込、管理|ListObjectVersions/GetObjectVersion、ListBuckets、Put/Delete、KMS Encrypt/Sign/Verify等|このvalidatorの直接call pathには不要|既存version読取権限は復旧/証拠審査と分離して評価。digest検証を理由に追加しない。CloudTrail配送側のGenerateDataKey/DescribeKeyとは主体が異なる|
 
 [S3 ListObjects仕様](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html)ではMarkerとPrefixは別parameter。
 Markerは列挙開始位置であって認可prefixではない。SDKのpage取得後の正規表現filterでもIAM requestは変わらない。
@@ -69,6 +70,10 @@ bucket指定時はtrail lookup全体を迂回するため、prefixも自動補�
 S3読取許可とKMS復号許可は別境界。署名鍵と暗号化CMKも別物。
 TF-Bのaudit CMKはbucketと同region、Bucket Keys無効、ViaServiceは**S3 bucket region**、trail contextのregion部分だけwildcardでaccount/trail名を固定する。
 これはmulti-region trailの検証regionと混同しない。過去の異鍵object・context不一致・KMS停止は未実証で、fallbackや広い復号権限で回避しない。
+
+KMS権限には資料上の未確定点も残す。CloudTrail固有の上記説明と[key policy手順](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html)は読取時のDecryptを示す一方、一般の[S3 GetObject API](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html)はSSE-KMSにGenerateDataKeyとDecryptの両権限を記す。
+このCLIの通常GetにはChecksumMode等の追加指定もなく、sourceからS3内部の権限判定までは確定できない。**Decryptだけで常に十分とも、GenerateDataKeyを足せば解決とも結論しない**。
+後続の仕様再照合と、別途許可されたsandboxの限定allow/deny・KMS監査で最小集合を確認する。必要な許可が未確定ならA/Bとも採択を止める。
 
 ## 3. 暗号検証と「完全に検証した」の境界
 
