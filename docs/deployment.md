@@ -19,6 +19,9 @@ main push → Spring Boot CI success
               同じSHAからscripts/deploy.shを読みSSHへ送信
                     ↓ EC2側flock → fetch → commit存在確認
               旧appのimage ID/Compose設定を保存
+                    ↓ 順序ガード（Issue #157）: origin/main上か、稼働revisionからの前進か
+                    ├─同一SHA/古いSHA → DEPLOY_RESULT=SKIPPED（何も変更せずexit 0）
+                    ├─別枝/履歴分岐/状態不明 → DEPLOY_RESULT=FAILED（変更前に停止）
                     ↓ checkout --detach DEPLOY_SHA、HEAD一致確認
               Compose config → Docker内Java 17 Maven package → SHA tag image build
                     ↓ 再びHEAD一致確認
@@ -28,6 +31,31 @@ main push → Spring Boot CI success
 ```
 
 deploy jobはconclusion=success、event=push、head_branch=mainの3条件をすべて要求する。現在のmain先頭へ追随して配備することはない。runner上のスクリプトとEC2上のソースはともにCI検証済みSHAへ固定する。GitHub側のconcurrencyに加え、EC2側の非待機flockが手動実行との競合も防ぐ。待機中のGitHub jobが新しい待機jobへ置き換えられる場合はあるため、全commitの配備は保証しない。
+
+### 配備順序の契約（Issue #157）
+
+`concurrency` と `flock` は**同時実行を防ぐだけで、新旧の順序は保証しない**。mainへA→Bの順にpushしても、CI(B)がCI(A)より先に成功すると、旧スクリプトはBの後にAを配備し、古いbinaryが「healthy」のまま稼働した（使い捨てGit履歴で再現済み）。
+現在はflockの内側・`git fetch origin` の後に、次の判定を**build・切替より前**に行う。
+
+| 状態 | 判定 | 結果 |
+|---|---|---|
+| `DEPLOY_SHA` が `refs/remotes/origin/main` の祖先でない（別枝、mainの履歴書換えで外れたSHA） | 拒否 | `DEPLOY_RESULT=FAILED` |
+| app containerなし・`.deploy/current` なし（初回） | 配備 | `DEPLOY_RESULT=DEPLOYED target=…` |
+| 稼働revision = `DEPLOY_SHA` | skip | `DEPLOY_RESULT=SKIPPED reason=already-running`（exit 0、変更なし） |
+| 稼働revisionから `DEPLOY_SHA` へfast-forward（中間SHAを飛ばす場合を含む） | 配備 | `DEPLOY_RESULT=DEPLOYED` |
+| `DEPLOY_SHA` が稼働revisionの祖先（後着の古いCI） | skip | `DEPLOY_RESULT=SKIPPED reason=stale`（exit 0、変更なし） |
+| どちらの祖先でもない（mainの履歴書換え後など） | 拒否 | `DEPLOY_RESULT=FAILED` |
+| 稼働image labelなし/不正、`.deploy/current` 欠落/不正形式/label不一致、containerなしでmarkerあり、稼働revisionが未知commit | 拒否（人手診断） | `DEPLOY_RESULT=FAILED` |
+
+稼働revisionは**稼働imageの `org.opencontainers.image.revision` labelと `.deploy/current` の一致**で確定する。どちらか一方だけを信用しない。
+切替直前にも、稼働image IDと `.deploy/current` が判定時から変わっていないことを再確認する（build中の手動変更への対策）。
+許可するのは「最新mainだけ」ではなく、**origin/main上にあり、稼働revisionより新しいSHA**。後続CIが届けばさらに前進する。
+
+skipはexit 0だが、`DEPLOY_RESULT=SKIPPED` 行と「No deployment was performed」を出力し、`.deploy/*` とappを変更しない。
+**配備成功と誤認しないこと。** 現在Deploy workflowはdisabledのため、この行をGitHub job summaryへ転記する処理は未実装（ssh-actionの出力取得方式の検証が必要で、workflow再有効化時の作業）。
+
+**過去binaryへの意図的rollbackはこの自動経路では実行できない。** 管理者承認、DB migration互換性、対象imageの確認、停止計画が未設計のため、本PRでは実装しない。
+配備失敗時に同一スクリプト内で直前imageへ戻す既存の復元は、このガードとは別で、従来どおり動作する（異版binary rollbackの受入とは別物）。
 
 ## 初回導入とGitHub設定
 
@@ -182,5 +210,10 @@ Maven/config/Docker失敗、成功/初回成功、リトライ、DOWN/details拒
 legacy/modern rollback、rollback失敗、初回失敗、DB/root/JWTのログ伏せ字を検証する。
 EC2接続や本物のDocker変更は実行しない。
 
-個別実行: `./mvnw -Dtest=DeploymentWorkflowTest,DeploymentScriptTest test`。
+`DeploymentOrderTest`（Issue #157）は `scripts/tests/deploy-order-test.sh` で、**本物のGit**の使い捨てbare origin＋配備cloneにA→B→C・別枝X・履歴書換えを作り、
+Docker/curl/flock/sleepだけをmockして実際の `deploy.sh` を複数回実行する。CI完了逆転（B配備後のA）、初回、同一SHA、前進、中間SHA後着、別枝、
+履歴書換え、marker欠落/不一致/不正形式、label欠落、未知commit、containerなしmarkerの13状態で、稼働revision・marker・build/切替有無・`DEPLOY_RESULT` を検証する。
+資格情報・network・SSH・AWS・本物のDockerは使わない。
+
+個別実行: `./mvnw -Dtest=DeploymentWorkflowTest,DeploymentScriptTest,DeploymentOrderTest test`。
 WindowsではJava 17とGit Bash（既定C:/Program Files/Git/bin/bash.exe）が必要。追加のshell test frameworkは不要。

@@ -134,7 +134,27 @@ class DeploymentWorkflowTest {
         }
         assertFalse(Pattern.compile("(?m)^\\s*(?:git .*reset|.*compose.*\\bdown\\b|.*volume.*\\b(?:rm|prune)\\b|docker system prune|set -x)\\s*.*")
                 .matcher(script).find());
-        assertFalse(script.contains("origin/main"));
+        // The deployed revision stays the CI-verified DEPLOY_SHA, never the current main tip (Issue #17).
+        // Issue #157 reads origin/main only as an ancestry bound for the ordering guard.
+        assertEquals(1, script.split("refs/remotes/origin/main", -1).length - 1);
+        assertTrue(script.contains("main_ref=refs/remotes/origin/main"));
+        for (String line : script.lines().filter(line -> line.contains("origin/main")).toList()) {
+            String trimmed = line.trim();
+            assertTrue(trimmed.startsWith("#") || trimmed.equals("main_ref=refs/remotes/origin/main")
+                    || trimmed.matches("(\\|\\| )?fail \"[^\"]*origin/main[^\"]*\"") || trimmed.matches(".*\\|\\| fail \"[^\"]*origin/main[^\"]*\""),
+                    "origin/main may only be the ordering bound, a comment or a failure message: " + trimmed);
+        }
+        var mainRefUses = Pattern.compile("(?m)^.*\\$\\{?main_ref\\b.*$").matcher(script).results().map(m -> m.group().trim()).toList();
+        assertEquals(List.of("git rev-parse --verify --quiet \"${main_ref}^{commit}\" >/dev/null || fail \"origin/main is unavailable after fetch\"",
+                "git merge-base --is-ancestor \"$DEPLOY_SHA\" \"$main_ref\" \\"), mainRefUses);
+        assertEquals(List.of("git checkout --detach \"$DEPLOY_SHA\""), Pattern.compile("(?m)^\\s*git checkout\\b.*$")
+                .matcher(script).results().map(m -> m.group().trim()).toList());
+        int guard = script.indexOf("git merge-base --is-ancestor \"$DEPLOY_SHA\" \"$main_ref\"");
+        assertTrue(guard > script.indexOf("flock -n 9") && guard > script.indexOf("git fetch origin"));
+        assertTrue(guard < script.indexOf("git checkout --detach \"$DEPLOY_SHA\"") && guard < script.indexOf("docker build"));
+        for (String required : List.of("skip already-running", "skip stale", "DEPLOY_RESULT=SKIPPED", "DEPLOY_RESULT=FAILED",
+                "DEPLOY_RESULT=DEPLOYED", "Running app changed during deployment preparation"))
+            assertTrue(script.contains(required), "Missing ordering contract: " + required);
         assertFalse(script.contains("flyway undo"));
         assertEquals(2, script.split("up -d --no-deps --no-build --pull never --force-recreate app", -1).length - 1);
         assertTrue(Files.readString(Path.of(".gitignore")).contains(".deploy/"));

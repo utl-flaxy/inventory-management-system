@@ -99,6 +99,8 @@ health() {
 finish() {
   local result=$?
   trap - EXIT
+  # Machine-readable outcome: DEPLOYED / SKIPPED (exit 0, nothing changed) / FAILED.
+  (( result == 0 )) || echo "DEPLOY_RESULT=FAILED"
   if (( result != 0 )); then
     if [[ "$cutover" == true ]]; then
       echo "Target $DEPLOY_SHA failed; collecting redacted app logs" >&2
@@ -167,6 +169,45 @@ else
   previous_image=''
 fi
 
+# Issue #157: CI completion order is not commit order, and `concurrency` only serializes runs.
+# Under the host lock and after fetch, deploy only forward along origin/main from the verified running
+# revision. Older targets are skipped visibly; unknown/inconsistent state fails for operator diagnosis.
+# Rolling back to an older binary is never done implicitly by this automatic path.
+main_ref=refs/remotes/origin/main
+git rev-parse --verify --quiet "${main_ref}^{commit}" >/dev/null || fail "origin/main is unavailable after fetch"
+git merge-base --is-ancestor "$DEPLOY_SHA" "$main_ref" \
+  || fail "DEPLOY_SHA is not on origin/main; branch or rewritten-history deployment is refused"
+marker_sha=''
+if [[ -e .deploy/current ]]; then
+  marker_sha=$(cat .deploy/current)
+  [[ "$marker_sha" =~ ^[0-9a-f]{40}$ ]] || fail "Deployed revision marker is malformed; operator diagnosis required"
+fi
+running_sha=''
+if [[ -z "$previous_image" ]]; then
+  [[ -z "$marker_sha" ]] || fail "A deployed revision marker exists but no app container exists; operator diagnosis required"
+else
+  [[ "$previous_sha" != unknown ]] || fail "Running app image has no verifiable revision label; operator diagnosis required"
+  [[ -n "$marker_sha" ]] || fail "Running app has no deployed revision marker; operator diagnosis required"
+  [[ "$marker_sha" == "$previous_sha" ]] || fail "Deployed revision marker does not match the running image label"
+  git cat-file -e "${previous_sha}^{commit}" 2>/dev/null || fail "Running revision is not a known commit; operator diagnosis required"
+  running_sha=$previous_sha
+fi
+skip() {
+  echo "DEPLOY_RESULT=SKIPPED reason=$1 target=$DEPLOY_SHA running=$running_sha"
+  echo "No deployment was performed; the running app and deployment markers are unchanged."
+  exit 0
+}
+if [[ -n "$running_sha" ]]; then
+  if [[ "$running_sha" == "$DEPLOY_SHA" ]]; then
+    skip already-running
+  elif git merge-base --is-ancestor "$DEPLOY_SHA" "$running_sha"; then
+    skip stale
+  fi
+  # Exit 1 = not an ancestor; any other git error also refuses (fail closed).
+  git merge-base --is-ancestor "$running_sha" "$DEPLOY_SHA" \
+    || fail "DEPLOY_SHA is neither the running revision nor a descendant of it; operator diagnosis required"
+fi
+
 git checkout --detach "$DEPLOY_SHA"
 ACTUAL_SHA=$(git rev-parse HEAD)
 [[ "$ACTUAL_SHA" == "$DEPLOY_SHA" ]] || fail "Checked-out HEAD does not match DEPLOY_SHA"
@@ -189,6 +230,11 @@ target_image=$(docker image inspect "$image" --format '{{.Id}}')
 # Pin the actual built image too; changing a tag cannot change the cutover.
 printf 'services:\n  app:\n    image: %s\n' "$target_image" >"$work/target-image.yml"
 [[ $(git rev-parse HEAD) == "$DEPLOY_SHA" ]] || fail "HEAD changed before cutover"
+# The ordering decision above must still describe the app being replaced (e.g. no manual change during build).
+[[ $(docker inspect inventory-app --format '{{.Image}}' 2>/dev/null || true) == "$previous_image" ]] \
+  || fail "Running app changed during deployment preparation"
+[[ $(cat .deploy/current 2>/dev/null || true) == "$marker_sha" ]] \
+  || fail "Deployed revision marker changed during deployment preparation"
 
 echo "Switching app to $image; DB remains running"
 cutover=true
@@ -209,4 +255,5 @@ printf '%s\n' "$DEPLOY_SHA" >"$work/current"
 mv "$work/current-image" .deploy/current-image
 mv "$work/current" .deploy/current
 echo "Deployment healthy: $DEPLOY_SHA ($target_image)"
+echo "DEPLOY_RESULT=DEPLOYED target=$DEPLOY_SHA"
 SAFE_DEPLOY
