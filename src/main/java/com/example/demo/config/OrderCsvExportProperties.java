@@ -20,8 +20,10 @@ public class OrderCsvExportProperties {
     private int maxConcurrent = 1;
 
     public void validate() {
-        if (maxBytes < 64L * 1024 || maxConcurrent < 1 || maxConcurrent > 4
-                || maxBytes * maxConcurrent > MAX_TOTAL_SPOOL_BYTES) {
+        // Range-check the divisor first, then compare by division: maxBytes * maxConcurrent can overflow long
+        // (e.g. Long.MAX_VALUE * 2 == -2) and would otherwise bypass the tmpfs budget.
+        if (maxConcurrent < 1 || maxConcurrent > 4 || maxBytes < 64L * 1024
+                || maxBytes > MAX_TOTAL_SPOOL_BYTES / maxConcurrent) {
             throw new IllegalArgumentException("Invalid order CSV export configuration");
         }
     }
