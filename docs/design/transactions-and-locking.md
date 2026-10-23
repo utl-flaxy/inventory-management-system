@@ -45,7 +45,7 @@ HTTPの注文操作はControllerからSpring管理の
 | 注文に伴う履歴 | 同Serviceの`recordOrderChange`、MANDATORY | 呼出元のTx必須。REQUIRES_NEWや履歴だけの独立commitは行わない |
 | 商品名/価格PUT、削除 | [ProductService.update/delete](../../src/main/java/com/example/demo/service/ProductService.java)、READ_COMMITTED | 更新はversion、削除は商品ロックと参照確認/FK |
 | 注文ページ一覧 | OrderServiceの`findMyOrders/findAll`、readOnly + REPEATABLE_READ | IDページ取得と関連projection取得を同じsnapshot内で行う |
-| CSV export | OrderServiceの`exportCsv`、readOnly + REPEATABLE_READ、rollbackFor=IOException | 500行ずつのprojectionを同期送信。送信中も接続/Txを保持する |
+| CSV export | OrderServiceの`exportCsv`、readOnly + REPEATABLE_READ、rollbackFor=IOException。呼出元 [OrderCsvExportService.prepare](../../src/main/java/com/example/demo/service/OrderCsvExportService.java) はNEVER | 500行ずつのprojectionを上限付き一時fileへ確定し、Tx終了後にHTTP送信。送信中は接続/Txを保持しない（Issue #156） |
 | 商品参照、注文詳細、在庫履歴、期間付き売上集計 | 各ServiceのreadOnly、Isolation.DEFAULT | annotationで分離レベルを上書きしない。全環境の実DB既定値を断定しない |
 | Auth登録・商品POST | [AuthService.register](../../src/main/java/com/example/demo/service/AuthService.java) / ProductService.saveからRepositoryの書込みTx | Serviceに外側Txなし。単一saveAndFlush/saveのcommit/rollbackをRepositoryに委ねる |
 
@@ -155,8 +155,8 @@ productId/quantityを正規化した指紋と結び付ける。順序やJSON空�
 予期しない/設定障害500は[ServerFailureResponse](../../src/main/java/com/example/demo/exception/ServerFailureResponse.java)・
 [APIエラー](../api-errors.md)の契約で区別し、すべてのDB例外を503へ変換しない。
 
-CSVはread-only Tx内でwriter.flushするため、遅いクライアントによる接続保持の課題が残る。
-HTTPへ一部を送信済みならエラー本文へ差し替えられない。[CSV仕様](../order-csv.md)の制約を参照する。
+CSVはsnapshotを上限付きspoolへ確定してからTx外で送信するため、遅いクライアントがDB接続・Tx期限を消費しない。
+代わりにspoolサイズ（既定16 MiB）と同時export数（既定1）が運用上限になる。[CSV仕様](../order-csv.md)の制約を参照する。
 shutdownの成功例も実本番の負荷・復旧時間保証ではない。
 
 **アプリTxのrollbackとDB DDLのrollbackは別である。** Flyway V1〜V6は改変せず、

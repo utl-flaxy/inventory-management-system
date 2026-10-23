@@ -185,17 +185,24 @@ SQL・メモリ保持単位・request間の保証範囲は[ページング仕様
 日本語・空文字・カンマ・quote・LF/CRLFとformula/leading control対策を確認します。
 `OrderCsvServiceTest`は50,000行を500件単位で生成し、全量保持しないsinkへ送り、query前のflush・
 cursor・固定limit・切断時の後続query停止・Servlet streamをcloseしないことを検証します。
-`OrderCsvControllerTest`はUTF-8/filename、commit前のProblemDetail、commit後の中断を確認します。
+`OrderCsvControllerTest`はUTF-8/filename/Content-Length、header前のProblemDetail（500/503）、
+混雑時のquery前拒否、header確定後の転送失敗で原因を露出せず中断しspoolを解放することを確認します。
+`OrderCsvExportServiceTest`（Issue #156）はspool上限ちょうど/1byte超過、Tx期限・query timeoutの分類、
+失敗時のfile削除とpermit解放、二重closeで同時数が増えないこと、`Propagation.NEVER`、既定値とtmpfs予算を検証します。
 
 `OrderCsvExportIT`は実prod / JWT / MariaDB / Flyway V1〜V6で認可、parser roundtrip、保存値不変、
 注文時価格、安定順、1103行のバッチ境界、3 SELECT・Entity load/update 0件を検証します。
 read-only接続・REPEATABLE READ・同一threadのSecurity context、並行追加/状態変更のsnapshot分離、
-切断/途中DB失敗時のconnection解放、実HTTP転送の異常終了、実prod logの秘密値非出力も検証します。
+切断/後続バッチDB失敗時のconnection解放（CSV header前の500 ProblemDetail）、実prod logの秘密値非出力も検証します。
+`OrderCsvExportDeadlineIT`（Issue #156）は実prod profileの10秒Tx期限のまま、受信bufferを4 KiBに絞った生socketで
+約10 MBの送信を止め、送信中のactive DB connection 0件、期限超過後の全行受信、送信中変更のsnapshot非混入、
+送信中の2件目exportのquery前503、切断時のspool/permit/connection解放、上限超過と取得中の期限超過の503を検証します。
+sleepは期限を「超える」ためだけに使い、競合のタイミング合わせには使いません。
 既存`MoneyApiIT`・`SalesApiIT`・注文/認可/冪等性の回帰は維持します。
-詳しい契約・SQL・メモリ上限・長時間transactionの制限は[CSV仕様](order-csv.md)を参照してください。
+詳しい契約・SQL・メモリ上限・spool上限は[CSV仕様](order-csv.md)を参照してください。
 
 ```powershell
-mvnw.cmd '-Dtest=OrderCsvWriterTest,OrderCsvServiceTest,OrderCsvControllerTest,OrderAggregatePersistenceTest,OrderControllerTest,OrderStateControllerTest' '-Dit.test=OrderCsvExportIT,MoneyApiIT,SalesApiIT' verify
+mvnw.cmd '-Dtest=OrderCsvWriterTest,OrderCsvServiceTest,OrderCsvControllerTest,OrderCsvExportServiceTest,OrderAggregatePersistenceTest,OrderControllerTest,OrderStateControllerTest' '-Dit.test=OrderCsvExportIT,OrderCsvExportDeadlineIT,MoneyApiIT,SalesApiIT' verify
 mvnw.cmd verify
 ```
 

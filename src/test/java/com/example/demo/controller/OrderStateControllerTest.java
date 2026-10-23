@@ -36,6 +36,9 @@ class OrderStateControllerTest {
     private MockMvc mockMvc;
     @MockitoBean
     private OrderService orderService;
+
+    @MockitoBean
+    private com.example.demo.service.OrderCsvExportService orderCsvExportService;
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockitoBean

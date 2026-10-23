@@ -37,6 +37,9 @@ class OrderControllerTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private OrderService orderService;
+
+    @MockitoBean
+    private com.example.demo.service.OrderCsvExportService orderCsvExportService;
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockitoBean

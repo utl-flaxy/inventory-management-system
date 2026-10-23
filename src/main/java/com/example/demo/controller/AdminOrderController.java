@@ -9,7 +9,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.util.MultiValueMap;
 import com.example.demo.dto.SalesResponse;
 import com.example.demo.dto.StatusUpdateRequest;
+import com.example.demo.exception.OrderCsvExportBusyException;
 import com.example.demo.exception.OrderCsvExportException;
+import com.example.demo.exception.OrderCsvExportLimitExceededException;
+import com.example.demo.service.OrderCsvExportService;
 import com.example.demo.service.OrderService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -30,6 +33,7 @@ import java.time.Instant;
 public class AdminOrderController {
 
     private final OrderService orderService;
+    private final OrderCsvExportService csvExportService;
 
     // 注文一覧取得
     @GetMapping
@@ -116,13 +120,26 @@ public class AdminOrderController {
     // CSV出力
     @GetMapping("/export")
     public void exportCsv(HttpServletResponse response) {
-        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=orders.csv");
-        response.setContentType("text/csv; charset=UTF-8");
+        // 1) 同じrequest threadで認可・MDCを維持し、DB snapshotを上限付きspoolへ確定する。
+        //    DB/上限/混雑の失敗はすべてCSV header送信前なので、既存ProblemDetailへ変換できる。
+        OrderCsvExportService.Spool csv;
         try {
-            // 同じrequest threadで認可・MDC・Transactionを維持する。
-            orderService.exportCsv(response.getOutputStream());
+            csv = csvExportService.prepare();
+        } catch (OrderCsvExportBusyException | OrderCsvExportLimitExceededException rejected) {
+            throw rejected;
         } catch (IOException | RuntimeException failure) {
             // container/frameworkへSQLやCSV値を含むcause/messageを渡さない。
+            throw new OrderCsvExportException(failure);
+        }
+        // 2) Transaction終了後に送信する。遅いclientはDB connection/snapshotを保持しない。
+        //    Content-Lengthで途中切断をclientが検知でき、header確定後の失敗は既存どおり接続中断になる。
+        try (csv) {
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=orders.csv");
+            response.setContentType("text/csv; charset=UTF-8");
+            response.setContentLengthLong(csv.size());
+            response.flushBuffer();
+            csv.transferTo(response.getOutputStream());
+        } catch (IOException | RuntimeException failure) {
             throw new OrderCsvExportException(failure);
         }
     }
