@@ -1,0 +1,39 @@
+{
+  "terraform": {
+    "required_version": "= 1.15.6"
+  },
+  "variable": {
+    "fixture_label": {
+      "type": "string",
+      "default": "synthetic-a",
+      "validation": {
+        "condition": "${contains([\"synthetic-a\", \"synthetic-b\"], var.fixture_label)}",
+        "error_message": "Only public synthetic labels are accepted."
+      }
+    },
+    "sequence": {
+      "type": "number",
+      "default": 0,
+      "validation": {
+        "condition": "${var.sequence >= 0 && var.sequence <= 2 && floor(var.sequence) == var.sequence}",
+        "error_message": "Use an integer from zero through two."
+      }
+    }
+  },
+  "resource": {
+    "terraform_data": {
+      "fixture": {
+        "input": {
+          "label": "${var.fixture_label}",
+          "sequence": "${var.sequence}",
+          "purpose": "offline-plan-only"
+        }
+      }
+    }
+  },
+  "output": {
+    "planned_fixture": {
+      "value": "${terraform_data.fixture.input}"
+    }
+  }
+}

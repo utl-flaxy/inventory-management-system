@@ -1,0 +1,52 @@
+{
+  "run": {
+    "defaults": {
+      "command": "plan",
+      "assert": [{
+        "condition": "${output.planned_fixture.label == \"synthetic-a\" && output.planned_fixture.sequence == 0 && output.planned_fixture.purpose == \"offline-plan-only\"}",
+        "error_message": "The default plan must contain only public synthetic values."
+      }]
+    },
+    "separate_fixture": {
+      "command": "plan",
+      "variables": {"fixture_label": "synthetic-b", "sequence": 1},
+      "assert": [{
+        "condition": "${terraform_data.fixture.input.label == \"synthetic-b\" && output.planned_fixture.sequence == 1}",
+        "error_message": "The alternate fixture must remain isolated."
+      }]
+    },
+    "upper_boundary": {
+      "command": "plan",
+      "variables": {"sequence": 2},
+      "assert": [{
+        "condition": "${output.planned_fixture.sequence == 2}",
+        "error_message": "The upper synthetic boundary must be accepted."
+      }]
+    },
+    "unknown_label": {
+      "command": "plan",
+      "variables": {"fixture_label": "invalid-fixture"},
+      "expect_failures": ["var.fixture_label"]
+    },
+    "empty_label": {
+      "command": "plan",
+      "variables": {"fixture_label": ""},
+      "expect_failures": ["var.fixture_label"]
+    },
+    "negative_sequence": {
+      "command": "plan",
+      "variables": {"sequence": -1},
+      "expect_failures": ["var.sequence"]
+    },
+    "above_boundary": {
+      "command": "plan",
+      "variables": {"sequence": 3},
+      "expect_failures": ["var.sequence"]
+    },
+    "fractional_sequence": {
+      "command": "plan",
+      "variables": {"sequence": 0.5},
+      "expect_failures": ["var.sequence"]
+    }
+  }
+}

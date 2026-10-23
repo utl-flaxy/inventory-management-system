@@ -9,8 +9,10 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import json
 
 import quality_gates as gates
+import terraform_synthetic as synthetic
 
 
 def uncomment(source):
@@ -20,6 +22,9 @@ def uncomment(source):
 
 
 def validate_sources(root):
+    decision = synthetic.validate(root / "terraform-sandbox-tests")
+    if decision["decision"] != "BLOCKED" or decision["approved"] or decision["executed"]:
+        raise gates.Violation("Public preflight must deny cloud execution")
     backend = uncomment((root / "terraform/backend.tf").read_text(encoding="utf-8"))
     compact = re.sub(r"\s+", "", backend)
     if compact != 'terraform{backend"s3"{use_lockfile=trueencrypt=true}}':
@@ -38,7 +43,9 @@ def validate_sources(root):
         raise gates.Violation("Both roots must use the same reviewed provider lockfile")
     for directory in (root / "terraform/tests", root / "terraform-bootstrap/tests"):
         tests = "\n".join(uncomment(p.read_text(encoding="utf-8")) for p in directory.glob("*.tftest.hcl"))
-        if 'mock_provider "aws"' not in tests or re.search(r"\bcommand\s*=\s*apply\b", tests):
+        if ('mock_provider "aws"' not in tests or
+                len(re.findall(r'\brun\s+"', tests)) != len(re.findall(r"\bcommand\s*=\s*plan\b", tests)) or
+                re.search(r"\bcommand\s*=\s*apply\b", tests)):
             raise gates.Violation("AWS mock provider and plan-only tests are mandatory")
 
 
@@ -51,7 +58,9 @@ def exported_source(root, destination):
         metadata, name = entry.split("\t", 1)
         if gates.forbidden_terraform_path(name):
             raise gates.Violation("Tracked Terraform private/generated path rejected before export")
-        if name.startswith(("terraform/", "terraform-bootstrap/")) or name == "scripts/tls/install-caddy.sh":
+        if name.startswith("terraform-sandbox-tests/") and name.removeprefix("terraform-sandbox-tests/") not in synthetic.FILES:
+            raise gates.Violation("Unreviewed synthetic file rejected before export")
+        if name.startswith(("terraform/", "terraform-bootstrap/", "terraform-sandbox-tests/")) or name == "scripts/tls/install-caddy.sh":
             mode, _, stage = metadata.split()
             path = Path(name)
             if mode not in {"100644", "100755"} or stage != "0" or path.is_absolute() or ".." in path.parts:
@@ -66,7 +75,8 @@ def exported_source(root, destination):
 
 
 def safe_environment(directory):
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("AWS_", "TF_", "TFC_", "HCP_"))}
+    # Filter names first; do not even retrieve inherited credential values.
+    env = {k: os.environ[k] for k in os.environ if not k.upper().startswith(("AWS_", "TF_", "TFC_", "HCP_"))}
     empty = directory / "empty-config"
     empty.write_text("", encoding="utf-8")
     cache = directory / "public-provider-cache"
@@ -77,6 +87,18 @@ def safe_environment(directory):
 
 
 def terraform(directory, arguments, env, expected_failure=False, expected_tests=None):
+    allowed = {
+        ("version", "-json"), ("fmt", "-check", "-recursive"),
+        ("init", "-backend=false", "-input=false", "-lockfile=readonly"),
+        ("validate", "-no-color"), ("test", "-no-color"),
+        ("test", "-no-color", "-filter=" + str(Path("tests") / "contracts.tftest.hcl")),
+    }
+    safe_keys = {"AWS_EC2_METADATA_DISABLED", "AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE",
+                 "TF_CLI_CONFIG_FILE", "TF_PLUGIN_CACHE_DIR", "TF_IN_AUTOMATION"}
+    if tuple(arguments) not in allowed or any(k.upper().startswith(("AWS_", "TF_", "TFC_", "HCP_")) and k not in safe_keys for k in env):
+        raise gates.Violation("Offline command or inherited authentication/CLI override rejected before execution")
+    if env.get("AWS_EC2_METADATA_DISABLED", "true") != "true":
+        raise gates.Violation("Metadata authentication must remain disabled")
     result = subprocess.run(["terraform", *arguments], cwd=directory, env=env, capture_output=True, timeout=180)
     output = (result.stdout + result.stderr).decode("utf-8", errors="replace")
     for line in output.splitlines():
@@ -93,6 +115,7 @@ def terraform(directory, arguments, env, expected_failure=False, expected_tests=
         counts = re.search(r"Success!\s+(\d+) passed, (\d+) failed\.", output)
         if not counts or tuple(map(int, counts.groups())) != (expected_tests, 0):
             raise gates.OperationalError("Offline test coverage is missing or below the required exact baseline")
+    return output
 
 
 def main():
@@ -106,12 +129,17 @@ def main():
             count = exported_source(args.root.resolve(), source)
             validate_sources(source)
             env = safe_environment(Path(temporary))
-            for name in ("terraform", "terraform-bootstrap"):
+            version = json.loads(terraform(source, ["version", "-json"], env))
+            if version.get("terraform_version") != "1.15.6":
+                raise gates.OperationalError("Terraform CLI must be the reviewed version 1.15.6")
+            for name, tests in (("terraform", 27), ("terraform-bootstrap", 14), ("terraform-sandbox-tests", 8)):
                 directory = source / name
                 terraform(directory, ["fmt", "-check", "-recursive"], env)
                 terraform(directory, ["init", "-backend=false", "-input=false", "-lockfile=readonly"], env)
                 terraform(directory, ["validate", "-no-color"], env)
-                terraform(directory, ["test", "-no-color"], env, expected_tests=27 if name == "terraform" else 14)
+                terraform(directory, ["test", "-no-color"], env, expected_tests=tests)
+                if any(directory.glob("*.tfstate*")):
+                    raise gates.OperationalError("Plan-only validation must not leave resource state")
             bootstrap = source / "terraform-bootstrap"
             mutations = [
                 ("iam.tf", 'Action = ["s3:GetObject", "s3:PutObject"], Resource = [local.state_arn]',
@@ -131,12 +159,13 @@ def main():
                     terraform(bootstrap, ["test", "-no-color", "-filter=" + test_file], env, expected_failure=True)
                 finally:
                     path.write_text(original, encoding="utf-8")
-            print(f"terraform-offline: source_files={count}; host=27; bootstrap=14; rejected_mutations=3; AWS/state access=none")
+            print("preflight: BLOCKED; approved=0; executed=0; B01-B14=BLOCKED; T01-T17=NOT_RUN")
+            print(f"terraform-offline: source_files={count}; host=27; bootstrap=14; synthetic=8; rejected_mutations=3; AWS/state access=none")
         return 0
     except gates.Violation as error:
         print(str(error))
         return 1
-    except (gates.OperationalError, OSError, subprocess.SubprocessError) as error:
+    except (gates.OperationalError, OSError, subprocess.SubprocessError, json.JSONDecodeError):
         print("terraform-offline: operational failure (no successful validation claimed)")
         return 2
 

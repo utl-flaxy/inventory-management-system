@@ -64,6 +64,8 @@ class TerraformSafetyTest(unittest.TestCase):
             (root / name / ".terraform.lock.hcl").write_bytes((repo / name / ".terraform.lock.hcl").read_bytes())
             for source in (repo / name / "tests").glob("*.tftest.hcl"):
                 (root / name / "tests" / source.name).write_bytes(source.read_bytes())
+        import shutil
+        shutil.copytree(repo / "terraform-sandbox-tests", root / "terraform-sandbox-tests")
         return root
 
     def test_checked_in_contract_is_accepted(self):
@@ -119,10 +121,10 @@ class TerraformSafetyTest(unittest.TestCase):
         for output in (b"Success! 0 passed, 0 failed.", b"Success! 26 passed, 0 failed.", b"incomplete"):
             with patch.object(offline.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, output, b"")):
                 with self.assertRaises(gates.OperationalError):
-                    offline.terraform(Path("."), ["test"], {}, expected_tests=27)
+                    offline.terraform(Path("."), ["test", "-no-color"], {}, expected_tests=27)
         for code, output in ((0, b"Success!"), (1, b"Provider error"), (2, b"Test assertion failed")):
             with patch.object(offline.subprocess, "run", return_value=subprocess.CompletedProcess([], code, output, b"")):
                 with self.assertRaises(gates.OperationalError):
-                    offline.terraform(Path("."), ["test"], {}, expected_failure=True)
+                    offline.terraform(Path("."), ["test", "-no-color"], {}, expected_failure=True)
         with patch.object(offline.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b"Test assertion failed", b"")):
-            offline.terraform(Path("."), ["test"], {}, expected_failure=True)
+            offline.terraform(Path("."), ["test", "-no-color"], {}, expected_failure=True)
