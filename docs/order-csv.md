@@ -63,22 +63,57 @@ export全体は、同じrequest thread上の**read-only / REPEATABLE READ transa
 初回SELECTで確定したInnoDB snapshotをすべてのバッチで使い、後からcommitされた新規注文や
 状態変更はそのexportへ混ぜません。バッチを跨ぐ同一注文でも同じstatusを出力します。
 snapshotより後の削除もsnapshot上の行を出力します。DDL/migrationとの同時実行は保証対象外です。
-この方式は1件のexport中に1つのDB connection・servlet threadを占有し、長いexportはMVCCの
-旧version保持時間を延ばします。無制限の全量heap保持とは異なりますが、同時exportの運用上限や
-非同期job化は今回導入しません。
 
-同期出力なのでSpring Security context、MDC/requestId、Transactionを別threadへコピーしません。
-StreamingResponseBodyのworkerやOSIVへ依存せず、返却後のLAZY読込もありません。
-HTTP streamはServletが所有します。各queryのJDBC resourceはJPAが管理し、成功・DB失敗・
-IOException/切断の全経路でtransaction interceptorがconnection/persistence contextを解放します。
-read-only接続・REPEATABLE READ・managed Entity 0件は実MariaDB ITで検証します。
+## DB snapshotとHTTP送信の分離（Issue #156）
+
+以前はこのTransaction内で各バッチをHTTPへflushしていました。prodの業務Tx期限
+`spring.transaction.default-timeout=10s` はexportにも適用されるため、clientが遅い・データが多いと
+送信開始後の次バッチ取得で `TransactionTimedOutException` となり、HTTP 200のCSVが途中で切れました。
+所要時間がclient速度に依存するため、再取得でも同じ位置付近で失敗し得ました。
+誤っていた前提は「DB Txの長さはDB処理量で決まる」ことで、実際はネットワーク送信時間を含んでいました。
+
+現在は2段階です。
+
+1. **snapshot確定**: 上記のread-only / REPEATABLE READ Tx（既存の業務Tx期限10秒、変更なし）で、
+   全行を上限付きの一時file（`java.io.tmpdir`、`order-csv-*.csv`、POSIXではowner-only）へ書きます。
+   この段階ではHTTP headerを一切送信しません。
+2. **送信**: Tx終了・connection返却後に `Content-Length` 付きでfileを送信します。
+   遅いclientはservlet threadだけを保持し、DB connection・Transaction・MVCC snapshotを保持しません。
+
+| 項目 | 既定値 | 設定 |
+|---|---|---|
+| spool上限 | 16 MiB | `app.order-csv.max-bytes`（64 KiB以上） |
+| 同時export | 1 | `app.order-csv.max-concurrent`（1〜4） |
+| 合計spool | 24 MiB以下 | `max-bytes × max-concurrent`。Composeの `/tmp` tmpfs 32 MiB（メモリ消費）未満に固定 |
+| snapshot取得時間 | 10秒 | 既存の業務Tx期限をそのまま使い、CSV専用に延長しない |
+
+同時export数のpermitはspool作成からHTTP送信完了まで保持し、成功・DB失敗・上限超過・
+client切断の全経路でfile削除とpermit解放を行います。heapはwriter/転送用の固定bufferだけです。
+Spring Security context、MDC/requestId、Transactionを別threadへコピーせず、
+StreamingResponseBodyのworkerやOSIVへ依存しません。`prepare` は `Propagation.NEVER` で、
+外側Txへ参加して送信中までsnapshotを延ばす誤用を拒否します。
+read-only接続・REPEATABLE READ・managed Entity 0件・送信中のactive connection 0件は実MariaDB ITで検証します。
 
 ## 失敗時
 
-初回DB取得はbody送信前なので、失敗は既存500 `SYSTEM_ERROR` ProblemDetailへ変換します。
-送信開始後はHTTP statusを変更できません。CSVにJSON/error行を追加せず、例外をcontainerへ伝えて
-HTTP転送を異常終了させます。クライアントは途中のファイルを成功として利用せず、再取得してください。
-client切断時はIOExceptionを黙殺せず、後続バッチを取得しません。
+DB取得・上限・混雑の失敗はすべてCSV header送信前に起きるため、ProblemDetailで返します。
+部分CSVは返しません。
+
+| 状況 | HTTP | code | 再試行 |
+|---|---|---|---|
+| 他のexportがspool中/送信中 | 503 | `ORDER_CSV_EXPORT_BUSY` | DB queryなし。先行export終了後の再試行で成功し得る |
+| spoolがmax-bytes超過、またはsnapshot取得が業務Tx期限超過 | 503 | `ORDER_CSV_EXPORT_LIMIT_EXCEEDED` | データ量が上限を超える限り同じ結果。運用上限として扱う |
+| その他のDB/IO失敗（どのバッチでも） | 500 | `SYSTEM_ERROR` | 既存契約どおり |
+
+header送信後の失敗（client切断、spool読取失敗）はHTTP statusを変更できません。CSVにJSON/error行を追加せず、
+例外をcontainerへ伝えて接続を中断します。`Content-Length` が宣言済みなので、clientは長さ不足で途中切断を検知できます。
+この段階ではDB処理がないため、client速度によるTx期限超過は起きません。
+
+**運用上残る上限:** 16 MiB（1明細100〜数百byteとして数万〜十数万明細）を超える全件exportはこのAPIでは出力できません。
+全件の大量出力が必要になった場合は、期間指定などの絞り込みAPIか非同期job化を別Issueで設計します。
+また、送信中のpermitは遅いclientが送信完了まで保持するため、その間の他ADMINのexportは503になります
+（完全に停止したclientの切断時期はTomcatの接続/書込みtimeout設定に依存し、本変更では本番値を検証していません。
+極端に遅いが進行し続けるclientはpermitを保持し続け得ます。対象はADMIN認証済みrequestに限られます）。
 
 診断は既存 `system.unhandled_error` の型・frameだけです。containerへ伝える例外も固定messageで、
 raw cause/SQL message/CSV値/tokenは保持しません。実prod consoleを成功・初回DB失敗・途中DB失敗で監査します。

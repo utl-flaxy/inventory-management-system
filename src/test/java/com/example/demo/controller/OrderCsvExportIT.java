@@ -280,7 +280,9 @@ class OrderCsvExportIT {
         assertFalse(output.contains("Bearer "));
     }
 
-    @Test void midStreamDatabaseFailureAbortsRealHttpWithoutJsonAndReleasesConnection(CapturedOutput logs) throws Exception {
+    // Issue #156: the whole snapshot is spooled before any CSV header, so a later-batch DB failure is no longer
+    // a truncated 200; it is the same safe 500 ProblemDetail as an early failure, with no partial CSV.
+    @Test void laterBatchDatabaseFailureReturnsSafeProblemDetailBeforeAnyCsvByteAndReleasesConnection(CapturedOutput logs) throws Exception {
         order(1, "PENDING", java.util.stream.IntStream.range(0, 501).mapToObj(i -> "csv-private-value-" + i).toList());
         var before = snapshot();
         AtomicInteger calls = new AtomicInteger();
@@ -291,10 +293,16 @@ class OrderCsvExportIT {
         int start = logs.getAll().length();
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + PATH))
                 .header("Authorization", "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, "admin")).timeout(Duration.ofSeconds(20)).GET().build();
-        var response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
-        assertEquals(200, response.statusCode()); // headers are already committed; body must terminate abnormally.
-        try (var input = response.body()) { assertThrows(IOException.class, input::readAllBytes); }
+        var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(500, response.statusCode());
+        assertEquals("application/problem+json", response.headers().firstValue("Content-Type").orElseThrow());
+        assertTrue(response.headers().firstValue("Content-Disposition").isEmpty());
+        assertEquals("SYSTEM_ERROR", new tools.jackson.databind.json.JsonMapper().readTree(response.body()).get("code").asText());
+        assertFalse(response.body().contains("csv-private-value"));
         org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(this::assertReleased);
+        try (var files = java.nio.file.Files.list(java.nio.file.Path.of(System.getProperty("java.io.tmpdir")))) {
+            assertEquals(0, files.filter(path -> path.getFileName().toString().startsWith("order-csv-")).count());
+        }
         assertSafeLogs(logs.getAll().substring(start));
         assertEquals(before, snapshot());
         assertEquals(2, calls.get());

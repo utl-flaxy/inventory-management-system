@@ -37,6 +37,9 @@ class InventoryConflictControllerTest {
     private ProductService productService;
     @MockitoBean
     private OrderService orderService;
+
+    @MockitoBean
+    private com.example.demo.service.OrderCsvExportService orderCsvExportService;
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockitoBean

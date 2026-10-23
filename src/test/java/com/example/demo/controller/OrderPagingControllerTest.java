@@ -30,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderPagingControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean OrderService service;
+    @MockitoBean com.example.demo.service.OrderCsvExportService orderCsvExportService;
     @MockitoBean JwtAuthenticationFilter filter;
     @MockitoBean JwtUtil jwt;
     @MockitoBean UserDetailsService users;

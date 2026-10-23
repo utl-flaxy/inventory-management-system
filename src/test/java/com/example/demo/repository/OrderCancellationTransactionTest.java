@@ -95,7 +95,7 @@ class OrderCancellationTransactionTest {
     @Test
     void realControllerRejectsCancelPendingCancelCycleWith409() throws Exception {
         Order order = createFiveItemOrder();
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AdminOrderController(orderService))
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AdminOrderController(orderService, org.mockito.Mockito.mock(com.example.demo.service.OrderCsvExportService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
 
         mvc.perform(post("/api/v1/admin/orders/{id}/cancel", order.getId())).andExpect(status().isOk());

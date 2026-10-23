@@ -103,6 +103,22 @@ public class GlobalExceptionHandler {
                 ApiProblemFactory.SYSTEM_ERROR_DETAIL, request);
     }
 
+    @ExceptionHandler(OrderCsvExportBusyException.class)
+    public ResponseEntity<ProblemDetail> handleCsvExportBusy(OrderCsvExportBusyException ex, HttpServletRequest request) {
+        log.atWarn().addKeyValue("event", "order.csv_export.rejected").addKeyValue("reason", "BUSY")
+                .log("CSV export rejected");
+        return ApiProblemFactory.response(HttpStatus.SERVICE_UNAVAILABLE, "ORDER_CSV_EXPORT_BUSY",
+                OrderCsvExportBusyException.DETAIL, request);
+    }
+
+    @ExceptionHandler(OrderCsvExportLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleCsvExportLimit(OrderCsvExportLimitExceededException ex, HttpServletRequest request) {
+        log.atWarn().addKeyValue("event", "order.csv_export.rejected").addKeyValue("reason", ex.reason().name())
+                .log("CSV export rejected");
+        return ApiProblemFactory.response(HttpStatus.SERVICE_UNAVAILABLE, "ORDER_CSV_EXPORT_LIMIT_EXCEEDED",
+                OrderCsvExportLimitExceededException.DETAIL, request);
+    }
+
     @ExceptionHandler(UsernameAlreadyExistsException.class)
     public ResponseEntity<ProblemDetail> handleDuplicateUsername(UsernameAlreadyExistsException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.CONFLICT, "USERNAME_ALREADY_EXISTS", ex.getMessage(), request);

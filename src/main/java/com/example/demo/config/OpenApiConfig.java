@@ -90,6 +90,13 @@ public class OpenApiConfig {
                         responses.addApiResponse("404", new ApiResponse().description("USER_NOT_FOUND: target absent, only after ADMIN reauthentication"));
                     }
                 }
+                if (path.equals("/api/v1/admin/orders/export") && method == io.swagger.v3.oas.models.PathItem.HttpMethod.GET) {
+                    operation.setDescription("ADMIN only. One read-only REPEATABLE_READ snapshot is spooled to a size-bounded temporary file within the normal transaction deadline, "
+                            + "then sent with Content-Length after the transaction ends; a slow client never holds a DB connection or snapshot. "
+                            + "Defaults: one concurrent export, 16 MiB spool. Errors before the first CSV byte use ProblemDetail; a transfer interrupted after headers ends the connection without appending JSON.");
+                    responses.addApiResponse("503", new ApiResponse().description("ORDER_CSV_EXPORT_BUSY: another export is spooling or transferring; retry later. "
+                            + "ORDER_CSV_EXPORT_LIMIT_EXCEEDED: the snapshot exceeded the spool size or DB transaction deadline; no CSV byte was sent and retrying the same data volume does not help."));
+                }
                 responses.addApiResponse("500", new ApiResponse().description("SYSTEM_ERROR"));
                 responses.putIfAbsent("503", new ApiResponse().description("SERVICE_UNAVAILABLE: temporary database connection/timeout failure; keep a valid JWT. Recovery time is unknown; no Retry-After. Do not blindly replay writes."));
                 if (!path.startsWith("/auth/")) {

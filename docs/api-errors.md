@@ -65,6 +65,8 @@ JSON propertyの順序は契約にしない。
 | 503 | REGISTRATION_SOURCE_UNAVAILABLE | Registration Source Unavailable |
 | 503 | AUTH_MUTATION_SOURCE_UNAVAILABLE | Authentication Mutation Source Unavailable |
 | 503 | SERVICE_UNAVAILABLE | Service Unavailable |
+| 503 | ORDER_CSV_EXPORT_BUSY | Order CSV Export Busy |
+| 503 | ORDER_CSV_EXPORT_LIMIT_EXCEEDED | Order CSV Export Limit Exceeded |
 | 500 | SYSTEM_ERROR | System Error |
 
 登録・ログイン・logout-all・password変更の429には正の秒数の `Retry-After` を付ける。接続元不明503には付けず、運用設定の確認を求める。

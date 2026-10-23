@@ -67,6 +67,8 @@ public final class ApiProblemFactory {
             case "VALIDATION_ERROR" -> "Validation Error";
             case "SYSTEM_ERROR" -> "System Error";
             case "SERVICE_UNAVAILABLE" -> "Service Unavailable";
+            case "ORDER_CSV_EXPORT_BUSY" -> "Order CSV Export Busy";
+            case "ORDER_CSV_EXPORT_LIMIT_EXCEEDED" -> "Order CSV Export Limit Exceeded";
             default -> throw new IllegalArgumentException("Unknown API problem code");
         };
     }

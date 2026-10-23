@@ -49,7 +49,7 @@ class BusinessEventLoggingTest {
         mvc = MockMvcBuilders.standaloneSetup(new AuthController(
                         new AuthService(users, passwords, jwt, mock(LoginDummyPassword.class)), mock(LoginRateLimiter.class),
                         mock(com.example.demo.security.RegistrationRateLimiter.class)),
-                        new SelfOrderController(orders), new AdminOrderController(orders), new InventoryController(inventory))
+                        new SelfOrderController(orders), new AdminOrderController(orders, org.mockito.Mockito.mock(com.example.demo.service.OrderCsvExportService.class)), new InventoryController(inventory))
                 .setControllerAdvice(new GlobalExceptionHandler()).addFilters(new RequestCorrelationFilter()).build();
     }
 
