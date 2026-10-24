@@ -54,6 +54,7 @@ deploy jobはconclusion=success、event=push、head_branch=mainの3条件をす�
 
 skipはexit 0だが、`DEPLOY_RESULT=SKIPPED` 行と「No deployment was performed」を出力し、`.deploy/*` とappを変更しない。
 **配備成功と誤認しないこと。** 現在Deploy workflowはdisabledのため、この行をGitHub job summaryへ転記する処理は未実装（ssh-actionの出力取得方式の検証が必要で、workflow再有効化時の作業）。
+SKIPPEDは「配備を実施しなかった」ことだけを意味し、サービスの稼働やreadinessを保証しない。稼働revisionはapp containerのimage labelとmarkerで判定し、containerの `.State.Running` やHTTP readinessは見ないため、**停止中のcontainerでも同一SHAならSKIPPED（already-running）になる**。自動restart・自動復旧は行わない。稼働状態は運用者が `docker ps -a` と `/readyz` で別途確認する（本節の保証は配備順序であり、可用性ではない）。
 
 **過去binaryへの意図的rollbackはこの自動経路では実行できない。** 管理者承認、DB migration互換性、対象imageの確認、停止計画が未設計のため、本PRでは実装しない。
 配備失敗時に同一スクリプト内で直前imageへ戻す既存の復元は、このガードとは別で、従来どおり動作する（異版binary rollbackの受入とは別物）。
@@ -200,6 +201,7 @@ Deploy再有効化・本番操作は本Issueに含めない。
 3. rollback不能なら [DB手順](db/README.md) を参照し、先にschema互換性を調べる。旧imageを試すだけでDBが戻ったと判断しない。
 4. 手動復元を行う際も `.deploy/lock` をflockで保持し、保存Composeにprevious-imageのimage IDをoverrideしてappだけを更新する。current/previousは復元後HTTP成功を確認して整合させる。
 5. host lock競合、ディスク/メモリ不足、missing secret、DB停止、Docker build取得失敗、Git checkout変更を解消後、検証済みSHAの配備を再実行する。GitHub CI runをre-runして起動条件を再評価できるが、PR runは常に配備対象外。
+   ただし**初回appの起動/HTTP確認失敗後は、そのまま再実行しても配備されない**。失敗appは調査用に残り `.deploy/current` は作られないため、次回は「Running app has no deployed revision marker」でFAILEDになる（自動削除・自動再試行はしない）。運用者が原因と状態を調査したうえで復旧方法を判断する。DB container/volume・secretは変更しない。
 
 ## 自動検証
 
