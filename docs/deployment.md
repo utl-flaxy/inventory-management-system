@@ -46,6 +46,7 @@ deploy jobはconclusion=success、event=push、head_branch=mainの3条件をす�
 | `DEPLOY_SHA` が稼働revisionの祖先（後着の古いCI） | skip | `DEPLOY_RESULT=SKIPPED reason=stale`（exit 0、変更なし） |
 | どちらの祖先でもない（mainの履歴書換え後など） | 拒否 | `DEPLOY_RESULT=FAILED` |
 | 稼働image labelなし/不正、`.deploy/current` 欠落/不正形式/label不一致、containerなしでmarkerあり、稼働revisionが未知commit | 拒否（人手診断） | `DEPLOY_RESULT=FAILED` |
+| 古さ判定の `git merge-base --is-ancestor` が1（祖先でない）以外で異常終了（128等） | 拒否（人手診断）。逆方向判定へ進まない | `DEPLOY_RESULT=FAILED` |
 
 稼働revisionは**稼働imageの `org.opencontainers.image.revision` labelと `.deploy/current` の一致**で確定する。どちらか一方だけを信用しない。
 切替直前にも、稼働image IDと `.deploy/current` が判定時から変わっていないことを再確認する（build中の手動変更への対策）。
@@ -212,7 +213,8 @@ EC2接続や本物のDocker変更は実行しない。
 
 `DeploymentOrderTest`（Issue #157）は `scripts/tests/deploy-order-test.sh` で、**本物のGit**の使い捨てbare origin＋配備cloneにA→B→C・別枝X・履歴書換えを作り、
 Docker/curl/flock/sleepだけをmockして実際の `deploy.sh` を複数回実行する。CI完了逆転（B配備後のA）、初回、同一SHA、前進、中間SHA後着、別枝、
-履歴書換え、marker欠落/不一致/不正形式、label欠落、未知commit、containerなしmarkerの13状態で、稼働revision・marker・build/切替有無・`DEPLOY_RESULT` を検証する。
+履歴書換え、marker欠落/不一致/不正形式、label欠落、未知commit、containerなしmarker、build中の稼働変更、
+古さ判定のGit異常終了（初回の祖先判定だけexit 128を注入し、逆方向判定は成功し得る条件）の15状態で、稼働revision・marker・build/切替有無・`DEPLOY_RESULT` を検証する。
 資格情報・network・SSH・AWS・本物のDockerは使わない。
 
 個別実行: `./mvnw -Dtest=DeploymentWorkflowTest,DeploymentScriptTest,DeploymentOrderTest test`。

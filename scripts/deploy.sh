@@ -202,6 +202,10 @@ if [[ -n "$running_sha" ]]; then
     skip already-running
   elif git merge-base --is-ancestor "$DEPLOY_SHA" "$running_sha"; then
     skip stale
+  else
+    # Only exit 1 (not an ancestor) may continue; a Git error (e.g. 128) must not reach the reverse check.
+    rc=$?
+    [[ "$rc" -eq 1 ]] || fail "Git ancestry check failed (exit $rc); operator diagnosis required"
   fi
   # Exit 1 = not an ancestor; any other git error also refuses (fail closed).
   git merge-base --is-ancestor "$running_sha" "$DEPLOY_SHA" \

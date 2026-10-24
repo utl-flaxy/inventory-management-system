@@ -17,7 +17,7 @@ class DeploymentOrderTest {
     @ValueSource(strings = {"ci-completion-reversed", "first-deploy", "same-sha", "forward",
             "forward-past-intermediate-then-late-intermediate", "other-branch", "rewritten-main",
             "missing-marker", "marker-mismatch", "malformed-marker", "unlabeled-running-image",
-            "unknown-running-commit", "marker-without-container", "running-changed-during-build"})
+            "unknown-running-commit", "marker-without-container", "running-changed-during-build", "ancestry-git-error"})
     void deploysOnlyForwardAlongOriginMainFromTheVerifiedRunningRevision(String scenario) throws Exception {
         var output = Files.createTempFile("deployment-order-test-", ".log");
         try {

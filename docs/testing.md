@@ -290,7 +290,7 @@ H2の成功でMariaDB CHECK・lock・Flywayの正しさを代用しない。
 DeploymentWorkflowTest / DeploymentScriptTestはYAML/Bashの静的・mock制御テストであり、
 本番Docker配備を行わないためSurefireに残す。Deployの運用上の無効化状態は変更しない。
 DeploymentOrderTest（Issue #157）は本物のGitで作る使い捨てbare origin/配備cloneとmock Docker/curl/flockで、
-CI完了逆転・別枝・履歴書換え・不明な稼働状態での配備順序ガードを実際の `deploy.sh` に対して検証する（[配備手順](deployment.md#配備順序の契約issue-157)）。
+CI完了逆転・別枝・履歴書換え・不明な稼働状態・祖先判定のGit異常終了（exit 128注入）での配備順序ガードを実際の `deploy.sh` に対して検証する（[配備手順](deployment.md#配備順序の契約issue-157)）。
 
 ITだけを開発中に選択する場合:
 

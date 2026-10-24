@@ -204,6 +204,26 @@ case "$scenario" in
     if deploy "$B"; then check false; fi
     check grep -Fq 'no app container exists' "$last_output"
     check test "$(marker)" = "$A" ;;
+  ancestry-git-error) # the stale check hits a Git error (128) although the reverse check would succeed
+    seed_running "$A"
+    # Pass-through wrapper: only the first `merge-base --is-ancestor B A` fails; all other calls are real Git.
+    export REAL_GIT GIT_FAULT_ARGS="$B $A"
+    REAL_GIT=$(command -v git)
+    : >"$MOCK_ROOT/git-fault"
+    cat >"$fixture/bin/git" <<'GIT'
+#!/usr/bin/env bash
+printf 'git %s\n' "$*" >>"$TRACE"
+if [[ "$*" == "merge-base --is-ancestor $GIT_FAULT_ARGS" && -f "$MOCK_ROOT/git-fault" ]]; then
+  rm "$MOCK_ROOT/git-fault"; echo "fatal: injected repository error" >&2; exit 128
+fi
+exec "$REAL_GIT" "$@"
+GIT
+    chmod +x "$fixture/bin/git"
+    check "$REAL_GIT" -C "$DEPLOY_DIR" merge-base --is-ancestor "$A" "$B" # the reverse check alone would allow B
+    if deploy "$B"; then check false; fi
+    check test ! -e "$MOCK_ROOT/git-fault" # the fault was actually injected
+    expect_refused 'Git ancestry check failed (exit 128)' "$A"
+    if grep -Eq '^git (checkout|merge-base --is-ancestor '"$A $B"')' "$TRACE"; then check false; fi ;;
   *) echo "unknown scenario $scenario" >&2; exit 2 ;;
 esac
 cat "$fixture/log"
