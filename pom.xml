@@ -26,7 +26,7 @@
 		<!-- Test-only H2: fix upstream #4302 without weakening the existing CHECK constraints. -->
 		<h2.version>2.5.252</h2.version>
 		<!-- Released patches in Boot 4.1's managed families; the unmodified BOM reintroduces findings. -->
-		<tomcat.version>11.0.26</tomcat.version>
+		<tomcat.version>11.0.27</tomcat.version>
 		<jackson-bom.version>3.1.7</jackson-bom.version>
 		<!-- JJWT uses Jackson 2; retain its reviewed security patch alongside Boot's Jackson 3. -->
 		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
