@@ -12,6 +12,7 @@ import java.util.List;
 
 import static com.example.demo.TestOrders.customer;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class OrderAggregateTest {
     private Product apple() {
@@ -20,11 +21,15 @@ class OrderAggregateTest {
 
     @Test
     void creationSetsCustomerStateTimestampsVersionAndBothSidesOfEachLine() {
-        Instant before = Instant.now();
+        Instant created = Instant.parse("2026-10-25T01:02:03.123456Z");
         User customer = customer();
         OrderItem first = OrderItem.create(apple(), 2);
         OrderItem second = OrderItem.create(new Product(2L, "orange", 300L, 5), 1);
-        Order order = Order.create(customer, List.of(first, second));
+        Order order;
+        try (var time = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            time.when(Instant::now).thenReturn(created);
+            order = Order.create(customer, List.of(first, second));
+        }
 
         assertEquals(OrderStatus.PENDING, order.getStatus());
         assertSame(customer, order.getCustomer());
@@ -32,7 +37,7 @@ class OrderAggregateTest {
         assertSame(order, first.getOrder());
         assertSame(order, second.getOrder());
         assertEquals(500, order.getTotalPrice());
-        assertFalse(order.getOrderedAt().isBefore(before));
+        assertEquals(created, order.getOrderedAt());
         assertEquals(order.getOrderedAt(), order.getUpdatedAt());
         assertEquals(0L, order.getVersion());
     }

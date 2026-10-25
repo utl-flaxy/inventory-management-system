@@ -45,6 +45,11 @@ SHIP/COMPLETE/CANCEL後も注文を再生成せず、その現在状態を返す
 商品価格・名前が変わったり在庫が0になっても元の単価・合計を返す。
 DTOに必要なcustomer/itemsはTransaction内で初期化し、OSIVに依存しない。
 
+Issue #159で作成/更新日時の保存値・初回応答をMICROSへ揃える。同じ保存状態ならcreate/replay/GETの日時値が一致する。
+これは初回HTTP本文のbyte-for-byte cacheではない。状態遷移後のreplayは現在状態・現在のupdatedAtを返す。
+既存IdempotentOrderITのテスト側日時切り捨ては除去し、実HTTP/実MariaDBでも元文字列とInstant/保存値を直接照合する。
+[時刻源・legacy・精度の契約](order-aggregate.md#注文者と日時)を参照。
+
 fingerprint不一致は409 `IDEMPOTENCY_KEY_CONFLICT`。商品へのアクセスや更新は行わない。
 Issue #33でエラーはapplication/problem+jsonのSpring ProblemDetailへ移行し、status/codeを維持する。
 Validationは400 VALIDATION_ERRORのerrorsへnested pathを保持する。[APIエラー契約](../api-errors.md)を参照。

@@ -10,6 +10,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -76,7 +77,7 @@ public class Order {
         }
         Order order = new Order();
         order.customer = customer;
-        order.orderedAt = Instant.now();
+        order.orderedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
         order.updatedAt = order.orderedAt;
         items.forEach(order::addItem);
         return order;
@@ -128,7 +129,7 @@ public class Order {
     private void updateTimestamp() {
         validateIdempotencyMetadata();
         validateCompletionTimestamp();
-        updatedAt = Instant.now();
+        updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     private void validateIdempotencyMetadata() {
