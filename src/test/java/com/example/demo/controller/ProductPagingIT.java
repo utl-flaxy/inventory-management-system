@@ -249,6 +249,7 @@ class ProductPagingIT {
         assertEquals(20, parameters.get("size").path("schema").path("default").asInt());
         assertEquals(100, parameters.get("size").path("schema").path("maximum").asInt());
         assertTrue(parameters.get("page").path("description").asText().contains("0-based"));
+        assertTrue(parameters.get("page").path("description").asText().contains("2147483647"));
         var sortDescription = parameters.get("sort").path("description").asText();
         for (String field : PRODUCT_FIELDS) assertTrue(sortDescription.contains(field), field);
         assertTrue(sortDescription.contains("sort=price,asc&sort=name,desc"));

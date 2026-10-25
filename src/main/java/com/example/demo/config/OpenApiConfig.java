@@ -116,6 +116,12 @@ public class OpenApiConfig {
                         responses.putIfAbsent("409", new ApiResponse().description("注文の競合"));
                     if (path.endsWith("/sales")) responses.putIfAbsent("400", new ApiResponse().description("期間の形式・範囲が不正"));
                 }
+                if (path.equals("/api/v1/admin/products/{id}/inventory-movements")
+                        && method == io.swagger.v3.oas.models.PathItem.HttpMethod.GET) {
+                    responses.putIfAbsent("400", new ApiResponse().description("INVALID_REQUEST: page * normalized size exceeds 2147483647"));
+                    operation.setDescription(operation.getDescription()
+                            + ". Normalized page * size must not exceed 2147483647; larger offsets return 400 INVALID_REQUEST. The existing resolver size cap is 2000.");
+                }
                 if (path.equals("/products/{id}") && java.util.Set.of(
                         io.swagger.v3.oas.models.PathItem.HttpMethod.GET,
                         io.swagger.v3.oas.models.PathItem.HttpMethod.PUT,
@@ -123,11 +129,11 @@ public class OpenApiConfig {
                     responses.putIfAbsent("404", new ApiResponse().description("PRODUCT_NOT_FOUND"));
                 if (java.util.Set.of("/products", "/products/search").contains(path)
                         && method == io.swagger.v3.oas.models.PathItem.HttpMethod.GET) {
-                    responses.putIfAbsent("400", new ApiResponse().description("INVALID_REQUEST: unsupported sort property or invalid keyword"));
+                    responses.putIfAbsent("400", new ApiResponse().description("INVALID_REQUEST: unsupported sort property, invalid keyword or offset exceeding Integer.MAX_VALUE"));
                     operation.getParameters().forEach(parameter -> {
                         switch (parameter.getName()) {
                             case "page" -> {
-                                parameter.setDescription("0-based page number; default 0. Invalid/negative values resolve to 0.");
+                                parameter.setDescription("0-based page number; default 0. Invalid/negative values resolve to 0. page * normalized size must not exceed 2147483647; larger offsets return 400 INVALID_REQUEST.");
                                 parameter.setSchema(new IntegerSchema()._default(0).minimum(java.math.BigDecimal.ZERO));
                             }
                             case "size" -> {

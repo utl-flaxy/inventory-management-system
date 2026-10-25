@@ -26,7 +26,10 @@ final class ProductPageableNormalizer {
             sort = sort.and(ID_ASC);
         }
         // Productのqueryだけを最大100件に制限し、他APIのPageableには影響させない。
-        return PageRequest.of(pageable.isPaged() ? pageable.getPageNumber() : 0,
-                pageable.isPaged() ? Math.min(pageable.getPageSize(), 100) : 20, sort);
+        int page = pageable.isPaged() ? pageable.getPageNumber() : 0;
+        int size = pageable.isPaged() ? Math.min(pageable.getPageSize(), 100) : 20;
+        // JPAのoffsetはint。size正規化後にlongで判定し、Repositoryの例外による500を防ぐ。
+        if ((long) page * size > Integer.MAX_VALUE) throw new InvalidProductPageRequestException();
+        return PageRequest.of(page, size, sort);
     }
 }

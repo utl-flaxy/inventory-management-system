@@ -475,6 +475,9 @@ class InventoryApiIT {
         assertEquals(0, parameters.get("page").path("schema").path("default").asInt(-1));
         assertEquals(20, parameters.get("size").path("schema").path("default").asInt(-1));
         assertTrue(history.path("description").asText().contains("page/sizeだけを使用。sortはcreatedAt DESC, id DESCへ固定する"));
+        assertTrue(history.path("description").asText().contains("2147483647"));
+        assertEquals("#/components/schemas/ApiProblem", history.path("responses").path("400")
+                .path("content").path("application/problem+json").path("schema").path("$ref").asText());
     }
 
     private void assertHistoryContract(JsonNode page) {

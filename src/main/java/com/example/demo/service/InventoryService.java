@@ -4,6 +4,7 @@ import com.example.demo.dto.InventoryAdjustmentRequest;
 import com.example.demo.dto.InventoryMovementResponse;
 import com.example.demo.entity.*;
 import com.example.demo.exception.InvalidInventoryAdjustmentException;
+import com.example.demo.exception.InvalidInventoryPageRequestException;
 import com.example.demo.exception.ProductNotFoundException;
 import com.example.demo.exception.IdempotencyConflictException;
 import com.example.demo.exception.InvalidIdempotencyKeyException;
@@ -98,6 +99,9 @@ public class InventoryService {
     public Page<InventoryMovementResponse> history(Long id, Pageable pageable) {
         requireAdmin();
         if (!products.existsById(id)) throw new ProductNotFoundException();
+        // 商品の存在・ADMIN認可と既存size/sort契約を維持し、履歴queryのint offsetを検証する。
+        if ((long) pageable.getPageNumber() * pageable.getPageSize() > Integer.MAX_VALUE)
+            throw new InvalidInventoryPageRequestException();
         Pageable fixed = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
         return movements.findByProductId(id, fixed).map(InventoryMovementResponse::from);

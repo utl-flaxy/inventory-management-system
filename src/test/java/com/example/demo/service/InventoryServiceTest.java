@@ -105,6 +105,23 @@ class InventoryServiceTest {
         verify(movements).findByProductId(1L, expected);
     }
 
+    @ParameterizedTest
+    @CsvSource({"2147483647,2", "2147483647,20", "1073741824,2", "107374183,20"})
+    void historyRejectsUnrepresentableOffsetBeforeMovementQuery(int page, int size) {
+        admin(); when(products.existsById(1L)).thenReturn(true);
+        assertThrows(InvalidInventoryPageRequestException.class,
+                () -> service.history(1L, PageRequest.of(page, size)));
+        verifyNoInteractions(movements, users, entityManager);
+    }
+
+    @Test
+    void historyAcceptsAnOffsetExactlyAtIntegerMaxValue() {
+        admin(); when(products.existsById(1L)).thenReturn(true);
+        var expected = PageRequest.of(Integer.MAX_VALUE, 1, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
+        when(movements.findByProductId(1L, expected)).thenReturn(Page.empty(expected));
+        assertEquals(expected, service.history(1L, PageRequest.of(Integer.MAX_VALUE, 1)).getPageable());
+    }
+
     @ParameterizedTest @NullSource @ValueSource(strings = {"", "invalid key"})
     void invalidKeyFailsBeforeActorLockOrRepositories(String key) {
         admin();
