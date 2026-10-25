@@ -189,6 +189,30 @@ class ProductPagingServiceTest {
         verify(products).findByNameContaining(keyword, normalized);
     }
 
+    static Stream<Arguments> overflowingOffsets() {
+        return Stream.of(false, true).flatMap(search -> Stream.of(
+                Arguments.of(search, Integer.MAX_VALUE, 2),
+                Arguments.of(search, Integer.MAX_VALUE, 20),
+                Arguments.of(search, Integer.MAX_VALUE / 100 + 1, 500)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("overflowingOffsets")
+    void rejectsUnrepresentableOffsetBeforeRepository(boolean search, int page, int size) {
+        assertThrows(InvalidProductPageRequestException.class, () -> query(search, PageRequest.of(page, size)));
+        verifyNoInteractions(products, items, movements);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void appliesSizeCapBeforeValidatingTheOffset(boolean search) {
+        int page = Integer.MAX_VALUE / 100;
+        var normalized = PageRequest.of(page, 100, Sort.by("id"));
+        if (search) when(products.findByNameContaining("apple", normalized)).thenReturn(Page.empty(normalized));
+        else when(products.findAll(normalized)).thenReturn(Page.empty(normalized));
+        assertEquals(normalized, query(search, PageRequest.of(page, 500)).getPageable());
+    }
+
     private Page<ProductResponse> query(boolean search, Pageable pageable) {
         return search ? service.search("apple", pageable) : service.findAll(pageable);
     }

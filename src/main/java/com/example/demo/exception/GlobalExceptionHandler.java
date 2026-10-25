@@ -170,7 +170,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({InvalidProductPageRequestException.class, InvalidProductSearchKeywordException.class,
-            InvalidOrderPageRequestException.class})
+            InvalidOrderPageRequestException.class, InvalidInventoryPageRequestException.class})
     public ResponseEntity<ProblemDetail> handleInvalidPageRequest(RuntimeException ex, HttpServletRequest request) {
         return ApiProblemFactory.response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", ApiProblemFactory.INVALID_REQUEST_DETAIL, request);
     }

@@ -94,6 +94,9 @@ top-levelはcontent / page / size / totalElements / totalPages / first / lastの
 ServiceのSpring Page返却は維持する。pageは0-based、size=500は500、size=5000は上限2000。sortはサーバー固定のcreatedAt DESC, id DESC。
 clientのsort指定は上書きする。同じmicrosecondの記録もidで安定する。
 存在する商品で履歴なしは200 empty page、未存在は404。USER403 / 未認証401は調整と同じ。
+Issue #158: 商品存在確認後、`(long) page * size > 2147483647`は履歴query前に400 `INVALID_REQUEST`で拒否する。
+sizeはresolver補正後（最大2000）を使用し、既存上限・固定sortは変更しない。
+offsetが上限ちょうどなら許可する。これは整数表現の境界検証であり、巨大だが有効なoffsetの性能保証ではない。
 product_idで絞り、actorをEntityGraphで取得してTransaction内でDTOへ変換する。
 商品・注文のEntityをresponseへ含めず、履歴1件ごとのlazy fetchを避ける。
 

@@ -123,6 +123,16 @@ Issue #2: GET `/products` と `/products/search` のsortはid/name/price/stock/v
 page/sizeはSpring Data標準resolverを使用し、page不正は0、size不正は20となる。
 Product一覧/検索だけはService normalizerでsizeを最大100へ制限する。
 
+Issue #158: 商品一覧/検索とADMIN在庫履歴も、補正後の`page × size`が
+`Integer.MAX_VALUE`（2,147,483,647）を超える場合は400 `INVALID_REQUEST`とする。
+`long`で積を計算し、Repositoryのoffset例外を500 `SYSTEM_ERROR`へ落とさない。
+offsetが上限ちょうどなら許可する（例: page=2147483647, size=1）。
+商品はsize最大100、在庫履歴はSpring標準resolverの最大2000を維持し、上限適用後のsizeで判断する。
+負数/不正文字列の既定値補正、商品sort許可リスト、履歴の固定sort、注文の厳密パーサーは変更しない。
+未認証401・履歴USER403が先行し、履歴の未存在商品404も維持する。
+エラーは固定detail・6フィールドProblemDetailで、内部例外や入力sortを返さない。
+[実HTTP/MariaDBの境界・認可回帰](../src/test/java/com/example/demo/controller/PageOffsetIT.java)を参照。
+
 ## Validation
 
 ```json
