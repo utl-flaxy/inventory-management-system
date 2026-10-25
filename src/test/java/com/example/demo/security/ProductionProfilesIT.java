@@ -11,6 +11,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
+import org.springframework.boot.tomcat.TomcatWebServer;
 import org.springframework.boot.actuate.endpoint.web.WebEndpointsSupplier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -67,6 +68,20 @@ class ProductionProfilesIT {
             assertEquals("never", environment.getProperty("management.endpoint.health.show-components"));
             assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
 
+            // Issue #164: inspect the running test container; do not enable affected features to probe them.
+            var tomcat = assertInstanceOf(TomcatWebServer.class,
+                    ((WebServerApplicationContext) context).getWebServer()).getTomcat();
+            assertFalse(environment.getProperty("server.http2.enabled", Boolean.class, false));
+            var connectors = tomcat.getService().findConnectors();
+            assertTrue(connectors.length > 0);
+            for (var connector : connectors) {
+                var protocol = assertInstanceOf(org.apache.coyote.http11.AbstractHttp11Protocol.class,
+                        connector.getProtocolHandler()); // An AJP connector does not satisfy this assertion.
+                for (var upgrade : protocol.findUpgradeProtocols())
+                    assertFalse(upgrade instanceof org.apache.coyote.http2.Http2Protocol);
+            }
+            assertNoJndiRealm(tomcat.getEngine());
+
             // Check actual prod/local/default contexts, including dependency auto-configuration.
             assertTrue(context.getBeansOfType(org.springframework.web.servlet.view.xslt.XsltView.class).isEmpty());
             assertTrue(context.getBeansOfType(org.springframework.web.servlet.view.xslt.XsltViewResolver.class).isEmpty());
@@ -89,6 +104,9 @@ class ProductionProfilesIT {
 
             var health = get("/actuator/health", null);
             assertEquals(200, health.statusCode());
+            assertEquals(HttpClient.Version.HTTP_1_1, health.version());
+            System.out.printf("ISSUE164 profile=%s tomcat=%s connectors=%d http=%s ajp=false http2=false jndiRealm=false%n",
+                    profile, org.apache.catalina.util.ServerInfo.getServerNumber(), connectors.length, health.version());
             var healthBody = json.readTree(health.body());
             if (profile.equals("prod")) {
                 var forwardedHealth = http.send(HttpRequest.newBuilder(URI.create(base + "/actuator/health"))
@@ -218,6 +236,17 @@ class ProductionProfilesIT {
         var request = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5))
                 .header("Authorization", "Bearer " + token).DELETE();
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private void assertNoJndiRealm(org.apache.catalina.Container container) {
+        assertNoJndiRealm(container.getRealm());
+        for (var child : container.findChildren()) assertNoJndiRealm(child);
+    }
+
+    private void assertNoJndiRealm(org.apache.catalina.Realm realm) {
+        assertFalse(realm instanceof org.apache.catalina.realm.JNDIRealm);
+        if (realm instanceof org.apache.catalina.realm.CombinedRealm combined)
+            for (var nested : combined.getNestedRealms()) assertNoJndiRealm(nested);
     }
 
     private void assertNoSecrets(String value) {
