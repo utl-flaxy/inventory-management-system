@@ -46,6 +46,11 @@ case "$tool" in
       rev-parse)
         if [[ "$SCENARIO" == head-mismatch ]]; then echo "$OLD_SHA"; else echo "$DEPLOY_SHA"; fi ;;
       show) [[ "$*" == "show -s --format=%ct $DEPLOY_SHA" ]] && echo 1791760000 ;;
+      # Issue #157 ordering guard: DEPLOY_SHA is on origin/main and a descendant of the running OLD_SHA.
+      # Real ancestry semantics are covered by scripts/tests/deploy-order-test.sh with a real Git history.
+      merge-base)
+        [[ "$2" == --is-ancestor ]] || exit 97
+        [[ "$3 $4" == "$DEPLOY_SHA refs/remotes/origin/main" || "$3 $4" == "$OLD_SHA $DEPLOY_SHA" ]] ;;
       *) exit 97 ;;
     esac ;;
   mvnw)
