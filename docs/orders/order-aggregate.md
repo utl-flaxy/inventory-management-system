@@ -13,6 +13,16 @@ CurrentUser helperがSecurityContextの認証済みUUID主体をUserRepository�
 customerは必須で、リクエストから指定できない。未認証/存在しない認証ユーザーは401。
 所有者による参照・cancel制限やADMINの操作制限は[注文APIの認可（Issue #5）](../security/order-authorization.md)を参照。
 orderedAt/updatedAtはInstant（UTC）。生成時に設定し、更新時はJPAのPreUpdateでupdatedAtを更新する。
+Issue #159: 両時刻はそれぞれの`Instant.now()`取得時にMICROSへ切り捨て、MariaDBのDATETIME(6)と精度を揃える。
+四捨五入ではない。`orderedAt`は作成後不変、`updatedAt`は従来どおりflush時のPreUpdateで更新する。
+時刻源・Transaction境界・callbackの検証は変更せず、本番のClock注入基盤も追加しない。
+`completedAt`は既存のService注入Clock（既定Clock.systemUTC）からMICROSへ切り捨てる方針を維持し、
+`updatedAt`との同時刻保証は追加しない。完了時刻不明のlegacy COMPLETED行はNULLのまま読み取る。
+既存DATETIME(6)行の書換え・推測補完・schema変更・新規migrationは不要。
+JSONはISO-8601 UTC文字列で、精度はマイクロ秒まで（固定6桁の小数部を要求しない）。
+[実HTTP/実DB回帰](../../src/test/java/com/example/demo/controller/OrderTimestampPrecisionIT.java)は、
+HTTP workerの時刻取得だけを固定し、JSON元文字列・未補正Instant・実DB値を直接比較する。
+使い捨てDB sessionをUTCに固定し、JVMの既定zoneと区別して検証する。本番DBのtimezone確認を実施したという意味ではない。
 OrderにもVersionを持たせ、商品側のVersionと既存の悲観ロックを維持する。
 
 ## APIと互換性

@@ -28,9 +28,6 @@ import org.testcontainers.mariadb.MariaDBContainer;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import tools.jackson.databind.node.ObjectNode;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
@@ -86,7 +83,7 @@ class IdempotentOrderIT {
         JsonNode first = successful("alice", "retry", body(3));
         assertEquals(7, stock());
         var saved = snapshot();
-        for (int retry = 0; retry < 10; retry++) assertEquals(persistedPrecision(first), persistedPrecision(successful("alice", "retry", body(3))));
+        for (int retry = 0; retry < 10; retry++) assertEquals(first, successful("alice", "retry", body(3)));
         assertEquals(saved, snapshot());
         assertEquals(1, count("orders"));
         assertEquals(1, count("order_items"));
@@ -100,7 +97,7 @@ class IdempotentOrderIT {
         String reversed = "{ \"items\" : [ {\"quantity\":3,\"productId\":2}, {\"quantity\":2,\"productId\":1} ] }";
         JsonNode first = successful("alice", "reversed", forward);
         var saved = snapshot();
-        assertEquals(persistedPrecision(first), persistedPrecision(successful("alice", "reversed", reversed)));
+        assertEquals(first, successful("alice", "reversed", reversed));
         assertEquals(saved, snapshot());
         assertEquals(2, count("order_items"));
         assertEquals(2, count("inventory_movements"));
@@ -130,7 +127,7 @@ class IdempotentOrderIT {
         successful("bob", "another-order", body(7));
         assertEquals(0, stock());
         var saved = snapshot();
-        assertEquals(persistedPrecision(original), persistedPrecision(successful("alice", "snapshot", body(3))));
+        assertEquals(original, successful("alice", "snapshot", body(3)));
         assertEquals(100, original.path("items").get(0).path("unitPrice").longValue());
         assertEquals(300, original.path("totalPrice").longValue());
         assertEquals(saved, snapshot());
@@ -159,7 +156,7 @@ class IdempotentOrderIT {
         assertNotEquals(alice.path("id"), bob.path("id"));
         assertEquals(1, alice.path("customer").path("id").longValue());
         assertEquals(2, bob.path("customer").path("id").longValue());
-        assertEquals(persistedPrecision(bob), persistedPrecision(successful("bob", "shared", body(3))));
+        assertEquals(bob, successful("bob", "shared", body(3)));
         mvc.perform(get(ME + "/" + alice.path("id").longValue()).header("Authorization", token("bob")))
                 .andExpect(status().isNotFound());
         assertEquals(5, stock());
@@ -371,13 +368,6 @@ class IdempotentOrderIT {
 
     private record Request(String user, String key, String body) { }
     private record Outcome(int status, JsonNode body) { }
-    private JsonNode persistedPrecision(JsonNode response) {
-        // 初回の既存Instant.nano精度とDB DATETIME(6)の差だけを正規化し、全業務fieldを比較する。
-        ObjectNode normalized = (ObjectNode) response.deepCopy();
-        for (String field : List.of("orderedAt", "updatedAt"))
-            normalized.put(field, Instant.parse(response.path(field).asText()).truncatedTo(ChronoUnit.MICROS).toString());
-        return normalized;
-    }
     private String token(String username) { return "Bearer " + com.example.demo.TestAuth.token(jwt, jdbc, username); }
     private String body(int quantity) { return "{\"items\":[{\"productId\":1,\"quantity\":" + quantity + "}]}"; }
     private ResultActions create(String user, String key, String body) throws Exception {
