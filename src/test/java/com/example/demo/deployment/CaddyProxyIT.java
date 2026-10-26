@@ -1,5 +1,7 @@
 package com.example.demo.deployment;
 
+import com.example.demo.support.ContainerDiagnostics;
+
 import org.junit.jupiter.api.*;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -21,6 +23,8 @@ class CaddyProxyIT {
     private static final String REQUEST_ID = "08faf7bc-51a4-4c29-b22c-5cfcf0026946";
     private static Path work;
     private static GenericContainer<?> proxy;
+    @org.junit.jupiter.api.extension.RegisterExtension
+    static final ContainerDiagnostics.OnFailure evidence = new ContainerDiagnostics.OnFailure(() -> proxy, ContainerDiagnostics.Kind.CADDY);
 
     @BeforeAll
     static void startProxyWithoutPublicCaAccess() throws Exception {
@@ -48,7 +52,7 @@ class CaddyProxyIT {
                 + "  handle {\n    respond `{\"status\":\"UP\"}`\n  }\n}\n";
         Files.writeString(work.resolve("local.Caddyfile"), local);
         // Reuse the existing MariaDB test image as a Linux tool environment; no database is started.
-        proxy = new GenericContainer<>("mariadb:12.2").withNetworkMode("none")
+        proxy = new ContainerDiagnostics.Caddy("mariadb:12.2").withNetworkMode("none")
                 .withCopyFileToContainer(MountableFile.forHostPath(work.resolve("caddy.tar.gz")), "/tmp/caddy.tar.gz")
                 .withCopyFileToContainer(MountableFile.forHostPath(work.resolve("production.Caddyfile")), "/tmp/production.Caddyfile")
                 .withCopyFileToContainer(MountableFile.forHostPath(work.resolve("local.Caddyfile")), "/tmp/local.Caddyfile")
@@ -80,7 +84,7 @@ class CaddyProxyIT {
         String command = tls
                 ? "printf '%s' \"$1\" | base64 --decode | timeout 10 openssl s_client -quiet -bind \"$2:0\" -connect 127.0.0.1:8443 -servername localhost -CAfile /tmp/caddy-state/pki/authorities/local/root.crt -verify_return_error -verify_hostname localhost 2>/tmp/client-diagnostic"
                 : "exec 3<>/dev/tcp/127.0.0.1/8081; printf '%s' \"$1\" | base64 --decode >&3; timeout 10 cat <&3";
-        var result = proxy.execInContainer("/bin/bash", "-ec", command, "client", encoded, client);
+        var result = ContainerDiagnostics.exec(proxy, ContainerDiagnostics.Kind.CADDY, "/bin/bash", "-ec", command, "client", encoded, client);
         assertEquals(0, result.getExitCode(), "Local TLS client must verify certificate and hostname");
         String response = result.getStdout();
         int split = response.indexOf("\r\n\r\n");
