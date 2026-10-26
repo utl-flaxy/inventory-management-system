@@ -64,3 +64,21 @@ TLSクライアントの検証・CA/hostname検証や既存assertは変更して
 
 Issue #121 / PR #122のnative DB lock判定、409/rollback/同key retry/pool0は変更しない。
 Linux CI成功やWindowsでの後続成功を根因修復の証明としない。OS32、Flyway WARN、#75 TF-C BLOCKED、#134 jti保留、異binary rollback未検証を維持する。
+
+## Snapshot堅牢性追補（2026-10-26）
+
+合成回帰で、並列JUnit contextの開始時刻混線、取消後に変わる可変ネストMapによるJSON行の消失、
+collector試験入口の未許可canary出力を修正前に再現した（6件中3失敗）。
+最後の2件は内部collector境界への故障注入であり、既存の実collectorから実秘密情報が漏れたという証明ではない。
+
+- callerのschema・時刻・例外・statusとcollectorのevidenceを分離し、collectorはcaller metadataを上書きできない。
+- 出力時に許可キー、version・UTC・固定分類・数値・真偽だけをコピーする。ネストは深さ3・32要素まで。
+  未許可値やcopy中の競合はそのfieldの`UNAVAILABLE`とし、他の診断行を失わせない。
+- deep copy後はcollectorのMapや可変値への参照をJSONへ渡さない。全Docker情報を単一時点でatomic取得したという保証ではない。
+- 開始Markは共有fieldではなくobserver専用namespaceのJUnit context Storeに保持し、BeforeAll・BeforeEach・test実行を分離する。
+- interruptの維持、診断timeout後の元Throwableの同一性、取消に抵抗するworker中の後続`FAILED_OR_BUSY`も回帰で確認する。
+  workerが戻らない間の後続evidence不足は、最大1 worker・queueなしという既存の資源上限の制約として残す。
+- 通常成功時の追加Docker I/O、3秒の診断待機予算、本番アプリ・DB・TLS・timeout・retry、#121/#122の判定は変更しない。
+
+回帰は[ContainerDiagnosticsRobustnessTest](../src/test/java/com/example/demo/support/ContainerDiagnosticsRobustnessTest.java)を参照。
+根因修復や本番受入完了ではなく、#145 OPEN・#166の受入状態・PRODUCTION NO GOを維持する。
