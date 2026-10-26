@@ -1,6 +1,7 @@
 package com.example.demo.repository;
 
 import com.example.demo.DemoApplication;
+import com.example.demo.support.ContainerDiagnostics;
 import io.jsonwebtoken.Jwts;
 import jakarta.persistence.EntityManagerFactory;
 import org.flywaydb.core.Flyway;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -48,13 +50,17 @@ class BackupRestoreIT {
             "inventory_movements", "auth_revocation_audit", "flyway_schema_history");
     @Container static final MariaDBContainer source = container(SOURCE_PASSWORD);
     @Container static final MariaDBContainer target = container(TARGET_PASSWORD);
+    @RegisterExtension static final ContainerDiagnostics.OnFailure sourceEvidence =
+            new ContainerDiagnostics.OnFailure(() -> source, ContainerDiagnostics.Kind.MARIADB);
+    @RegisterExtension static final ContainerDiagnostics.OnFailure targetEvidence =
+            new ContainerDiagnostics.OnFailure(() -> target, ContainerDiagnostics.Kind.MARIADB);
     @TempDir static Path temp;
     private Path bundle;
     private JdbcTemplate sourceJdbc;
     private JdbcTemplate targetJdbc;
 
     private static MariaDBContainer container(String password) {
-        return new MariaDBContainer("mariadb:12.2").withDatabaseName(DB)
+        return new ContainerDiagnostics.MariaDb("mariadb:12.2").withDatabaseName(DB)
                 .withUsername("inventory_app").withPassword(password)
                 // TestcontainersのMYSQL_*互換名に依存せず、実scriptにはComposeと同じMARIADB_*を渡す。
                 .withEnv("MARIADB_DATABASE", DB).withEnv("MARIADB_USER", "inventory_app")
@@ -96,7 +102,7 @@ class BackupRestoreIT {
         movement(7, -1, 15, 14, "DAMAGE", "MANUAL", null, 11, "破損確認", INVENTORY_KEY + "-damage", FINGERPRINT);
         var before = rows(sourceJdbc);
         var root = temp.resolve("backups");
-        var result = script("scripts/db/backup.sh", Map.of("DB_CONTAINER", source.getContainerId(), "BACKUP_ROOT", path(root)));
+        var result = script(source, "scripts/db/backup.sh", Map.of("DB_CONTAINER", source.getContainerId(), "BACKUP_ROOT", path(root)));
         assertEquals(0, result.exit(), "Actual backup script failed: " + result.errors());
         assertTrue(result.output().startsWith("Backup completed: "));
         try (var paths = Files.list(root)) {
@@ -117,7 +123,7 @@ class BackupRestoreIT {
     @BeforeEach
     void resetOnlyDisposableTarget() throws Exception {
         // test専用containerのDBだけをreset。本番名やvolumeは使用しない。
-        var reset = target.execInContainer("sh", "-c", "export MYSQL_PWD=\"$MARIADB_ROOT_PASSWORD\"; exec mariadb --protocol=socket --user=root --execute='DROP DATABASE `backup_drill`; CREATE DATABASE `backup_drill` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'");
+        var reset = ContainerDiagnostics.exec(target, ContainerDiagnostics.Kind.MARIADB, "sh", "-c", "export MYSQL_PWD=\"$MARIADB_ROOT_PASSWORD\"; exec mariadb --protocol=socket --user=root --execute='DROP DATABASE `backup_drill`; CREATE DATABASE `backup_drill` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'");
         assertEquals(0, reset.getExitCode(), "Disposable target reset failed (output withheld)");
     }
 
@@ -262,7 +268,7 @@ class BackupRestoreIT {
     private Result restore(Path input, String... extra) throws Exception {
         var args = new java.util.ArrayList<>(List.of("--bundle", path(input), "--container", target.getContainerId(), "--database", DB));
         args.addAll(List.of(extra));
-        return script("scripts/db/restore.sh", Map.of(), args.toArray(String[]::new));
+        return script(target, "scripts/db/restore.sh", Map.of(), args.toArray(String[]::new));
     }
 
     private void assertSuccess(Result result) { assertEquals(0, result.exit(), "Actual restore script failed: " + result.errors()); assertTrue(result.output().startsWith("Restore completed: ")); }
@@ -270,7 +276,8 @@ class BackupRestoreIT {
         // client stderr/bodyを表示せず、scriptの固定summaryだけで失敗段階を診断する。
         String errors() { return output.lines().filter(line -> line.startsWith("ERROR: ")).reduce("", (a, b) -> a + b + "; "); }
     }
-    private Result script(String script, Map<String, String> environment, String... arguments) throws Exception {
+    private Result script(MariaDBContainer database, String script, Map<String, String> environment, String... arguments) throws Exception {
+        var started = ContainerDiagnostics.Mark.now();
         var log = Files.createTempFile(temp, "script-", ".log");
         try {
             var command = new java.util.ArrayList<>(List.of(bash(), script));
@@ -283,6 +290,9 @@ class BackupRestoreIT {
             if (!completed) process.destroyForcibly();
             assertTrue(completed, "Backup/restore subprocess timed out (output withheld)");
             var result = new Result(process.exitValue(), Files.readString(log));
+            if (result.exit() != 0)
+                ContainerDiagnostics.capture(database, ContainerDiagnostics.Kind.MARIADB, ContainerDiagnostics.Phase.CLI,
+                        started, null, result.exit(), null); // No script output, argv or environment enters diagnostics.
             assertNoSecrets(result.output());
             return result;
         } finally { Files.deleteIfExists(log); }
