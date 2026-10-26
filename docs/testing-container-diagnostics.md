@@ -82,3 +82,25 @@ collector試験入口の未許可canary出力を修正前に再現した（6件�
 
 回帰は[ContainerDiagnosticsRobustnessTest](../src/test/java/com/example/demo/support/ContainerDiagnosticsRobustnessTest.java)を参照。
 根因修復や本番受入完了ではなく、#145 OPEN・#166の受入状態・PRODUCTION NO GOを維持する。
+
+## BackupRestoreITへの統合（2026-10-26）
+
+source/target共通factoryを既存の`ContainerDiagnostics.MariaDb`へ変更した。image・認証・DB初期化・TLS・timeout・retryは変更しない。
+起動/Wait失敗は既存のコンテナcallbackで自動cleanup前に取得し、初期化・テストの例外は各DBに結び付けた既存`OnFailure`で取得する。
+新しい証明書・時刻・例外分類の実装は追加していない。
+
+- targetの使い捨てDB resetは既存`exec`で包み、CLI結果・元例外・assertを維持する。
+- hostのbackup/restore subprocessが非0終了した場合、対象DBと終了コードを既存`capture`へ渡してから元の結果・秘密非露出assertを処理する。
+  argv・環境・stdout/stderr本文は診断へ渡さない。scriptが内部で抑制したDB CLI stderrの内容は復元できない。
+- subprocessの起動例外・60秒timeoutやbackup/restoreのassert失敗は既存`OnFailure`が観測する。元の例外・判定は変更しない。
+- 通常成功時は時刻markだけで、追加Docker I/Oはない。明示診断modeでは従来のコンテナ/exec観測が有効になる。
+  期待した否定系restoreの非0終了にもCLI診断は出るため、JSON行の存在だけでテスト失敗や根因を判定しない。
+
+[統合回帰](../src/test/java/com/example/demo/repository/BackupRestoreDiagnosticsTest.java)は両DBへの結合、正常時の追加I/Oなし、
+診断不能でもCLI終了コード・出力を維持すること、既存秘密非露出assertが失敗のまま残ることを検証する。
+[Wait故障注入IT](../src/test/java/com/example/demo/repository/BackupRestoreDiagnosticsIT.java)は同じfactoryを使い、
+JDBC waitの既存の即時失敗経路へ合成例外を注入して、元causeとcleanup前のJSONが残ることを確認する。
+証明書検証を無効化したり、timeout・retry・sleepを調整したりする検証ではない。
+
+前回のWindows BackupRestoreIT起動中のWait失敗/not-yet-valid（最終7件成功）は歴史的観測として保持する。
+今回の追加は証拠取得範囲の拡大であり、Windowsの根因修復、全ITへの自動適用、PRODUCTION GOを意味しない。
