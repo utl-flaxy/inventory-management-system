@@ -32,6 +32,14 @@ public final class ContainerDiagnostics {
     private static final ExecutorService COLLECTOR = new ThreadPoolExecutor(0, 1, 30, TimeUnit.SECONDS,
             new SynchronousQueue<>(), task -> { var t = new Thread(task, "container-evidence"); t.setDaemon(true); return t; });
     private static final Set<String> STATES = Set.of("created", "running", "paused", "restarting", "exited", "dead", "removing");
+    private static final Set<String> EVIDENCE_KEYS = Set.of("javaVersion", "os", "osVersion", "testcontainersVersion",
+            "dockerVersion", "containerState", "containerExit", "oomKilled", "certificates", "certificateProbeExit",
+            "certificateProbeClass", "certificateSource", "clientErrorClass", "clockCliExit", "clock");
+    private static final Set<String> NESTED_KEYS = Set.of("root", "intermediate", "leaf", "server", "notBeforeUtc",
+            "notAfterUtc", "hostBeforeUtc", "hostAfterUtc", "containerUtc", "observationElapsedNanos", "bracketStatus",
+            "guestMinusHostMinNanos", "guestMinusHostMaxNanos");
+    private static final Set<String> EVIDENCE_VALUES = Set.of("UNKNOWN", "UNAVAILABLE", "WINDOWS", "LINUX", "MAC", "OTHER",
+            "NONE", "TLS_NOT_YET_VALID", "TLS_EXPIRED", "TLS_VERIFY", "DIAGNOSTIC_SOCKET_PEER", "VALID", "WALL_CLOCK_REVERSED");
     private static boolean always() { return "always".equals(System.getProperty("test.container.diagnostics")); }
 
     public static void capture(GenericContainer<?> container, Kind kind, Phase phase, Mark start,
@@ -44,7 +52,9 @@ public final class ContainerDiagnostics {
     static void record(Kind kind, Phase phase, Mark start, Throwable failure, Integer cliExit, String cliError,
                        Consumer<Map<String, Object>> collector, Consumer<String> sink) {
         try {
-            var out = new ConcurrentHashMap<String, Object>();
+            // Caller metadata never belongs to the collector. A cancelled worker may continue changing only evidence.
+            var out = new TreeMap<String, Object>();
+            var evidence = new ConcurrentHashMap<String, Object>();
             out.put("schema", 1); out.put("kind", kind.name()); out.put("phase", phase.name());
             out.put("startedUtc", start.utc().toString()); out.put("observedUtc", Instant.now().toString());
             out.put("elapsedNanos", start.elapsed(System.nanoTime()));
@@ -56,7 +66,7 @@ public final class ContainerDiagnostics {
             out.put("collectionStatus", "UNAVAILABLE");
             Future<?> pending = null;
             try {
-                pending = COLLECTOR.submit(() -> collector.accept(out));
+                pending = COLLECTOR.submit(() -> collector.accept(evidence));
                 pending.get(3, TimeUnit.SECONDS);
                 out.put("collectionStatus", "COMPLETE");
             } catch (InterruptedException e) {
@@ -68,10 +78,45 @@ public final class ContainerDiagnostics {
             } finally {
                 if (pending != null && !pending.isDone()) pending.cancel(true);
             }
-            sink.accept(JSON.writeValueAsString(new TreeMap<>(out)));
+            out.putAll(snapshot(evidence));
+            sink.accept(JSON.writeValueAsString(out));
         } catch (Throwable diagnosticFailure) {
             // Do not attach a message/suppressed exception (it may contain credentials), or replace the original.
         }
+    }
+
+    private static Map<String, Object> snapshot(Map<String, Object> evidence) {
+        var copy = new TreeMap<String, Object>();
+        for (String key : EVIDENCE_KEYS) {
+            Object value = evidence.get(key);
+            if (value != null) {
+                try { copy.put(key, frozen(value, 0)); }
+                catch (RuntimeException unavailable) { copy.put(key, "UNAVAILABLE"); }
+            }
+        }
+        return Map.copyOf(copy);
+    }
+
+    private static Object frozen(Object value, int depth) {
+        if (value instanceof Boolean || value instanceof Long || value instanceof Integer) return value;
+        if (value instanceof String text) {
+            if (EVIDENCE_VALUES.contains(text) || STATES.contains(text) || !version(text).equals("UNKNOWN")) return text;
+            if (text.length() <= 40) {
+                try { if (Instant.parse(text).toString().equals(text)) return text; }
+                catch (java.time.format.DateTimeParseException notAnInstant) { /* No free-form text. */ }
+            }
+            return "UNAVAILABLE";
+        }
+        if (value instanceof Map<?, ?> map && depth < 3) {
+            var copy = new TreeMap<String, Object>(); int entries = 0;
+            for (var entry : map.entrySet()) {
+                if (++entries > 32) return "UNAVAILABLE";
+                if (entry.getKey() instanceof String key && NESTED_KEYS.contains(key))
+                    copy.put(key, frozen(entry.getValue(), depth + 1));
+            }
+            return Map.copyOf(copy);
+        }
+        return "UNAVAILABLE";
     }
 
     static Map<String, Object> classify(Throwable failure) {
@@ -216,18 +261,24 @@ public final class ContainerDiagnostics {
         }
     }
 
-    public static final class OnFailure implements BeforeTestExecutionCallback, TestExecutionExceptionHandler,
+    public static final class OnFailure implements BeforeAllCallback, BeforeEachCallback, BeforeTestExecutionCallback, TestExecutionExceptionHandler,
             LifecycleMethodExecutionExceptionHandler {
         private final Supplier<GenericContainer<?>> target;
         private final Kind kind;
-        private Mark start = Mark.now();
+        private final ExtensionContext.Namespace namespace = ExtensionContext.Namespace.create(OnFailure.class, this);
         public OnFailure(Supplier<GenericContainer<?>> target, Kind kind) { this.target = target; this.kind = kind; }
-        @Override public void beforeTestExecution(ExtensionContext context) { start = Mark.now(); }
-        @Override public void handleTestExecutionException(ExtensionContext c, Throwable failure) throws Throwable { handle(failure); }
-        @Override public void handleBeforeAllMethodExecutionException(ExtensionContext c, Throwable failure) throws Throwable { handle(failure); }
-        @Override public void handleBeforeEachMethodExecutionException(ExtensionContext c, Throwable failure) throws Throwable { handle(failure); }
-        private void handle(Throwable failure) throws Throwable {
-            try { capture(target.get(), kind, Phase.TEST, start, failure, null, null); }
+        @Override public void beforeAll(ExtensionContext context) { mark(context); }
+        @Override public void beforeEach(ExtensionContext context) { mark(context); }
+        @Override public void beforeTestExecution(ExtensionContext context) { mark(context); }
+        private void mark(ExtensionContext context) { context.getStore(namespace).put(Mark.class, Mark.now()); }
+        @Override public void handleTestExecutionException(ExtensionContext c, Throwable failure) throws Throwable { handle(c, failure); }
+        @Override public void handleBeforeAllMethodExecutionException(ExtensionContext c, Throwable failure) throws Throwable { handle(c, failure); }
+        @Override public void handleBeforeEachMethodExecutionException(ExtensionContext c, Throwable failure) throws Throwable { handle(c, failure); }
+        private void handle(ExtensionContext context, Throwable failure) throws Throwable {
+            try {
+                var start = context == null ? null : context.getStore(namespace).get(Mark.class, Mark.class);
+                capture(target.get(), kind, Phase.TEST, start == null ? Mark.now() : start, failure, null, null);
+            }
             catch (Throwable unavailable) { /* Diagnostic acquisition cannot replace the failure. */ }
             throw failure;
         }
