@@ -1,5 +1,7 @@
 package com.example.demo.repository;
 
+import com.example.demo.support.ContainerDiagnostics;
+
 import com.example.demo.dto.OrderRequest;
 import com.example.demo.dto.OrderItemRequest;
 import com.example.demo.dto.OrderResponse;
@@ -68,10 +70,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @Timeout(120)
 class InventoryConcurrencyMariaDbIT {
     @Container
-    static final MariaDBContainer database = new MariaDBContainer("mariadb:12.2.2")
+    static final MariaDBContainer database = new ContainerDiagnostics.MariaDb("mariadb:12.2.2")
             .withDatabaseName("inventory_concurrency")
             .withCommand("--innodb-lock-wait-timeout=10", "--max-connections=160")
             .withStartupTimeout(Duration.ofSeconds(90));
+    @org.junit.jupiter.api.extension.RegisterExtension
+    static final ContainerDiagnostics.OnFailure evidence = new ContainerDiagnostics.OnFailure(() -> database, ContainerDiagnostics.Kind.MARIADB);
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {

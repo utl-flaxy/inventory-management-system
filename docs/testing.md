@@ -1,5 +1,7 @@
 # 応募版のテストを再現する — 2026-10-23 / Issue #153
 
+Issue #145の失敗時診断（2026-10-26）は[取得項目・秘密非出力・cleanup前の収集と限界](testing-container-diagnostics.md)を参照。診断追加をWindows不安定性の根因修復とは扱わない。以下の過去snapshotは保存する。
+
 Java17＋Docker daemonでrepository rootから実行する。通常の全回帰は次のコマンドで、unitだけ/対象ITだけをfull verify成功としない。
 
 ```bash

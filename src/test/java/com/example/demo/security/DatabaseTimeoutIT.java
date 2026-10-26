@@ -1,5 +1,7 @@
 package com.example.demo.security;
 
+import com.example.demo.support.ContainerDiagnostics;
+
 import com.zaxxer.hikari.HikariDataSource;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,10 +54,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class DatabaseTimeoutIT {
     private static final String SECRET = randomValue();
-    @Container static final MariaDBContainer database = new MariaDBContainer("mariadb:12.2.2")
+    @Container static final MariaDBContainer database = new ContainerDiagnostics.MariaDb("mariadb:12.2.2")
             .withDatabaseName("database_timeout").withUsername("inventory_app").withPassword(randomValue())
             .withCopyFileToContainer(MountableFile.forHostPath("scripts/db-init/01-app-privileges.sh", 0755),
                     "/docker-entrypoint-initdb.d/01-app-privileges.sh");
+    @org.junit.jupiter.api.extension.RegisterExtension
+    static final ContainerDiagnostics.OnFailure evidence = new ContainerDiagnostics.OnFailure(() -> database, ContainerDiagnostics.Kind.MARIADB);
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", database::getJdbcUrl);
@@ -374,7 +378,7 @@ class DatabaseTimeoutIT {
     }
     private static String rootCommand(String sql) {
         try {
-            var result=database.execInContainer("sh","-c","MYSQL_PWD=\"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}\" mariadb -uroot -N -B -e \"$1\"","db-probe",sql);
+            var result=ContainerDiagnostics.exec(database,ContainerDiagnostics.Kind.MARIADB,"sh","-c","MYSQL_PWD=\"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}\" mariadb -uroot -N -B -e \"$1\"","db-probe",sql);
             assertEquals(0,result.getExitCode(),"Disposable DB observation failed");
             return result.getStdout().trim();
         } catch (Exception ex) { throw new AssertionError("Disposable DB observation failed",ex); }
