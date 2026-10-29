@@ -1,3 +1,41 @@
+# 応募版の再現手順と基準snapshot — 2026-10-29照合
+
+## 実行前提と安全な確認
+
+repository rootで、レビューするcommitをcheckoutして実行する。実secretや既存DB/state/volumeは入力しない。
+
+|実行範囲|必要なもの・安全な確認|
+|---|---|
+|Java full verify|Java17をJAVA_HOME/PATHで選択、Git、Bash、Docker daemon、Python3.12以上、依存取得network。`java -version` / `git --version` / `docker version` / `python3 --version`で確認|
+|Windows|Git for WindowsのBashが`C:/Program Files/Git/bin/bash.exe`に必要（既存script回帰とBackupRestoreIT）。`.\mvnw.cmd verify`とPython3.12以上の`python`を使う|
+|隔離Dockerデモ|Docker Compose v2、linux/amd64 image、app1GiB＋DB512MiBとbuild/hostの余裕。`docker compose version`を確認。[demo](demo.md)は新規tmpfs/固有resourceだけを使用|
+|Terraform mock|CLI1.15.6をPATHへ用意（`terraform version`）。[offline runner](../scripts/ci/terraform_offline.py)が公開sourceを隔離exportし、backend=false/plan-only mockだけ実行。実backendやAWS資格情報は不要|
+
+```bash
+./mvnw verify
+python3 -m unittest discover -s scripts/ci/tests -v
+python3 scripts/ci/terraform_offline.py
+python3 scripts/docker/verify_image.py --scan --output target/portfolio-demo
+```
+
+Windows PowerShellは`.\mvnw.cmd`と`python`へ読み替え、各終了コードを確認する。`-D`引数にドット/カンマがある対象実行は引数全体を引用する。
+full verifyは実MariaDB/Testcontainersを含む。unitだけ/対象ITだけを全回帰成功とせず、既存のpool/timeout/retryを緩めない。
+デモでは環境をharnessが生成するため本番用envは不要。jarのlocal起動だけを行う場合は[configuration](configuration.md#local-startup)の必須DB/JWT設定を新規環境へ用意する。
+Swagger/OpenAPIは明示したlocalのみ、default/prodでは404。通常Composeの固定名・永続volumeを手軽なデモとして起動しない。
+
+## 基準mainとPR HEADの証拠を分ける
+
+main `1a647a393dac147825293e0ccba0fd84f30bc5fa` / [push CI40328908744](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)（10月26日実行）を10月29日に照合した。
+Java1,469＋1,045＝**2,514 / F/E/S=0**、Python68、TF49＋mutation拒否3、配備順序15、必須5/5 SUCCESS。
+Secret例外/未解決0、SECURITY違反0、OSV169/advisory0、Trivy OS32（M28/L4）/library0、Docker9＋B1/B2/B3・V1〜V9。
+出典・保証範囲・P1〜P5は[release-status](release-status.md)。[現在のmain push](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)と新PR HEADのCIは別に確認する。
+新HEADの実測値・Windows実行結果・Docker artifactはPR本文へ記録し、この固定snapshotを追い書きしない。
+
+#145の[安全な診断と限界](testing-container-diagnostics.md)、Windows初回失敗/時計差/証明書時刻の根因未確定、OS残余とFlyway WARNを保持する。
+以下は10月23日以前の当時の記録を原文で保存する。古い「今回」や数値を現在の証拠に流用しない。
+
+---
+
 # 応募版のテストを再現する — 2026-10-23 / Issue #153
 
 Issue #145の失敗時診断（2026-10-26）は[取得項目・秘密非出力・cleanup前の収集と限界](testing-container-diagnostics.md)を参照。診断追加をWindows不安定性の根因修復とは扱わない。以下の過去snapshotは保存する。

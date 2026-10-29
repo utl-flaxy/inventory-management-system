@@ -1,3 +1,84 @@
+# Portfolio v1.0 最終仕上げ・受入候補 — 2026-10-29
+
+**提案: PORTFOLIO v1.0 READY FOR FINAL APPROVAL。正式承認・merge・tag作成は独立レビュー後。実利用者向け本番運用はPRODUCTION NO GO。**
+応募用作品として「実装→設計理由→常設テスト→安全な再現→未保証事項」を説明できることを評価する。本番接続が必要な条件を応募版へ追加しない。
+
+## 今回の基準snapshotと現在確認先
+
+main **`1a647a393dac147825293e0ccba0fd84f30bc5fa`**（PR #167/#168/#169 squash後）。
+[main push CI40328908744](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)は2026-10-26 UTCの実行で、10月29日にログ・artifactを再取得した。
+event=push、head一致、completed/success、test / terraform / secret-scan / java-static-analysis / dependency-auditの5/5 SUCCESS。
+[現在のmain push一覧](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)と[main HEAD](https://github.com/utl-flaxy/inventory-management-system/commits/main/)は別に照合する。
+本PR HEADの結果はPR本文の別runへ記録する。下表を将来のmainや実配備の成功へ流用しない。
+
+|対象|基準main CIの実測・出典と限界|
+|---|---|
+|Java17|Surefire1,469＋Failsafe1,045＝**2,514件、F/E/S=0/0/0、BUILD SUCCESS**。test job、MariaDB/Testcontainersを含む有限の回帰|
+|Python / Terraform|**68件 / host27＋bootstrap14＋synthetic8＝49成功、mutation拒否3**。secret-scan / terraform job。backend=false・AWS受入0件|
+|Gitleaks / SpotBugs|**420 tracked files、例外0/未解決0 / main160 classes、SECURITY違反0**。各artifactと実正常/異常self-test。全履歴・全SASTの保証ではない|
+|SBOM/OSV|**169 components / advisory0**、抑制なし、scanner exit0。Maven plugin・OS・未知脆弱性は別|
+|Trivy|**OS32（MEDIUM28/LOW4）、library0**、scanner exit0。runtime imageだけのaudit-only。脆弱性ゼロではない|
+|Docker / DB|clean archive、Java17 JRE、10001:10001、read-only、業務9段階＋B1/B2/B3、Flyway V1〜V9、shutdown・同image設定故障復帰PASS。Flyway WARN3件保持|
+|配備/復旧/診断|配備順序15、[BackupRestoreIT](../src/test/java/com/example/demo/repository/BackupRestoreIT.java)、[診断回帰](testing-container-diagnostics.md)成功。実配備・本番restore・Windows根因解消ではない|
+|解決済み依存|Boot4.1.1 / Framework7.0.9 / Security7.1.1 / Tomcat core/el/websocket11.0.27 / Hibernate7.4.5.Final / Flyway12.4.0 / MariaDB JDBC3.5.10。dependency-auditのbom.json|
+
+Docker artifactのsource_revision/revision_labelは上記mainに一致。clean_archive_build=trueとworkspaceのsource_dirty=trueを別々に保持する。
+current/previous image IDは同じで、rollbackは設定故障復帰。異なる旧binary、旧鍵、過去DBとの互換性を保証しない。
+artifactはrunのActions画面から取得する（保存30日）。長期保管時は値を除去した証跡を保ち、raw JWT・env・DB認証情報を転載しない。
+
+<a id="portfolio-v1-final-acceptance"></a>
+
+## Portfolio v1.0の最終受入候補（P1〜P5）
+
+下のPASSは応募用の判定案であり、独立承認済みという意味ではない。本PRの文書表示・リンク・新HEAD CIはPR本文で提出する。
+
+|ID / 判定案|根拠ファイル・テストと実行結果|残余リスク|v1.0完成への影響|本番運用への影響|
+|---|---|---|---|---|
+|P1 **PASS** 主要業務/API/認可|[OrderService](../src/main/java/com/example/demo/service/OrderService.java)、[SecurityConfig](../src/main/java/com/example/demo/security/SecurityConfig.java)。[20顧客競合](../src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java#L242)、[HTTP冪等性](../src/test/java/com/example/demo/controller/IdempotentOrderIT.java)、[認可matrix](../src/test/java/com/example/demo/security/AuthorizationMatrixIT.java)、B1/B2/B3の実MariaDB回帰が基準CIで成功|jti/refresh/reset/role変更API未実装、失効前に認証済み業務は完遂し得る|未実装範囲を明示し、応募版の機能を説明可能|実artifact/認証方式/外部設定は#166で別受入|
+|P2 **PASS** 品質|[ci.yml](../.github/workflows/ci.yml)、[品質方針](ci-quality-gates.md)、上表のJava/Python/TF/Secret/SpotBugs/OSV/Trivyと5/5の実測|OS32、Flyway WARN、#145不安定性・診断不能が残る。有限試験|失敗履歴と検査対象を開示して受入候補|CI成功だけで脆弱性受容・容量/SLAを承認しない|
+|P3 **PASS** 安全な再現|[demo](demo.md)、[testing](testing.md#実行前提と安全な確認)、[configuration](configuration.md)。Git archiveの使い捨てDocker9段階＋B1/B2/B3が基準CIでPASS、Windows/Linuxの再現コマンドを実装と照合|network/host資源に依存、強制終了時cleanup未完の可能性。公的TLSは別|既存volumeや実secretを使わず追跡可能|本番接続や既存DB復元の許可にはならない|
+|P4 **PASS** 説明資料|[README](../README.md)、[3シナリオ](portfolio-walkthrough.md)、[Transaction](design/transactions-and-locking.md)、[設計判断](design/decisions.md)。Security前段/Service境界とsource/test実在を照合。表示・リンク検証はPR証拠へ|90秒は導線の目標で、第三者ユーザビリティ測定ではない|今回の小さな導線・図修正を独立レビューへ提出|図は実AWS稼働の証明ではない|
+|P5 **PASS** 証拠/残余|本書、[旧DoD16](audit/portfolio-application-acceptance-2026-10-23.md#3-dod16との照合と独立受入の履歴)、[Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8)、[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)。snapshot/live/PRを分離し旧監査原文を保存|本番担当・承認・期限未合意、実運用証拠なし|P1〜P5を満たす提案。正式GO・tagは未実施|#166はBLOCKED、PRODUCTION NO GOを維持|
+
+過去のDoD16の12/3/1、14/2/0、独立受入16/16はそれぞれのSHA/日付の記録として保存する。
+今回のP1〜P5へ数え直して過去の承認を上書きしない。Draft PR #103はマージ対象・現行品質証拠へ含めない。
+
+## 参考構成図・索引と実ソースの照合
+
+10月29日に公開の[GitDiagram](https://gitdiagram.com/utl-flaxy/inventory-management-system)と[Gitingest](https://gitingest.com/utl-flaxy/inventory-management-system)を確認した。
+GitDiagramは20 components / 24 connectionsの高水準図で、Java excerpts未提供の注意書きがあり、対象commitの固定表示はない。
+Gitingestは上記main SHA、395 files、50kB上限。testing.md等の大きいfileは除外され、全tracked treeの検査ではない。
+以下は図の真偽を図だけで決めず、一次ソースで補った対応である。外部サービスはREADME表示/実行の必須依存にしない。
+
+|領域|実ソースの経路・注意点|
+|---|---|
+|商品/在庫|[ProductController](../src/main/java/com/example/demo/controller/ProductController.java)→ProductService、[InventoryController](../src/main/java/com/example/demo/controller/InventoryController.java)→InventoryService。ADMINメソッド認可と在庫履歴を分離|
+|顧客注文/取消|[SelfOrderController](../src/main/java/com/example/demo/controller/SelfOrderController.java)→OrderService。所有者query、Tx、商品ロック、key/指紋とDB UNIQUE、注文時価格snapshotを確認|
+|ADMIN出荷/完了/売上/CSV|[AdminOrderController](../src/main/java/com/example/demo/controller/AdminOrderController.java)→[OrderService.getSales](../src/main/java/com/example/demo/service/OrderService.java#L282) / OrderCsvExportService。図のSalesResponseリンクはDTOであり、集計Serviceではない|
+|認証/失効|SecurityFilterChain→JWT検証/DB世代照合→Controller。AuthRevocationControllerはlogout/password、AdminTokenRevocationControllerは再認証付き失効。図のsessions表現をHTTP session保持と解釈しない|
+|Service/Repository|Tx境界はServiceの対象メソッド。JPA Repositoryのロックqueryと認証用JDBC projectionは同じものではない|
+|MariaDB/Flyway|永続化とUNIQUE/CHECK、起動時V1〜V9。図だけでは分からないmigration・監査とrollback境界を[設計文書](design/transactions-and-locking.md)で補足|
+|Docker/CI/信頼境界|[READMEの図](../README.md#構成と信頼境界)とdemo、TLS/CI文書を正本とする。Internet/Caddy/app/DBの本番想定と隔離loopback HTTPを区別|
+
+## 残存Issueと本番受入の停止条件
+
+- [#145](https://github.com/utl-flaxy/inventory-management-system/issues/145): PR #167/#168/#169の安全な診断はmain採用済み。Windows時計差/CertificateNotYetValid/過去Wait・Caddy・DB CLIの根因は未確定。初回DB観測CLI3失敗も保存し、後続成功で消さない。
+- [#75](https://github.com/utl-flaxy/inventory-management-system/issues/75): backend/bootstrap/syntheticの定義・mockと実運用は別。B01〜B14未承認、TF-C BLOCKED。実AWS/既存state操作をしていない。
+- [#134](https://github.com/utl-flaxy/inventory-management-system/issues/134): 個別jti失効は保留。B1〜B3の全端末失効と混同しない。refresh/reset/role変更APIも未実装。
+- [#86](https://github.com/utl-flaxy/inventory-management-system/issues/86) / [#87](https://github.com/utl-flaxy/inventory-management-system/issues/87) / [#89](https://github.com/utl-flaxy/inventory-management-system/issues/89): ソース是正と本番適用/外部設定の未確認を分離し、#166へ追跡。独断で閉じない。
+- Trivy OS32はこのSHA/runのsnapshot。Flyway WARN、本番DB restore・schema drift、旧binary/鍵/過去DBへのrollback、実hostのRAM/CPU/負荷/容量/監視/SLA/RPO/RTOは未検証。
+- 実AWS配備、公的TLS/実DNS、実artifact/digest・外部profile・secret/信頼proxy peer、運用担当/承認者/期限は未確認または未合意。[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)は**BLOCKED BY OWNER / APPROVAL**。
+
+これらを開示した応募用作品の完成候補と、実利用者向け本番承認を分離する。Deployはdisabled_manually、PRODUCTION NO GO。
+本作業で実AWS/EC2/SSH、既存DB/volume/state/実secretを参照・操作せず、Epic/Issue本文と過去の監査資料も変更しない。
+
+## 以前の受入資料（原文保存）
+
+以下の「今回」「main」「現行」と数値は当時のsnapshotであり、上記の現在照合へ読み替えない。
+
+<details>
+<summary>2026-10-23以前のrelease-status全文（履歴原文）</summary>
+
 # 応募版の構成と監査証跡 — 2026-10-23 / Issue #153
 
 **PORTFOLIO GOは今回の提案。独立レビューによる正式承認を待つ。PRODUCTION NO GOは継続。**
@@ -189,6 +270,8 @@ Draft PR #103は過去の統合検証用で、マージ対象・現行mainの証
 2. JWT失効（#79、v1.1候補）、OS49 findings、Flyway/MariaDB互換性WARN、過去の証明書時刻問題を追跡する。0件のスキャンは将来の安全保証ではない。
 3. 本番運用前には容量・負荷・TLS・信頼proxy・鍵/権限・backup/restore・異版rollback・監視/復旧目標を実環境で別途判断。今回それらを実行しない。
 4. Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定。対象IT再実行9件の成功と区別し、[監査§10](audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)の失敗を保持する。skip・pool/timeout緩和は行わない。
+
+</details>
 
 </details>
 

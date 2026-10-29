@@ -1,6 +1,6 @@
 # Inventory Management System
 
-在庫・注文の整合性を主題とする、Java / Spring BootのバックエンドREST APIです。
+**同時注文・重複リクエスト・認証失効・障害時の整合性を重視した、Java / Spring Boot業務REST APIです。**
 在庫の同時購入、注文の再送、途中失敗、価格変更があっても、注文・在庫・履歴を一貫して保存する設計を実装し、実MariaDBで検証しています。
 
 顧客は商品を確認して注文・取消し、ADMINは商品・在庫・出荷/売上と利用者JWTの失効を管理します。
@@ -10,17 +10,18 @@
 
 |難所|実装したこと・選択理由|ソースと常設テスト|
 |---|---|---|
-|20人が同じ在庫を購入する|DB行ロックとTransactionで販売超過を防ぐ。顧客ロックだけに依存せず、商品ID昇順で取得し在庫/注文/履歴を一括commit|[OrderService.createOrder](src/main/java/com/example/demo/service/OrderService.java) → [20顧客・在庫10の競合IT](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java)。各試行で成功10/不足10、最終在庫0|
-|注文POSTが再送される|顧客別Idempotency-Key＋本文指紋＋DB UNIQUE。業務更新と同じTxに保存し、二重注文/二重減算と失敗後のkey残留を防ぐ|[OrderService](src/main/java/com/example/demo/service/OrderService.java) / [指紋生成](src/main/java/com/example/demo/service/OrderRequestFingerprint.java) → [HTTP並行再送IT](src/test/java/com/example/demo/controller/IdempotentOrderIT.java)。同key同内容200、別内容409|
-|JWTを発行後に失効させる|UUID主体＋DB世代照合。logout-all、本人password変更、再認証したADMINの強制失効を、世代更新/監査と同時commit|[logout](src/main/java/com/example/demo/service/AuthRevocationTransactions.java) / [password](src/main/java/com/example/demo/service/PasswordChangeTransactions.java) / [ADMIN](src/main/java/com/example/demo/service/AdminTokenRevocationTransactions.java) → [logout IT](src/test/java/com/example/demo/security/AuthRevocationIT.java) / [password IT](src/test/java/com/example/demo/security/AuthPasswordIT.java) / [ADMIN IT](src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)。旧JWT401、権限不足403、他者注文404|
+|20人が同じ在庫を購入する|DB行ロックとTransactionで販売超過を防ぐ。顧客ロックだけに依存せず、商品ID昇順で取得し在庫/注文/履歴を一括commit|[OrderService.createOrder](src/main/java/com/example/demo/service/OrderService.java#L121) → [20顧客・在庫10の競合IT](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java#L242)。各試行で成功10/不足10、最終在庫0|
+|注文POSTが再送される|顧客別Idempotency-Key＋本文指紋＋DB UNIQUE。業務更新と同じTxに保存し、二重注文/二重減算と失敗後のkey残留を防ぐ|[OrderService](src/main/java/com/example/demo/service/OrderService.java#L121) / [指紋生成](src/main/java/com/example/demo/service/OrderRequestFingerprint.java) → [HTTP並行再送IT](src/test/java/com/example/demo/controller/IdempotentOrderIT.java#L282)。同key同内容200、別内容409|
+|JWTを発行後に失効させる|UUID主体＋DB世代照合。logout-all、本人password変更、再認証したADMINの強制失効を、世代更新/監査と同時commit|[logout](src/main/java/com/example/demo/service/AuthRevocationTransactions.java#L31) / [password](src/main/java/com/example/demo/service/PasswordChangeTransactions.java#L35) / [ADMIN](src/main/java/com/example/demo/service/AdminTokenRevocationTransactions.java#L40) → [logout IT](src/test/java/com/example/demo/security/AuthRevocationIT.java) / [password IT](src/test/java/com/example/demo/security/AuthPasswordIT.java) / [ADMIN IT](src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)。旧JWT401、権限不足403、他者注文404|
 
-**確認済みmain snapshot（2026-10-23）:** Java **2,370件・F/E/S 0**、必須CI **5/5成功**。
-[対象mainと実CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39937244198)、[全検査の実測と範囲](docs/release-status.md)、[3シナリオの実行・source/test対応](docs/portfolio-walkthrough.md)へ進めます。
+**最終仕上げの基準snapshot（2026-10-29照合）:** main `1a647a393dac147825293e0ccba0fd84f30bc5fa`、Java **2,514件・F/E/S 0**、必須CI **5/5成功**。
+[対象mainのpush CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)は10月26日の実行記録です。
+[P1〜P5の最終受入候補と保証限界](docs/release-status.md#portfolio-v1-final-acceptance)、[3シナリオの実行・source/test対応](docs/portfolio-walkthrough.md)へ進めます。
 この日付固定の成功を将来のmainへ流用しません。[現在のmain CI](#現在のmain-ciを確認するlive)は別に確認します。
 
-**応募版の提案はPORTFOLIO GO、今回の正式受入は独立レビュー待ち。本番運用はNO GO。**
+**判定案はPORTFOLIO v1.0 READY FOR FINAL APPROVAL。正式承認・タグ作成は独立レビュー後。本番運用はNO GO。**
 10月18日の[独立受入GO](https://github.com/utl-flaxy/inventory-management-system/issues/130#issuecomment-6251677031)は当時の記録として保存し、拡張後の本提案と区別します。
-個別jti失効/refreshは未実装です。TrivyはOS32件が残り、CI成功を「脆弱性ゼロ」「本番安全」と説明しません。
+個別jti失効/refresh/password resetは未実装です。上記snapshotのTrivyはOS32件が残り、CI成功を「脆弱性ゼロ」「本番安全」と説明しません。
 
 **現行構成はAWS未配備として扱います。** 実AWSでの配備・公開TLS・本番運用の確認証跡はありません。
 TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`disabled_manually`です。
@@ -30,7 +31,8 @@ TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`di
 
 - [隔離Dockerデモ](docs/demo.md): 認証 → 商品 → 注文 → 在庫調整 → キャンセル → ADMIN確認を1コマンドで再現
 - [技術面接用の3シナリオ](docs/portfolio-walkthrough.md): 在庫競合・注文再送・JWT失効の理由→実装→テスト→保証限界
-- [応募版の受入追補](docs/audit/portfolio-application-acceptance-2026-10-23.md): DoD16との対応、判定案と残存Issue
+- [最終受入候補P1〜P5](docs/release-status.md#portfolio-v1-final-acceptance): 実装・品質・安全な再現・説明資料・残余を別々に評価
+- [10月23日の受入追補](docs/audit/portfolio-application-acceptance-2026-10-23.md): 当時のDoD16との対応と監査履歴
 - [現行の構成・監査証跡](docs/release-status.md): 対象SHA、CI、テスト数、既知のリスクと保証範囲
 - [テスト手順](docs/testing.md) / [認証・JWT制約](docs/auth.md) / [APIエラー](docs/api-errors.md)
 - [注文設計](docs/orders/order-aggregate.md) / [在庫設計](docs/inventory.md) / [配備手順](docs/deployment.md)
@@ -43,9 +45,9 @@ TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`di
 
 | 課題 | 実装上の判断 | 回帰の根拠 |
 |---|---|---|
-| 同時注文による販売超過・更新消失 | 商品の悲観ロック、商品ID昇順取得、Transaction、version管理。[OrderService](src/main/java/com/example/demo/service/OrderService.java) / [Product](src/main/java/com/example/demo/entity/Product.java) | [InventoryConcurrencyMariaDbIT](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java)。異なる実DB顧客20人、在庫10で成功10・不足10、履歴・金額も検証 |
-| 通信再送による二重処理 | 利用者単位のkey/指紋。[OrderService](src/main/java/com/example/demo/service/OrderService.java) / [InventoryService](src/main/java/com/example/demo/service/InventoryService.java) | 同key/同内容は初回結果、別内容は409。[IdempotentOrderIT](src/test/java/com/example/demo/controller/IdempotentOrderIT.java) / [在庫調整IT](src/test/java/com/example/demo/controller/InventoryAdjustmentIdempotencyIT.java) |
-| 途中失敗と過去注文の書換え | 注文・在庫・履歴を一括commit/rollback、注文時snapshot。[OrderService](src/main/java/com/example/demo/service/OrderService.java) / [OrderItem](src/main/java/com/example/demo/entity/OrderItem.java) | [実MariaDBの途中失敗・snapshot回帰](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java) / [金額境界IT](src/test/java/com/example/demo/controller/MoneyApiIT.java) |
+| 同時注文による販売超過・更新消失 | 商品の悲観ロック、商品ID昇順取得、Transaction、version管理。[OrderService](src/main/java/com/example/demo/service/OrderService.java#L121) / [Product](src/main/java/com/example/demo/entity/Product.java) | [InventoryConcurrencyMariaDbIT](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java#L242)。異なる実DB顧客20人、在庫10で成功10・不足10、履歴・金額も検証 |
+| 通信再送による二重処理 | 利用者単位のkey/指紋。[OrderService](src/main/java/com/example/demo/service/OrderService.java#L121) / [InventoryService](src/main/java/com/example/demo/service/InventoryService.java) | 同key/同内容は初回結果、別内容は409。[IdempotentOrderIT](src/test/java/com/example/demo/controller/IdempotentOrderIT.java#L282) / [在庫調整IT](src/test/java/com/example/demo/controller/InventoryAdjustmentIdempotencyIT.java) |
+| 途中失敗と過去注文の書換え | 注文・在庫・履歴を一括commit/rollback、注文時snapshot。[OrderService](src/main/java/com/example/demo/service/OrderService.java#L121) / [OrderItem](src/main/java/com/example/demo/entity/OrderItem.java) | [実MariaDBの途中失敗・snapshot回帰](src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java#L242) / [金額境界IT](src/test/java/com/example/demo/controller/MoneyApiIT.java) |
 | 認証と権限の混同 | 署名/issuer/期限を検証しDBの現在roleで認可。[JwtUtil](src/main/java/com/example/demo/security/JwtUtil.java) / [JwtAuthenticationFilter](src/main/java/com/example/demo/security/JwtAuthenticationFilter.java) | 実HTTPの[JWT否定系・USER/ADMIN境界](src/test/java/com/example/demo/security/JwtFilterRegistrationIT.java) / [所有者認可IT](src/test/java/com/example/demo/security/AuthorizationMatrixIT.java) |
 | 障害時の誤った成功判定 | 401/403/409/429、一時DB障害503・予期しない500を区別。[ServerFailureResponse](src/main/java/com/example/demo/exception/ServerFailureResponse.java) / [prod設定](src/main/resources/application-prod.properties) | [DB切断と回復IT](src/test/java/com/example/demo/security/AuthDatabaseFailureIT.java) / [待機・rollback・再試行IT](src/test/java/com/example/demo/security/DatabaseTimeoutIT.java)。shutdownは[Docker検証](scripts/docker/verify_image.py) |
 
@@ -58,7 +60,7 @@ TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`di
 
 | 項目 | 現行mainの構成 |
 |---|---|
-| Java / Framework | Java 17、Spring Boot **4.1.1**、Spring Framework 7.0.9 |
+| Java / Framework | Java 17、Spring Boot **4.1.1**、Spring Framework 7.0.9、Tomcat 11.0.27 |
 | Security | Spring Security 7、JJWT 0.12.7、BCrypt、Bearer JWT（HTTP sessionなし・DB世代照合） |
 | Persistence | Spring Data JPA / Hibernate、MariaDB 12.2、Flyway V1〜V6＋Java V7（認証uid/失効世代/監査）＋V8（password変更監査）＋V9（ADMIN強制失効監査） |
 | Web / API docs | Spring MVC、Jakarta Validation、springdoc 3.1.1。Swaggerは明示したlocal profileのみ |
@@ -73,7 +75,32 @@ H2はテスト補助で、本番用DBではありません。schemaはFlywayが�
 
 ## 構成と信頼境界
 
-以下は**本番想定の定義**です。今回のデモは使い捨てDockerのloopback HTTPを利用し、公的TLSは検証しません。
+まずアプリ内の要求経路を示します。JWT filterとURL認可はControllerの**前段**にあり、業務Serviceでは所有者・状態・認証世代などを再確認します。
+
+```mermaid
+flowchart TD
+    Client["Customer / Administrator"] --> Security["Spring Security filter chain<br/>JWT署名・UUID/世代・URL認可"]
+    Security --> MVC["Spring MVC Controllers<br/>DTO・入力検証・メソッド認可"]
+    MVC --> Service["Application Services<br/>業務認可・操作ごとのTx設計"]
+    Service --> Repo["JPA Repositories<br/>行ロック・条件付き更新"]
+    Repo --> DB[("MariaDB<br/>注文・在庫・履歴・認証世代")]
+```
+
+[SecurityConfig / JWT filter](src/main/java/com/example/demo/security/SecurityConfig.java)がHTTP入口を保護し、
+認証時のDB世代照合は[JwtUserAuthenticator](src/main/java/com/example/demo/security/JwtUserAuthenticator.java)の独立したread-only Txで行います。
+公開register/loginはpermitAllです。注文などのTx境界はService、関連を持たない公開登録などの保存はRepositoryのTxを使い、全処理が一つのTxになるわけではありません。
+注文では[OrderService](src/main/java/com/example/demo/service/OrderService.java#L121)のTx内でUser→商品ID昇順のロック、key/指紋照合、注文時価格snapshotと在庫履歴の保存を行い、
+[DB UNIQUE制約](src/main/resources/db/migration/V4__add_order_idempotency.sql)とともに二重処理を防ぎます。途中失敗は同じTxでrollbackします。
+詳細な境界と例外は[Transaction設計](docs/design/transactions-and-locking.md)、各機能の根拠は[3シナリオ](docs/portfolio-walkthrough.md)を参照してください。
+schemaはFlyway V1〜V9が起動時に管理し、Hibernateはvalidateで照合します。
+
+**隔離デモの実構成:** host上のPython → `127.0.0.1:ランダムport` → 新規app → 新規Docker networkのtmpfs MariaDB。
+公的TLSや本番ネットワークは含まず、Caddy/local CAは別の`CaddyProxyIT`で検証します。
+
+<details>
+<summary>本番想定ネットワークの定義（未配備・未承認）</summary>
+
+以下は**本番想定の定義**です。使い捨てDockerデモの実構成とは区別します。
 
 ```mermaid
 flowchart LR
@@ -87,6 +114,8 @@ flowchart LR
 - Caddyは転送ヘッダーを上書き/除去します。appのprod起動には実測した信頼proxy peerを`LOGIN_TRUSTED_PROXIES`へ設定する必要があります。Docker内部IPの決め打ちはしません。
 - Caddyの実証は`CaddyProxyIT`の隔離network/local CAとmock hostまで。実DNS・EIP・公的証明書・実host peerは未確認です。
 - runtimeは非root、read-only rootfs、capabilities削除、bounded tmpfs、明示メモリ制限です。[容量別予算](docs/docker-runtime.md)では、appとMariaDBを同居させる1 GiB hostを安全な本番構成とは推奨していません。
+
+</details>
 
 ## APIと業務契約
 
@@ -119,7 +148,9 @@ cancelはPENDINGだけで、在庫を一度だけ戻します。エラーは`app
 
 ## 手元で再現する
 
-必要なのはJava17、Git、Docker daemon/Compose v2、Python3.12以上です。productionの資格情報は使いません。
+Java全回帰にはJava17、Git、Bash、Docker daemon、Python3.12以上を用意します。WindowsのBashはGit for Windowsの標準配置が必要です。
+隔離DockerデモにはCompose v2、Terraformのoffline mockにはCLI **1.15.6**も必要です。productionの資格情報は使いません。
+初回取得用network・前提の切り分け・Windows差分は[テスト手順](docs/testing.md#実行前提と安全な確認)を参照してください。
 
 ```bash
 ./mvnw test       # unit/slice/H2補助。full verifyの代わりにはしない
@@ -139,6 +170,25 @@ Swagger UIはprodで無効です。local開発設定は[設定文書](docs/confi
 
 ## 検証結果とCI
 
+### 最終仕上げの基準snapshot（2026-10-29照合）
+
+main **`1a647a393dac147825293e0ccba0fd84f30bc5fa`** / [main push CI40328908744](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)。
+10月26日実行のログ・artifactを10月29日に取得し、event=push・head一致・completed/success・必須5/5を確認しました。
+
+|検査|このSHA/runの実測|
+|---|---|
+|Java17 / Python|Surefire1,469＋Failsafe1,045＝**2,514、F/E/S 0/0/0** / **68件成功**|
+|Terraform / 配備順序|host27＋bootstrap14＋synthetic8＝**49成功**、mutation拒否3 / **15シナリオ成功**。実AWS・実配備ではない|
+|Secret / SpotBugs|例外0・未解決0（420 tracked files）/ SECURITY違反0（160 main classes）。実正常/異常self-test成功|
+|OSV / Trivy|**169 components・advisory0** / **OS32（MEDIUM28/LOW4）、library0**。異なる監査対象、audit-only|
+|Docker / DB / 診断|非root/read-only JRE17、業務9＋B1/B2/B3、V1〜V9、shutdown・同image設定故障復帰、隔離backup/restore、cleanup前診断の回帰成功|
+
+Flyway互換性WARN3件を保持。#145の根因解決や本番復旧の証明ではありません。
+[受入候補P1〜P5と出典](docs/release-status.md)へ。新しいPR HEADのCIはPR本文の別runで確認し、以下の旧snapshotは遡及変更しません。
+
+<details>
+<summary>2026-10-23の応募版snapshot（履歴）</summary>
+
 ### 応募版の確認snapshot（2026-10-23）
 
 main **`1632db72ebedfdc3cf316c442f199022e253133d`** / [main push CI39937244198](https://github.com/utl-flaxy/inventory-management-system/actions/runs/39937244198)のログ・artifactを取得して照合しました。
@@ -153,6 +203,8 @@ main **`1632db72ebedfdc3cf316c442f199022e253133d`** / [main push CI39937244198](
 
 必須5ジョブは全SUCCESS。PR HEADの実CIはPR本文の別runで確認します。
 出典・DoD16・残余は[日付付き受入追補](docs/audit/portfolio-application-acceptance-2026-10-23.md)へ。以下の過去snapshotは数値を置き換えず保存します。
+
+</details>
 
 ### 現在のmain CIを確認する（live）
 
@@ -201,7 +253,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - Flyway/MariaDB12.2互換性WARN、今回確認したTrivy OS32件を開示して継続監査します。負荷・容量・監視・SLA・実secret・TLS・本番backup/restore・異版rollbackは未検証です。
 - Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
   証明書時刻・Wait strategy・Caddy初回失敗も[Issue #145](https://github.com/utl-flaxy/inventory-management-system/issues/145)で追跡し、今回の成功で解消としません。
-- Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。S3/RDS/Redisは将来拡張で、現行の完成判定へ含めません。
+- Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。RDS/Redisは将来拡張です。S3 backend/bootstrapの定義・静的検証と実AWSでの運用受入は分けます。
   [remote state ADR](docs/design/terraform-remote-state.md)に従うS3部分設定と[独立bootstrap root](terraform-bootstrap/README.md)を静的実装しています。実AWSでのbackend作成・移行・IAM/排他/復旧は未検証です。[移行・復旧手順](docs/operations/terraform-remote-state.md)は別承認が必要で、Issue #75はOPENです。
   [AWS無接続のsynthetic検証と拒否ゲート](terraform-sandbox-tests/README.md)を追加しています。B01〜B14は未承認、実TF-CはBLOCKEDで、CI成功はAWS実行許可を意味しません。
 
