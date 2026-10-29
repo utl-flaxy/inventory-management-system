@@ -1,5 +1,12 @@
 # Docker runtime・再現性・メモリ設計 — Issue #76
 
+## CVE-2026-111497の限定是正（2026-10-29 / Issue #171）
+
+既存の公式JRE17/Noble digestと他の固定package版を維持し、libbrotli1をUbuntu公式backport修正版`1.1.0-2ubuntu0.1`へ限定更新する。
+OS比較用imageではOS33（HIGH1/MEDIUM28/LOW4）から32（HIGH0/MEDIUM28/LOW4）、新規finding0。
+公式JRE更新案との比較、全finding表、実アプリ/CIとの証拠の区別は[是正記録](audit/cve-2026-111497-runtime-remediation-2026-10-29.md)へ。
+過去のOS31/49や以下の監査記録は当時のsnapshotとして保存する。P2解除・正式GOは独立レビュー後、本番NO GOを維持する。
+
 ## Issue #143のOS package更新（2026-10-21）
 
 main `96b423e2d17b801ac89e28d0320027832b3077a0`のOS49件を全件照合した。
