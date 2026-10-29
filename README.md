@@ -14,14 +14,15 @@
 |注文POSTが再送される|顧客別Idempotency-Key＋本文指紋＋DB UNIQUE。業務更新と同じTxに保存し、二重注文/二重減算と失敗後のkey残留を防ぐ|[OrderService](src/main/java/com/example/demo/service/OrderService.java#L121) / [指紋生成](src/main/java/com/example/demo/service/OrderRequestFingerprint.java) → [HTTP並行再送IT](src/test/java/com/example/demo/controller/IdempotentOrderIT.java#L282)。同key同内容200、別内容409|
 |JWTを発行後に失効させる|UUID主体＋DB世代照合。logout-all、本人password変更、再認証したADMINの強制失効を、世代更新/監査と同時commit|[logout](src/main/java/com/example/demo/service/AuthRevocationTransactions.java#L31) / [password](src/main/java/com/example/demo/service/PasswordChangeTransactions.java#L35) / [ADMIN](src/main/java/com/example/demo/service/AdminTokenRevocationTransactions.java#L40) → [logout IT](src/test/java/com/example/demo/security/AuthRevocationIT.java) / [password IT](src/test/java/com/example/demo/security/AuthPasswordIT.java) / [ADMIN IT](src/test/java/com/example/demo/security/AdminTokenRevocationIT.java)。旧JWT401、権限不足403、他者注文404|
 
-**最終仕上げの基準snapshot（2026-10-29照合）:** main `1a647a393dac147825293e0ccba0fd84f30bc5fa`、Java **2,514件・F/E/S 0**、必須CI **5/5成功**。
-[対象mainのpush CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)は10月26日の実行記録です。
+**最終仕上げの基準snapshot（2026-10-29、PR #172採用後）:** main `4cd791cecf36b473bead1a699a20182038eabfac`、Java **2,514件・F/E/S 0**、必須CI **5/5成功**。
+[対象mainのpush CI](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40870761655)は10月29日の実行記録です。
 [P1〜P5の最終受入候補と保証限界](docs/release-status.md#portfolio-v1-final-acceptance)、[3シナリオの実行・source/test対応](docs/portfolio-walkthrough.md)へ進めます。
 この日付固定の成功を将来のmainへ流用しません。[現在のmain CI](#現在のmain-ciを確認するlive)は別に確認します。
 
-**最終受入はBLOCKED（P2）。10月29日のPR検査で新規HIGH 1件を確認したため、別対応と独立レビューを待ちます。本番運用はNO GO。**
+**判定案: PORTFOLIO v1.0 READY FOR FINAL APPROVAL。P1〜P5はPASS候補であり、正式独立承認・タグ作成は未実施。本番運用はNO GO。**
 10月18日の[独立受入GO](https://github.com/utl-flaxy/inventory-management-system/issues/130#issuecomment-6251677031)は当時の記録として保存し、拡張後の本提案と区別します。
-個別jti失効/refresh/password resetは未実装です。上記snapshotのTrivy OS32件に対し、[10月29日のPR検査](docs/release-status.md#pr検査で確認した差分--2026-10-29)はOS33件（HIGH1/MEDIUM28/LOW4）、library0でした。CI成功を「脆弱性ゼロ」「本番安全」と説明しません。
+10月29日にOS33/HIGH1を発見し、[Issue #171](https://github.com/utl-flaxy/inventory-management-system/issues/171)→[PR #172](https://github.com/utl-flaxy/inventory-management-system/pull/172)でlibbrotli1を公式修正版`1.1.0-2ubuntu0.1`へ限定更新しました。新main CIで対象CVE非検出・CRITICAL/HIGH0・**OS32（MEDIUM28/LOW4）、library0**を確認し、[P2解除条件を満たした根拠](docs/release-status.md#p2-remediation-evidence)を提出します。
+個別jti失効/refresh/password resetは未実装です。OSV advisory0とTrivy HIGH0は別の検査結果であり、残存32件を受容済み・解消済みと扱いません。
 
 **現行構成はAWS未配備として扱います。** 実AWSでの配備・公開TLS・本番運用の確認証跡はありません。
 TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`disabled_manually`です。
@@ -170,6 +171,27 @@ Swagger UIはprodで無効です。local開発設定は[設定文書](docs/confi
 
 ## 検証結果とCI
 
+### 最終仕上げの基準snapshot（PR #172採用後・2026-10-29）
+
+main **`4cd791cecf36b473bead1a699a20182038eabfac`** / [main push CI40870761655](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40870761655)。
+10月29日実行のログ・artifactを同日に取得し、event=push・head一致・completed/success・必須5/5を確認しました。
+
+|検査|このSHA/runの実測|
+|---|---|
+|Java17 / Python|Surefire1,469＋Failsafe1,045＝**2,514、F/E/S 0/0/0** / **68件成功**|
+|Terraform / 配備順序|host27＋bootstrap14＋synthetic8＝**49成功**、mutation拒否3 / **15シナリオ成功**。実AWS・実配備ではない|
+|Secret / SpotBugs|例外0・未解決0（421 tracked files）/ SECURITY違反0（160 main classes）。実正常/異常self-test成功|
+|OSV / Trivy|**169 components・advisory0** / **OS32（CRITICAL0/HIGH0/MEDIUM28/LOW4）、library0**。libbrotli1修正済み。異なる監査対象、audit-only|
+|Docker / DB / 診断|非root/read-only JRE17、業務9＋B1/B2/B3、V1〜V9、shutdown・同image設定故障復帰、隔離backup/restore、cleanup前診断の回帰成功|
+
+Flyway互換性WARN3件を保持。#145の根因解決や本番復旧の証明ではありません。
+[受入候補P1〜P5と出典](docs/release-status.md)へ。新しいPR HEADのCIはPR本文の別runで確認し、以下の旧snapshotは遡及変更しません。
+
+[CVE発見→Issue #171→PR #172→新mainの検証](docs/release-status.md#p2-remediation-evidence)を照合し、P2をPASS候補へ更新しました。正式GOは独立レビュー待ちです。
+
+<details>
+<summary>PR #172採用前の基準main1a647a3 / CI40328908744（履歴原文）</summary>
+
 ### 最終仕上げの基準snapshot（2026-10-29照合）
 
 main **`1a647a393dac147825293e0ccba0fd84f30bc5fa`** / [main push CI40328908744](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)。
@@ -185,6 +207,8 @@ main **`1a647a393dac147825293e0ccba0fd84f30bc5fa`** / [main push CI40328908744](
 
 Flyway互換性WARN3件を保持。#145の根因解決や本番復旧の証明ではありません。
 [受入候補P1〜P5と出典](docs/release-status.md)へ。新しいPR HEADのCIはPR本文の別runで確認し、以下の旧snapshotは遡及変更しません。
+
+</details>
 
 <details>
 <summary>2026-10-23の応募版snapshot（履歴）</summary>
@@ -250,7 +274,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - 現CI/デモのrollbackは**同一image IDの設定故障から直前設定へ復帰**する試験です。DB container再作成なし・業務データ不変を確認します。異なる旧バイナリと新schemaの互換性、実EC2での復旧を保証しません。
 - app rollbackはDB rollbackではありません。migrationは自動undoせず、[backup/restore](docs/db/backup-restore.md)とschema互換性の判断が別途必要です。
 - B1のUUID主体＋世代/logout-all、B2の本人password変更、B3のADMIN再認証付き強制失効は実装済みです。[JWTライフサイクル](docs/auth.md#jwtライフサイクルと失効制約)と[停止移行・rollback制約](docs/security/jwt-revocation-migration.md)を参照。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はCLOSED、個別jti失効は[Issue #134](https://github.com/utl-flaxy/inventory-management-system/issues/134)で保留。refresh・password reset・role変更APIは未実装です。認証済みの進行中業務を強制rollbackする機能ではなく、旧binary・旧鍵・過去DBへの復帰には再受理リスクがあります。
-- Flyway/MariaDB12.2互換性WARN、基準mainのTrivy OS32件と10月29日PR検査の**OS33件（HIGH1件追加）**を区別して開示します。新規HIGHの扱いは[P2の保留理由](docs/release-status.md#pr検査で確認した差分--2026-10-29)を参照。負荷・容量・監視・SLA・実secret・TLS・本番backup/restore・異版rollbackは未検証です。
+- Flyway/MariaDB12.2互換性WARNと、現行snapshotのTrivy **OS32（MEDIUM28/LOW4）**を開示して継続監査します。旧OS33/HIGH1の発見履歴と[公式修正版・新main CIによる是正](docs/release-status.md#p2-remediation-evidence)は分けて保存します。残存32件は未解消で、負荷・容量・監視・SLA・実secret・公的TLS・本番backup/restore・異版rollbackは未検証です。
 - Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
   証明書時刻・Wait strategy・Caddy初回失敗も[Issue #145](https://github.com/utl-flaxy/inventory-management-system/issues/145)で追跡し、今回の成功で解消としません。
 - Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。RDS/Redisは将来拡張です。S3 backend/bootstrapの定義・静的検証と実AWSでの運用受入は分けます。

@@ -25,6 +25,16 @@ Swagger/OpenAPIは明示したlocalのみ、default/prodでは404。通常Compos
 
 ## 基準mainとPR HEADの証拠を分ける
 
+main `4cd791cecf36b473bead1a699a20182038eabfac` / [push CI40870761655](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40870761655)（10月29日実行）を同日に照合した。
+Java1,469＋1,045＝**2,514 / F/E/S=0**、Python68、TF49＋mutation拒否3、配備順序15、必須5/5・workflow SUCCESS。
+Secret421 files・例外/未解決0、SECURITY違反0、OSV169/advisory0。実runtimeはlibbrotli1 **1.1.0-2ubuntu0.1**、対象CVE非検出、Trivy **CRITICAL/HIGH0・OS32（M28/L4）/library0**。OSV0とTrivy HIGH0は別の検査結果で、残存32件は未解消。
+Docker9＋B1/B2/B3・V1〜V9・起動制約/停止/同image設定故障復帰が新mainで成功。[是正時系列とP1〜P5のPASS候補](release-status.md#p2-remediation-evidence)を参照する。
+[現在のmain push](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)と最終PR HEAD CIは別に照合し、PR本文へ実測を記録する。
+本同期でWindows full verify/Dockerデモを再実行したわけではなく**NOT RUN**。#172 head8af2144のWindows2,514件・Docker成功は同一実装の過去証拠として区別して参照し、時計差/証明書問題の根因修復とはしない。
+
+<details>
+<summary>PR #172採用前の基準・HIGH発見時点（履歴原文）</summary>
+
 main `1a647a393dac147825293e0ccba0fd84f30bc5fa` / [push CI40328908744](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)（10月26日実行）を10月29日に照合した。
 Java1,469＋1,045＝**2,514 / F/E/S=0**、Python68、TF49＋mutation拒否3、配備順序15、必須5/5 SUCCESS。
 Secret例外/未解決0、SECURITY違反0、OSV169/advisory0、Trivy OS32（M28/L4）/library0、Docker9＋B1/B2/B3・V1〜V9。
@@ -32,6 +42,8 @@ Secret例外/未解決0、SECURITY違反0、OSV169/advisory0、Trivy OS32（M28/
 新HEADの実測値・Windows実行結果・Docker artifactはPR本文へ記録し、この固定snapshotを追い書きしない。
 
 10月29日のPR検査ではTrivyが**OS33（HIGH1/MEDIUM28/LOW4）、library0**へ変化した。[新規CVE・Windows起動時観測・P2保留の証拠](release-status.md#pr検査で確認した差分--2026-10-29)を参照し、上記main snapshotのOS32と混同しない。
+
+</details>
 
 #145の[安全な診断と限界](testing-container-diagnostics.md)、Windows初回失敗/時計差/証明書時刻の根因未確定、OS残余とFlyway WARNを保持する。
 以下は10月23日以前の当時の記録を原文で保存する。古い「今回」や数値を現在の証拠に流用しない。

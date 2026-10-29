@@ -1,7 +1,7 @@
 # バックエンド実装を説明する3つのデモ
 
 [README](../README.md)から進む、Java / Spring Bootバックエンド職向けの実装・テスト案内。
-対象はmain `1a647a393dac147825293e0ccba0fd84f30bc5fa`。実測の出典とP1〜P5は[2026-10-29照合の受入候補](release-status.md)を参照する。
+対象はPR #172採用後のmain `4cd791cecf36b473bead1a699a20182038eabfac`。実測の出典とP1〜P5は[2026-10-29照合の受入候補](release-status.md)を参照する。
 [10月23日の受入追補](audit/portfolio-application-acceptance-2026-10-23.md)は当時の履歴として保持する。
 新機能・公開サービス・本番負荷試験の紹介ではない。認証情報やJWTをコピーせず、既存の使い捨てharnessと実DBテストだけを使う。
 

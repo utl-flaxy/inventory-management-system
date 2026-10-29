@@ -2,7 +2,7 @@
 
 応募用の見る順番は[3シナリオと実装・テスト](portfolio-walkthrough.md): ①登録/注文/取消、②在庫競合と冪等性、③JWT全端末失効。
 本ページは既存harnessの実行・隔離の詳細。[基準mainの実測と最終受入候補](release-status.md)と、実行したHEADのsummaryを分けて確認する。
-10月29日照合の基準は`1a647a393dac147825293e0ccba0fd84f30bc5fa` / [main CI40328908744](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40328908744)（10月26日実行）。[10月23日実測](audit/portfolio-application-acceptance-2026-10-23.md)は当時の履歴として保持する。
+10月29日照合の基準は`4cd791cecf36b473bead1a699a20182038eabfac` / [main CI40870761655](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40870761655)（PR #172採用後、同日実行）。[10月23日実測](audit/portfolio-application-acceptance-2026-10-23.md)は当時の履歴として保持する。
 
 ## B3追加デモ（元の9段階＋B1/B2を保持）
 
@@ -10,7 +10,7 @@
 認証情報はharness内で生成・メモリ保持し、CLI引数・ログ・artifactへ保存しない。
 B3は9段階の業務デモとB1/B2の直後に、USER403、ADMIN本人の誤password401、対象失効204/旧JWT401/再login200、
 ADMIN自己失効204/旧ADMIN JWT401/再login200、FORCE_REVOKE監査2行、注文key replay不変を検証する。
-summaryの `admin_force_revocation`、`migrations`、`database_lifecycle`、`rollback` を確認する。
+summaryの `admin_force_revocation`、`migrations`、`database_lifecycle`、`rollback` に加え、`runtime_os`の実libbrotli1版と`image_scan`の全findingを確認する。基準mainでは公式修正版1.1.0-2ubuntu0.1・対象CVE非検出を実測済み。将来の実行でも32件に固定されるとは仮定しない。
 最終世代は対象3/ADMIN1、監査計4行。B1/B2 summaryの世代1/2は各段階での観測であり最終値ではない。
 再起動・同一image設定故障復帰後も旧JWT拒否・hash/世代/監査保持を確認する。異なる旧binaryへのrollbackを実証したものではない。
 
@@ -108,7 +108,7 @@ DBのID・起動時刻・注文/在庫・ADMIN状態が不変であることを�
 Issue76の旧JDK/root image対照実験は[当時のJSON](audits/issue-76-validation.json)に分け、今回の主張へ流用しない。
 このscriptはapp-only切替操作の実証で、production用deploy.shの全経路を実EC2で検証したものではない。
 
-Trivyはapp runtime imageだけを監査する。OSVのMaven依存監査と別で、findingが残ってもaudit処理は成功し得る。基準main/runの確認はOS32（MEDIUM28/LOW4）、library0。10月23日・過去のOS49/OS31もそれぞれ当時のsnapshotとして区別する。新しい実行の値はそのHEADのsummaryを優先する。
+Trivyはapp runtime imageだけを監査する。OSVのMaven依存監査と別で、findingが残ってもaudit処理は成功し得る。基準main/runの確認はCRITICAL/HIGH0・OS32（MEDIUM28/LOW4）、library0。旧OS33/HIGH1の発見と#172による是正は[時系列](release-status.md#p2-remediation-evidence)で分離する。10月23日・過去のOS49/OS31もそれぞれ当時のsnapshotとして区別する。新しい実行の値はそのHEADのsummaryを優先する。
 tool/DB取得/JSON解析エラーは失敗。finding非0の監査成功を脆弱性ゼロとは報告しない。
 DockerのHTTP /readyz成功と、State.Health.Statusのhealthyを明示assertした証拠も区別する。
 公的TLS/DNS、MariaDB/Caddy/host全体のscan、長時間負荷・容量・SLA・本番復旧は未検証。
