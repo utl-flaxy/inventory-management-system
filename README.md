@@ -19,9 +19,9 @@
 [P1〜P5の最終受入候補と保証限界](docs/release-status.md#portfolio-v1-final-acceptance)、[3シナリオの実行・source/test対応](docs/portfolio-walkthrough.md)へ進めます。
 この日付固定の成功を将来のmainへ流用しません。[現在のmain CI](#現在のmain-ciを確認するlive)は別に確認します。
 
-**判定案はPORTFOLIO v1.0 READY FOR FINAL APPROVAL。正式承認・タグ作成は独立レビュー後。本番運用はNO GO。**
+**最終受入はBLOCKED（P2）。10月29日のPR検査で新規HIGH 1件を確認したため、別対応と独立レビューを待ちます。本番運用はNO GO。**
 10月18日の[独立受入GO](https://github.com/utl-flaxy/inventory-management-system/issues/130#issuecomment-6251677031)は当時の記録として保存し、拡張後の本提案と区別します。
-個別jti失効/refresh/password resetは未実装です。上記snapshotのTrivyはOS32件が残り、CI成功を「脆弱性ゼロ」「本番安全」と説明しません。
+個別jti失効/refresh/password resetは未実装です。上記snapshotのTrivy OS32件に対し、[10月29日のPR検査](docs/release-status.md#pr検査で確認した差分--2026-10-29)はOS33件（HIGH1/MEDIUM28/LOW4）、library0でした。CI成功を「脆弱性ゼロ」「本番安全」と説明しません。
 
 **現行構成はAWS未配備として扱います。** 実AWSでの配備・公開TLS・本番運用の確認証跡はありません。
 TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`disabled_manually`です。
@@ -250,7 +250,7 @@ OSV/Trivyはaudit-onlyであり、監査処理成功と脆弱性ゼロを区別�
 - 現CI/デモのrollbackは**同一image IDの設定故障から直前設定へ復帰**する試験です。DB container再作成なし・業務データ不変を確認します。異なる旧バイナリと新schemaの互換性、実EC2での復旧を保証しません。
 - app rollbackはDB rollbackではありません。migrationは自動undoせず、[backup/restore](docs/db/backup-restore.md)とschema互換性の判断が別途必要です。
 - B1のUUID主体＋世代/logout-all、B2の本人password変更、B3のADMIN再認証付き強制失効は実装済みです。[JWTライフサイクル](docs/auth.md#jwtライフサイクルと失効制約)と[停止移行・rollback制約](docs/security/jwt-revocation-migration.md)を参照。[Issue #79](https://github.com/utl-flaxy/inventory-management-system/issues/79)はCLOSED、個別jti失効は[Issue #134](https://github.com/utl-flaxy/inventory-management-system/issues/134)で保留。refresh・password reset・role変更APIは未実装です。認証済みの進行中業務を強制rollbackする機能ではなく、旧binary・旧鍵・過去DBへの復帰には再受理リスクがあります。
-- Flyway/MariaDB12.2互換性WARN、今回確認したTrivy OS32件を開示して継続監査します。負荷・容量・監視・SLA・実secret・TLS・本番backup/restore・異版rollbackは未検証です。
+- Flyway/MariaDB12.2互換性WARN、基準mainのTrivy OS32件と10月29日PR検査の**OS33件（HIGH1件追加）**を区別して開示します。新規HIGHの扱いは[P2の保留理由](docs/release-status.md#pr検査で確認した差分--2026-10-29)を参照。負荷・容量・監視・SLA・実secret・TLS・本番backup/restore・異版rollbackは未検証です。
 - Windows DatabaseTimeoutITの初回観測CLI3失敗は根因未確定です。単独再実行やLinux CI成功で失敗を抹消せず、[監査記録](docs/audit/portfolio-v1-final-acceptance-2026-10-18.md#ローカル補助検証)を保持します。
   証明書時刻・Wait strategy・Caddy初回失敗も[Issue #145](https://github.com/utl-flaxy/inventory-management-system/issues/145)で追跡し、今回の成功で解消としません。
 - Terraformのremote state/lockingは[Issue #75](https://github.com/utl-flaxy/inventory-management-system/issues/75)。RDS/Redisは将来拡張です。S3 backend/bootstrapの定義・静的検証と実AWSでの運用受入は分けます。

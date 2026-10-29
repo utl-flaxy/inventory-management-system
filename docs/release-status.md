@@ -1,6 +1,6 @@
 # Portfolio v1.0 最終仕上げ・受入候補 — 2026-10-29
 
-**提案: PORTFOLIO v1.0 READY FOR FINAL APPROVAL。正式承認・merge・tag作成は独立レビュー後。実利用者向け本番運用はPRODUCTION NO GO。**
+**提案: BLOCKED（P2）。新規Trivy HIGH 1件の対応・リスク判断を独立レビューへ提出する。正式承認・merge・tag作成は未実施。実利用者向け本番運用はPRODUCTION NO GO。**
 応募用作品として「実装→設計理由→常設テスト→安全な再現→未保証事項」を説明できることを評価する。本番接続が必要な条件を応募版へ追加しない。
 
 ## 今回の基準snapshotと現在確認先
@@ -35,13 +35,35 @@ artifactはrunのActions画面から取得する（保存30日）。長期保管
 |ID / 判定案|根拠ファイル・テストと実行結果|残余リスク|v1.0完成への影響|本番運用への影響|
 |---|---|---|---|---|
 |P1 **PASS** 主要業務/API/認可|[OrderService](../src/main/java/com/example/demo/service/OrderService.java)、[SecurityConfig](../src/main/java/com/example/demo/security/SecurityConfig.java)。[20顧客競合](../src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java#L242)、[HTTP冪等性](../src/test/java/com/example/demo/controller/IdempotentOrderIT.java)、[認可matrix](../src/test/java/com/example/demo/security/AuthorizationMatrixIT.java)、B1/B2/B3の実MariaDB回帰が基準CIで成功|jti/refresh/reset/role変更API未実装、失効前に認証済み業務は完遂し得る|未実装範囲を明示し、応募版の機能を説明可能|実artifact/認証方式/外部設定は#166で別受入|
-|P2 **PASS** 品質|[ci.yml](../.github/workflows/ci.yml)、[品質方針](ci-quality-gates.md)、上表のJava/Python/TF/Secret/SpotBugs/OSV/Trivyと5/5の実測|OS32、Flyway WARN、#145不安定性・診断不能が残る。有限試験|失敗履歴と検査対象を開示して受入候補|CI成功だけで脆弱性受容・容量/SLAを承認しない|
+|P2 **BLOCKED** 品質|[ci.yml](../.github/workflows/ci.yml)、[品質方針](ci-quality-gates.md)。基準mainと下記PRのJava/Python/TF/Secret/SpotBugs/OSV、CI5/5は成功。PRのTrivyは**OS33（HIGH1/MEDIUM28/LOW4）**|新規CVE-2026-111497の修正版未適用、到達性未確定。Flyway WARN、#145不安定性・診断不能も残る|新規HIGHの別対応・リスク判断前に最終受入を通過させない|audit-onlyのCI成功は脆弱性受容ではなく、PRODUCTION NO GO|
 |P3 **PASS** 安全な再現|[demo](demo.md)、[testing](testing.md#実行前提と安全な確認)、[configuration](configuration.md)。Git archiveの使い捨てDocker9段階＋B1/B2/B3が基準CIでPASS、Windows/Linuxの再現コマンドを実装と照合|network/host資源に依存、強制終了時cleanup未完の可能性。公的TLSは別|既存volumeや実secretを使わず追跡可能|本番接続や既存DB復元の許可にはならない|
 |P4 **PASS** 説明資料|[README](../README.md)、[3シナリオ](portfolio-walkthrough.md)、[Transaction](design/transactions-and-locking.md)、[設計判断](design/decisions.md)。Security前段/Service境界とsource/test実在を照合。表示・リンク検証はPR証拠へ|90秒は導線の目標で、第三者ユーザビリティ測定ではない|今回の小さな導線・図修正を独立レビューへ提出|図は実AWS稼働の証明ではない|
-|P5 **PASS** 証拠/残余|本書、[旧DoD16](audit/portfolio-application-acceptance-2026-10-23.md#3-dod16との照合と独立受入の履歴)、[Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8)、[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)。snapshot/live/PRを分離し旧監査原文を保存|本番担当・承認・期限未合意、実運用証拠なし|P1〜P5を満たす提案。正式GO・tagは未実施|#166はBLOCKED、PRODUCTION NO GOを維持|
+|P5 **PASS** 証拠/残余|本書、[旧DoD16](audit/portfolio-application-acceptance-2026-10-23.md#3-dod16との照合と独立受入の履歴)、[Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8)、[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)。snapshot/live/PRを分離し旧監査原文を保存|本番担当・承認・期限未合意、実運用証拠なし|P2の未達を開示。正式GO・tagは未実施|#166はBLOCKED、PRODUCTION NO GOを維持|
 
 過去のDoD16の12/3/1、14/2/0、独立受入16/16はそれぞれのSHA/日付の記録として保存する。
 今回のP1〜P5へ数え直して過去の承認を上書きしない。Draft PR #103はマージ対象・現行品質証拠へ含めない。
+
+## PR検査で確認した差分 — 2026-10-29
+
+初回の[PR #170 CI40855988546](https://github.com/utl-flaxy/inventory-management-system/actions/runs/40855988546)、head `f19eb86992e4e8e859ee31550a51cfa9831a0317`は5/5・workflow SUCCESS。
+Java1,469＋1,045＝2,514、F/E/S=0、Python68、TF49＋mutation拒否3、配備順序15、Secret未解決0、SECURITY違反0、OSV169/advisory0、Docker業務9段階＋B1/B2/B3を実ログ/artifactで確認した。
+ただしTrivyは**OS33（HIGH1/MEDIUM28/LOW4）、library0**。基準main CIのOS32は当時のsnapshotとして保持し、今回の結果へ書き換えない。文書追補後の最終HEAD/runはPR本文で別に照合する。
+
+|新規検出|実測と判断|
+|---|---|
+|CVE-2026-111497 / libbrotli1|installed `1.1.0-2build2`、fixed version `1.1.0-2ubuntu0.1`、Trivy severity source=ubuntu、**HIGH**。status=fixedは修正版が存在する意味で、このimageへの適用済みを意味しない|
+|一次資料（10月29日確認）|[Ubuntu CVE](https://ubuntu.com/security/CVE-2026-111497) / [USN-8956-1](https://ubuntu.com/security/notices/USN-8956-1)。細工したBrotli圧縮streamをdecoderが処理する条件でメモリ破壊・DoS・コード実行の可能性。Nobleの上記修正版を公式表と照合|
+|到達性と限界|POM・production Java/config・ComposeにBrotliを直接呼ぶ設定は見つからないが、runtimeのnative packageは存在する。間接利用・外部設定・実本番artifactを未検証のため、非到達/安全とは断定しない。攻撃入力を送信していない|
+|変更と別対応案|本PRはMarkdownのみで、image/依存更新やsuppressionをしない。独立Issue候補として公式JRE17の修正済みdigestまたは限定package更新を評価し、全finding比較・非root/read-only・full verify・Docker/TLS/rollback・CIで別検証する。今回はそのIssue/修正PRを無断作成しない|
+
+修正版がある新規HIGHの扱いを過去のMEDIUM/LOW残余へ自動的に含めない。P2をBLOCKEDとし、依存是正または根拠あるリスク判断を独立レビューへ委ねる。CIのaudit-only契約は変更しない。
+
+Windowsのfull verify（上記head、Java17.0.18、Docker29.8.1、Testcontainers2.0.5）は**2,514件、F/E/S=0、BUILD SUCCESS、23分24秒**。
+OrderItemLimitIT / ProductDeletionIT / InitialAdminLifecycleITの起動中には、各1件のWait strategy failedとcertificate not yet validのログを観測した（3組）。
+最終的な各suiteは成功したが、これを初回起動障害の解消としない。このログからJavaのCertificateNotYetValidExceptionや時刻差の根因を確定せず、過去履歴と#145 OPENを維持する。診断回帰自身の故障注入はこの3組とは分けて集計した。
+DatabaseTimeoutITは9件成功、DB waitは5,000/5,006/5,000ms、HTTP409。DB内部予算とhost観測時間の既存区別を変えていない。
+
+READMEはGitHub上のPC表示・3つのMermaid SVG・受入anchorへの遷移を確認した。新しい縦図は幅248pxのSVGだが、browserのmobile viewport指定が反映されず、実mobile表示は**NOT VERIFIED**。PC確認をmobile実測と表現しない。
 
 ## 参考構成図・索引と実ソースの照合
 
@@ -66,7 +88,7 @@ Gitingestは上記main SHA、395 files、50kB上限。testing.md等の大きいf
 - [#75](https://github.com/utl-flaxy/inventory-management-system/issues/75): backend/bootstrap/syntheticの定義・mockと実運用は別。B01〜B14未承認、TF-C BLOCKED。実AWS/既存state操作をしていない。
 - [#134](https://github.com/utl-flaxy/inventory-management-system/issues/134): 個別jti失効は保留。B1〜B3の全端末失効と混同しない。refresh/reset/role変更APIも未実装。
 - [#86](https://github.com/utl-flaxy/inventory-management-system/issues/86) / [#87](https://github.com/utl-flaxy/inventory-management-system/issues/87) / [#89](https://github.com/utl-flaxy/inventory-management-system/issues/89): ソース是正と本番適用/外部設定の未確認を分離し、#166へ追跡。独断で閉じない。
-- Trivy OS32はこのSHA/runのsnapshot。Flyway WARN、本番DB restore・schema drift、旧binary/鍵/過去DBへのrollback、実hostのRAM/CPU/負荷/容量/監視/SLA/RPO/RTOは未検証。
+- Trivy OS32は基準main SHA/runのsnapshot。今回PRのOS33・新規HIGH1を別に記録し、受入を保留する。Flyway WARN、本番DB restore・schema drift、旧binary/鍵/過去DBへのrollback、実hostのRAM/CPU/負荷/容量/監視/SLA/RPO/RTOは未検証。
 - 実AWS配備、公的TLS/実DNS、実artifact/digest・外部profile・secret/信頼proxy peer、運用担当/承認者/期限は未確認または未合意。[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)は**BLOCKED BY OWNER / APPROVAL**。
 
 これらを開示した応募用作品の完成候補と、実利用者向け本番承認を分離する。Deployはdisabled_manually、PRODUCTION NO GO。

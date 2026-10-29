@@ -31,6 +31,8 @@ Secret例外/未解決0、SECURITY違反0、OSV169/advisory0、Trivy OS32（M28/
 出典・保証範囲・P1〜P5は[release-status](release-status.md)。[現在のmain push](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)と新PR HEADのCIは別に確認する。
 新HEADの実測値・Windows実行結果・Docker artifactはPR本文へ記録し、この固定snapshotを追い書きしない。
 
+10月29日のPR検査ではTrivyが**OS33（HIGH1/MEDIUM28/LOW4）、library0**へ変化した。[新規CVE・Windows起動時観測・P2保留の証拠](release-status.md#pr検査で確認した差分--2026-10-29)を参照し、上記main snapshotのOS32と混同しない。
+
 #145の[安全な診断と限界](testing-container-diagnostics.md)、Windows初回失敗/時計差/証明書時刻の根因未確定、OS残余とFlyway WARNを保持する。
 以下は10月23日以前の当時の記録を原文で保存する。古い「今回」や数値を現在の証拠に流用しない。
 
