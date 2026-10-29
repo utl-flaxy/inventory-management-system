@@ -446,6 +446,16 @@ def main():
             assert identity[:2] == ["10001", "10001"]
             report["identity"] = {"uid": 10001, "gid": 10001, "app_and_jar_not_writable": True,
                                   "jdk_maven_jcmd_absent": True}
+            runtime_os = docker("run", "--rm", "--read-only", "--cap-drop=ALL",
+                                "--security-opt=no-new-privileges:true", "--network=none",
+                                "--entrypoint", "sh", image, "-ec",
+                                '. /etc/os-release; test "$ID" = ubuntu; test "$VERSION_ID" = 24.04; '
+                                "installed=$(dpkg-query -W -f='${Version}' libbrotli1); "
+                                'dpkg --compare-versions "$installed" ge 1.1.0-2ubuntu0.1; '
+                                'printf "%s\\n" "$ID" "$VERSION_ID" "$installed"').stdout.decode().splitlines()
+            assert len(runtime_os) == 3
+            report["runtime_os"] = dict(distribution=runtime_os[0], version_id=runtime_os[1],
+                                      libbrotli1=runtime_os[2], minimum_fixed_libbrotli1="1.1.0-2ubuntu0.1")
             version = docker("run", "--rm", "--memory=1g", "--entrypoint", "java", image, "-version")
             report["java_version"] = (version.stdout + version.stderr).decode().strip()
             assert 'version "17.' in report["java_version"]
@@ -693,7 +703,7 @@ def main():
                       "jwt_revocation": report["jwt_revocation"],
                       "password_change": report["password_change"],
                       "admin_force_revocation": report["admin_force_revocation"],
-                      "image_scan": report.get("image_scan")}))
+                      "image_scan": report.get("image_scan"), "runtime_os": report["runtime_os"]}))
 
 
 if __name__ == "__main__":
