@@ -1,6 +1,52 @@
-# Portfolio v1.0 最終仕上げ・受入候補 — 2026-10-29
+# Portfolio v1.0 正式完成 — 2026-11-03
 
-**現在状態（2026-11-03）:** PR #170はsquash merge済み（main `808df99`）。そのmain CIで検出したConnector/J advisory4件を[#173の是正PR](#connector-j-remediation-2026-11-03)で独立レビュー待ち。P2はその後のmain CIで再判定し、`v1.0` tagは未作成。実利用者向け本番運用はPRODUCTION NO GO。
+**現在状態（2026-11-03）:** 応募用作品としての**Portfolio v1.0は正式完成**。`v1.0` tagは**`1383b64d5777387ef0674fc2c3a11deed3788638`**（PR #174 squash後のmain）に固定した。
+**実利用者向け本番運用はPRODUCTION NO GO**のまま。下の[完成判定と本番判定の区別](#portfolio-v1-final-2026-11-03)を参照する。
+
+<a id="portfolio-v1-final-2026-11-03"></a>
+
+## Portfolio v1.0の完成判定と本番判定 — 2026-11-03
+
+|区分|判定|範囲|
+|---|---|---|
+|応募用 Portfolio v1.0（P1〜P5）|**PASS・正式完成**|下記tag対象のソース、常設テスト、使い捨て環境の再現、説明資料、未保証事項の開示|
+|実利用者向け本番運用|**PRODUCTION NO GO**|[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166) BLOCKED。実AWS配備・公的TLS・実secret・本番DB復旧などは未検証|
+
+P1〜P5のPASSは本番運用の承認ではない。CI成功・tag作成をPRODUCTION GOへ読み替えない。
+
+### v1.0 tagとmain CI
+
+|対象|SHA / run|実測（push CI・ログ/artifactで確認）|
+|---|---|---|
+|`v1.0` tag（annotated、2026-11-03T14:07:54Z）|tag object `23560a3a5c415507ddff2c4a0e055ae63755ab10` → commit **`1383b64d5777387ef0674fc2c3a11deed3788638`**（PR #174、[#173](https://github.com/utl-flaxy/inventory-management-system/issues/173) CLOSED）/ [CI41646137190](https://github.com/utl-flaxy/inventory-management-system/actions/runs/41646137190)|event=push・head一致・completed/success、必須5/5 SUCCESS|
+|README改善後のmain|**`ec7d17b59f6624a416b952f993f3d3d02706a8ab`**（PR #175、`v1.0`との差分はREADME.mdのみ）/ [CI41655409814](https://github.com/utl-flaxy/inventory-management-system/actions/runs/41655409814)|event=push・head一致・completed/success、必須5/5 SUCCESS|
+
+両runで同じ値を確認した。
+
+|検査|実測と限界|
+|---|---|
+|Java17|Surefire1,469＋Failsafe1,045＝**2,514件、F/E/S=0/0/0、BUILD SUCCESS**|
+|Python / Terraform|**68件** / host27＋bootstrap14＋synthetic8＝49成功、mutation拒否3。AWS mockでありapplyではない|
+|Gitleaks / SpotBugs|**421 files、例外0/未解決0** / **main160 classes、SECURITY違反0**|
+|SBOM/OSV|**169 components / advisory0**。Connector/J **3.5.11**をSBOMで確認。11月3日のadvisory4件は是正済み|
+|Trivy|**OS32（MEDIUM28/LOW4）、library0**、CRITICAL/HIGH0、libbrotli1 `1.1.0-2ubuntu0.1`。audit-onlyで、脆弱性ゼロではない|
+|Docker|`ec7d17b`のartifactでsource_revision/revision_label一致、clean_archive_build=true（workspaceのsource_dirty=trueは別）。業務9段階＋B1/B2/B3、Flyway V1〜V9、同image設定故障復帰PASS|
+
+`v1.0`以降のmain更新はtagを動かさない。最新mainは[main push一覧](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)で別に照合する。
+
+### v1.0で未解決として保持する事項
+
+- [#145](https://github.com/utl-flaxy/inventory-management-system/issues/145) Windows・Testcontainersの証明書時刻/起動観測の根因は未確定（OPEN）。
+- [#166](https://github.com/utl-flaxy/inventory-management-system/issues/166) 本番受入ゲートはBLOCKED BY OWNER / APPROVAL（OPEN）。
+- Trivy OS残存**32件（MEDIUM28/LOW4）**は未解消・受容未承認。
+- Flyway WARN（MariaDB 12.2が検証済み版より新しい旨）は両main CIでも出力され、未解消。
+- [#75](https://github.com/utl-flaxy/inventory-management-system/issues/75) remote state/lock、[#134](https://github.com/utl-flaxy/inventory-management-system/issues/134) jti個別失効、異なる旧binary/鍵/過去DBへのrollbackは未対応・未検証。Deployはdisabledのまま。
+
+以下の10月29日・11月3日の各節は当時のsnapshotとして書き換えずに保持する。
+
+## 10月29日〜11月3日の受入記録（snapshot保持）
+
+**11月3日・#173是正PRレビュー中の状態（当時の記録）:** PR #170はsquash merge済み（main `808df99`）。そのmain CIで検出したConnector/J advisory4件を[#173の是正PR](#connector-j-remediation-2026-11-03)で独立レビュー待ち。P2はその後のmain CIで再判定し、`v1.0` tagは未作成。実利用者向け本番運用はPRODUCTION NO GO。
 
 **10月29日の提案（PR #170作成時のsnapshot）:** PORTFOLIO v1.0 READY FOR FINAL APPROVAL。P1〜P5はすべてPASS候補。当時は正式独立承認・merge・tag作成が未実施だった。
 応募用作品として「実装→設計理由→常設テスト→安全な再現→未保証事項」を説明できることを評価する。本番接続が必要な条件を応募版へ追加しない。
@@ -30,6 +76,8 @@ current/previous image IDは同じで、rollbackは設定故障復帰。異な�
 artifactはrunのActions画面から取得する（保存30日）。長期保管時は値を除去した証跡を保ち、raw JWT・env・DB認証情報を転載しない。
 
 <a id="portfolio-v1-final-acceptance"></a>
+
+> 2026-11-03追記: 下表は10月29日の判定案のsnapshot。P1〜P5の現在判定（PASS・正式完成、`v1.0`=`1383b64`）とPRODUCTION NO GOは[冒頭](#portfolio-v1-final-2026-11-03)を参照する。
 
 ## Portfolio v1.0の最終受入候補（P1〜P5）
 
@@ -86,6 +134,8 @@ artifactはrunのActions画面から取得する（保存30日）。長期保管
 
 悪意あるDB server/経路を前提とする問題だが、到達性は未検証で「使っていないから安全」とは扱わない。3.5.11はサーバーエラーのlog levelも変更するため、prodのdriver/Hibernate診断OFFと本番ログ非漏えいを[ProductionLoggingIT](../src/test/java/com/example/demo/logging/ProductionLoggingIT.java)の実MariaDB回帰で確認する。
 P2は是正PRの独立レビュー・merge後のmain CIで再判定する。OS32、Flyway WARN、#145、#166 BLOCKED、異なる旧binaryへのrollback未検証は不変で、PRODUCTION NO GOを維持する。
+
+6. **追記（同日）**: 是正PR #174をsquash merge（main `1383b64`）。[CI41646137190](https://github.com/utl-flaxy/inventory-management-system/actions/runs/41646137190)でOSV advisory0・Trivy library0へ戻ったことを確認し、`v1.0` tagを作成した。上記1〜5は是正前の記録として保持する。現在判定は[冒頭](#portfolio-v1-final-2026-11-03)を参照。
 
 <details>
 <summary>是正前の基準snapshot・初回HIGH発見・P2保留（原文保存）</summary>
@@ -162,10 +212,10 @@ Gitingestの初回参照は旧main `1a647a393dac147825293e0ccba0fd84f30bc5fa`、
 - [#75](https://github.com/utl-flaxy/inventory-management-system/issues/75): backend/bootstrap/syntheticの定義・mockと実運用は別。B01〜B14未承認、TF-C BLOCKED。実AWS/既存state操作をしていない。
 - [#134](https://github.com/utl-flaxy/inventory-management-system/issues/134): 個別jti失効は保留。B1〜B3の全端末失効と混同しない。refresh/reset/role変更APIも未実装。
 - [#86](https://github.com/utl-flaxy/inventory-management-system/issues/86) / [#87](https://github.com/utl-flaxy/inventory-management-system/issues/87) / [#89](https://github.com/utl-flaxy/inventory-management-system/issues/89): ソース是正と本番適用/外部設定の未確認を分離し、#166へ追跡。独断で閉じない。
-- main `808df99`のTrivyはOS32（MEDIUM28/LOW4）、CRITICAL/HIGH0に加え、Connector/J 3.5.10のlibrary4（MEDIUM3/LOW1）を11月3日に検出し、[#173で是正中](#connector-j-remediation-2026-11-03)。旧OS33/HIGH1の発見・P2保留と#172是正は別snapshotとして保存し、残32件を受容済み/解消済みとしない。Flyway WARN、本番DB restore・schema drift、旧binary/鍵/過去DBへのrollback、実hostのRAM/CPU/負荷/容量/監視/SLA/RPO/RTOは未検証。
+- main `808df99`のTrivyはOS32（MEDIUM28/LOW4）、CRITICAL/HIGH0に加え、Connector/J 3.5.10のlibrary4（MEDIUM3/LOW1）を11月3日に検出し、[#173で是正](#connector-j-remediation-2026-11-03)（main `1383b64`でlibrary0。OS32は不変）。旧OS33/HIGH1の発見・P2保留と#172是正は別snapshotとして保存し、残32件を受容済み/解消済みとしない。Flyway WARN、本番DB restore・schema drift、旧binary/鍵/過去DBへのrollback、実hostのRAM/CPU/負荷/容量/監視/SLA/RPO/RTOは未検証。
 - 実AWS配備、公的TLS/実DNS、実artifact/digest・外部profile・secret/信頼proxy peer、運用担当/承認者/期限は未確認または未合意。[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)は**BLOCKED BY OWNER / APPROVAL**。
 
-これらを開示した応募用作品の完成候補と、実利用者向け本番承認を分離する。Deployはdisabled_manually、PRODUCTION NO GO。
+これらを開示した応募用作品の完成（`v1.0`）と、実利用者向け本番承認を分離する。Deployはdisabled_manually、PRODUCTION NO GO。
 本作業で実AWS/EC2/SSH、既存DB/volume/state/実secretを参照・操作せず、Epic/Issue本文と過去の監査資料も変更しない。
 
 ## 以前の受入資料（原文保存）
