@@ -24,7 +24,7 @@
 | Spring Boot | **4.1.1**（`pom.xml` parent） |
 | Web | `spring-boot-starter-webmvc`、Jakarta Validation |
 | Security | Spring Security、JJWT 0.12.7、BCrypt。署名鍵は `JWT_SECRET` 外部入力 |
-| Persistence | Spring Data JPA、MariaDB 12.2、Flyway V1〜V6、Hibernate `ddl-auto=validate` |
+| Persistence | Spring Data JPA、MariaDB 12.2、Flyway V1〜V9（V7はJava migration）、Hibernate `ddl-auto=validate` |
 | Testing | Surefireのunit/slice/H2補助テスト、Failsafeの実MariaDB/Testcontainers `*IT` |
 | API docs | springdoc OpenAPI 3.1.1。Swaggerは明示した `local` profileのみ |
 | Infra | Docker Compose、Terraform 1.15.6 / AWS provider 6.68.0、EC2・Caddy想定 |
@@ -68,7 +68,7 @@ Mavenのunitは主に `*Test`、統合は `*IT`。Controller sliceはBoot4に対
 
 ## DB・構成・インフラ
 
-- `src/main/resources/db/migration` の Flyway **V1〜V6** がschemaのsource of truth。mainへ取り込まれたmigrationを変更・削除しない。新しい変更はVxを追加し、backup・preflight・reviewを行う。無検証の `baseline` / `repair` / `clean` を使わない。
+- `src/main/resources/db/migration` と `src/main/java/db/migration` の Flyway **V1〜V9** がschemaのsource of truth。mainへ取り込まれたmigrationを変更・削除しない。新しい変更はVxを追加し、backup・preflight・reviewを行う。無検証の `baseline` / `repair` / `clean` を使わない。
 - `application.properties` とprod設定は `spring.jpa.hibernate.ddl-auto=validate`、`spring.flyway.clean-disabled=true`、OSIV=false。DDLの安全なrollbackを仮定しない。
 - DB username/password/URLとJWT_SECRETは環境から与える。prodでroot接続やURL内認証情報、弱いJWT_SECRETは拒否する。認証・profileは [設定手順](docs/configuration.md)。
 - ComposeはMariaDBをhostへpublishしない。appは `127.0.0.1:8080` のみ。appはnon-root・read-only root filesystemで、`APP_MEMORY_LIMIT` を実host容量確認の上指定する。

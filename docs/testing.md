@@ -32,6 +32,9 @@ Docker9＋B1/B2/B3・V1〜V9・起動制約/停止/同image設定故障復帰が
 [現在のmain push](https://github.com/utl-flaxy/inventory-management-system/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)と最終PR HEAD CIは別に照合し、PR本文へ実測を記録する。
 本同期でWindows full verify/Dockerデモを再実行したわけではなく**NOT RUN**。#172 head8af2144のWindows2,514件・Docker成功は同一実装の過去証拠として区別して参照し、時計差/証明書問題の根因修復とはしない。
 
+11月3日のmain `808df99` / [push CI41635793259](https://github.com/utl-flaxy/inventory-management-system/actions/runs/41635793259)は必須5/5・Java2,514/F/E/S=0だが、OSV **advisory4**、Trivy **library4（MEDIUM3/LOW1）**をConnector/J 3.5.10に検出した（OS32・CRITICAL/HIGH0は不変）。
+上記10月29日のadvisory0/library0は当時のsnapshotとして保持する。3.5.11への限定更新とPR HEADの再検証は[Issue #173と時系列](release-status.md#connector-j-remediation-2026-11-03)、実測はPR本文に記録する。
+
 <details>
 <summary>PR #172採用前の基準・HIGH発見時点（履歴原文）</summary>
 

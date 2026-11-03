@@ -30,6 +30,8 @@
 		<jackson-bom.version>3.1.7</jackson-bom.version>
 		<!-- JJWT uses Jackson 2; retain its reviewed security patch alongside Boot's Jackson 3. -->
 		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+		<!-- Connector/J patch for GHSA-fhx5-2xqw-2cgm/-h599-m3w5-9m7x/-grfq-r75j-rw9x/-4jq2-8v3c-97w8 (#173). -->
+		<mariadb.version>3.5.11</mariadb.version>
 	</properties>
 
 	<dependencies>
