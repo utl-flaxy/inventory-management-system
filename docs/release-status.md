@@ -1,8 +1,10 @@
 # Portfolio v1.0 最終仕上げ・受入候補 — 2026-10-29
 
-**提案: PORTFOLIO v1.0 READY FOR FINAL APPROVAL。P1〜P5はすべてPASS候補。正式独立承認・merge・tag作成は未実施。実利用者向け本番運用はPRODUCTION NO GO。**
+**現在状態（2026-11-03）:** PR #170はsquash merge済み（main `808df99`）。そのmain CIで検出したConnector/J advisory4件を[#173の是正PR](#connector-j-remediation-2026-11-03)で独立レビュー待ち。P2はその後のmain CIで再判定し、`v1.0` tagは未作成。実利用者向け本番運用はPRODUCTION NO GO。
+
+**10月29日の提案（PR #170作成時のsnapshot）:** PORTFOLIO v1.0 READY FOR FINAL APPROVAL。P1〜P5はすべてPASS候補。当時は正式独立承認・merge・tag作成が未実施だった。
 応募用作品として「実装→設計理由→常設テスト→安全な再現→未保証事項」を説明できることを評価する。本番接続が必要な条件を応募版へ追加しない。
-**2026-11-03追記:** PR #170 merge後のmain CIでMariaDB Connector/J 3.5.10の新規advisory4件を検出した。下の10月29日snapshotは当時の正しい記録として保持し、[検出と3.5.11是正の時系列](#connector-j-remediation-2026-11-03)を別に記録する。
+下の10月29日の各節の「本PR」はPR #170を指し、そのOSV advisory0 / Trivy library0は当時の正しい記録として保持する。11月3日以降は[検出と3.5.11是正の時系列](#connector-j-remediation-2026-11-03)を参照する。
 
 ## 今回の基準snapshotと現在確認先
 
