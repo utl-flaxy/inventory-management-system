@@ -23,6 +23,7 @@
 10月18日の[独立受入GO](https://github.com/utl-flaxy/inventory-management-system/issues/130#issuecomment-6251677031)は当時の記録として保存し、拡張後の本提案と区別します。
 10月29日にOS33/HIGH1を発見し、[Issue #171](https://github.com/utl-flaxy/inventory-management-system/issues/171)→[PR #172](https://github.com/utl-flaxy/inventory-management-system/pull/172)でlibbrotli1を公式修正版`1.1.0-2ubuntu0.1`へ限定更新しました。新main CIで対象CVE非検出・CRITICAL/HIGH0・**OS32（MEDIUM28/LOW4）、library0**を確認し、[P2解除条件を満たした根拠](docs/release-status.md#p2-remediation-evidence)を提出します。
 個別jti失効/refresh/password resetは未実装です。OSV advisory0とTrivy HIGH0は別の検査結果であり、残存32件を受容済み・解消済みと扱いません。
+**2026-11-03:** PR #170 merge後のmain `808df99`のCIで、MariaDB Connector/J 3.5.10に新規advisory4件（MEDIUM3/LOW1）を検出しました。上の10月29日の結果は当時のsnapshotとして保持し、[Issue #173](https://github.com/utl-flaxy/inventory-management-system/issues/173)で3.5.11へ限定更新します（[時系列](docs/release-status.md#connector-j-remediation-2026-11-03)）。
 
 **現行構成はAWS未配備として扱います。** 実AWSでの配備・公開TLS・本番運用の確認証跡はありません。
 TerraformとCaddyは本番を想定した定義であり、Deploy workflowは`disabled_manually`です。

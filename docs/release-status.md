@@ -1,7 +1,10 @@
 # Portfolio v1.0 最終仕上げ・受入候補 — 2026-10-29
 
-**提案: PORTFOLIO v1.0 READY FOR FINAL APPROVAL。P1〜P5はすべてPASS候補。正式独立承認・merge・tag作成は未実施。実利用者向け本番運用はPRODUCTION NO GO。**
+**現在状態（2026-11-03）:** PR #170はsquash merge済み（main `808df99`）。そのmain CIで検出したConnector/J advisory4件を[#173の是正PR](#connector-j-remediation-2026-11-03)で独立レビュー待ち。P2はその後のmain CIで再判定し、`v1.0` tagは未作成。実利用者向け本番運用はPRODUCTION NO GO。
+
+**10月29日の提案（PR #170作成時のsnapshot）:** PORTFOLIO v1.0 READY FOR FINAL APPROVAL。P1〜P5はすべてPASS候補。当時は正式独立承認・merge・tag作成が未実施だった。
 応募用作品として「実装→設計理由→常設テスト→安全な再現→未保証事項」を説明できることを評価する。本番接続が必要な条件を応募版へ追加しない。
+下の10月29日の各節の「本PR」はPR #170を指し、そのOSV advisory0 / Trivy library0は当時の正しい記録として保持する。11月3日以降は[検出と3.5.11是正の時系列](#connector-j-remediation-2026-11-03)を参照する。
 
 ## 今回の基準snapshotと現在確認先
 
@@ -35,7 +38,7 @@ artifactはrunのActions画面から取得する（保存30日）。長期保管
 |ID / 判定案|根拠ファイル・テストと実行結果|残余リスク|v1.0完成への影響|本番運用への影響|
 |---|---|---|---|---|
 |P1 **PASS候補** 主要業務/API/認可|[OrderService](../src/main/java/com/example/demo/service/OrderService.java)、[SecurityConfig](../src/main/java/com/example/demo/security/SecurityConfig.java)。[20顧客競合](../src/test/java/com/example/demo/repository/InventoryConcurrencyMariaDbIT.java#L242)、[HTTP冪等性](../src/test/java/com/example/demo/controller/IdempotentOrderIT.java)、[認可matrix](../src/test/java/com/example/demo/security/AuthorizationMatrixIT.java)、B1/B2/B3の実MariaDB回帰が基準CIで成功|jti/refresh/reset/role変更API未実装、失効前に認証済み業務は完遂し得る|未実装範囲を明示し、応募版の機能を説明可能|実artifact/認証方式/外部設定は#166で別受入|
-|P2 **PASS候補** 品質|[ci.yml](../.github/workflows/ci.yml)、[品質方針](ci-quality-gates.md)。新main CI40870761655が5/5・workflow SUCCESS。Java2,514/F/E/S=0、Python68、TF49＋mutation3、Secret/SECURITY違反0、OSV169/advisory0。実runtimeのlibbrotli1公式修正版、対象CVE非検出・CRITICAL/HIGH0を確認|OS32（MEDIUM28/LOW4）、Flyway WARN、#145根因未確定。audit-only・有限試験|下記の是正証拠でP2解除条件を満たす。正式独立承認は未実施|CI成功は残存脆弱性の受容・本番安全の保証ではなく、PRODUCTION NO GO|
+|P2 **PASS候補** 品質|[ci.yml](../.github/workflows/ci.yml)、[品質方針](ci-quality-gates.md)。新main CI40870761655が5/5・workflow SUCCESS。Java2,514/F/E/S=0、Python68、TF49＋mutation3、Secret/SECURITY違反0、OSV169/advisory0。実runtimeのlibbrotli1公式修正版、対象CVE非検出・CRITICAL/HIGH0を確認|OS32（MEDIUM28/LOW4）、Flyway WARN、#145根因未確定。audit-only・有限試験。11月3日のConnector/J advisory4件は[別記](#connector-j-remediation-2026-11-03)|下記の是正証拠でP2解除条件を満たす。11月3日の新規4件は是正PRの独立レビュー後に再判定。正式独立承認は未実施|CI成功は残存脆弱性の受容・本番安全の保証ではなく、PRODUCTION NO GO|
 |P3 **PASS候補** 安全な再現|[demo](demo.md)、[testing](testing.md#実行前提と安全な確認)、[configuration](configuration.md)。Git archiveの使い捨てDocker9段階＋B1/B2/B3が基準CIでPASS、Windows/Linuxの再現コマンドを実装と照合|network/host資源に依存、強制終了時cleanup未完の可能性。公的TLSは別|既存volumeや実secretを使わず追跡可能|本番接続や既存DB復元の許可にはならない|
 |P4 **PASS候補** 説明資料|[README](../README.md)、[3シナリオ](portfolio-walkthrough.md)、[Transaction](design/transactions-and-locking.md)、[設計判断](design/decisions.md)。Security前段/Service境界とsource/test実在を照合。表示・リンク検証はPR証拠へ|90秒は導線の目標で、第三者ユーザビリティ測定ではない|今回の小さな導線・図修正を独立レビューへ提出|図は実AWS稼働の証明ではない|
 |P5 **PASS候補** 証拠/残余|本書、[旧DoD16](audit/portfolio-application-acceptance-2026-10-23.md#3-dod16との照合と独立受入の履歴)、[Epic #8](https://github.com/utl-flaxy/inventory-management-system/issues/8)、[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)。snapshot/live/PRを分離し旧監査原文を保存|本番担当・承認・期限未合意、実運用証拠なし|P2是正と全5条件のPASS候補を提出。正式GO・tagは未実施|#166はBLOCKED、PRODUCTION NO GOを維持|
@@ -60,6 +63,29 @@ artifactはrunのActions画面から取得する（保存30日）。長期保管
 #172 head `8af2144fe5332641469eacb844378a90d8c05cf8`でのWindows実測はJava17 full verify **2,514/F/E/S=0、21分10秒**、Docker9段階＋B1/B2/B3・修正版/Trivy32/HIGH0、設定不備3件の起動拒否・合成秘密値非出力を確認した記録である。
 同headとsquash後mainのtree同一、本PRとmainの差分はMarkdownのみと確認し、影響しない過去の成功証拠として参照する。新PR HEADで再実行した結果とは表現しない。
 そのWindows実行ではInventoryAdjustmentMigrationIT / MoneyMigrationITの起動中に各1組のWait/TLS not yet validログを観測した。最終suite成功で初回失敗を消さず、#145の根因未確定と過去のDB観測CLI3失敗を保持する。
+
+<a id="connector-j-remediation-2026-11-03"></a>
+
+## Connector/J新規advisoryの検出と是正 — 2026-11-03
+
+上記10月29日のOSV advisory0 / Trivy library0は、同日のscanner DBによる正しいsnapshotとして書き換えない。
+
+1. **10月29日**: 旧HIGH CVE-2026-111497をlibbrotli1 `1.1.0-2ubuntu0.1`への限定更新（#171 / PR #172）で是正。main `4cd791c`のCI40870761655はOSV169/advisory0、Trivy OS32（MEDIUM28/LOW4）/library0。
+2. **11月3日**: PR #170をsquash merge。main **`808df994b7c25ecd6d07c6f96f4084fc3be0d775`**の[push CI41635793259](https://github.com/utl-flaxy/inventory-management-system/actions/runs/41635793259)はhead一致・completed/success、必須5/5 SUCCESS。Java2,514/F/E/S=0、Python68、TF49＋mutation拒否3、Docker業務9段階＋B1/B2/B3がPASS。
+3. **同main CI**: 依存は前回と同じ169 componentsのまま、advisory DB更新（GHSA公開2026-10-30）で`org.mariadb.jdbc:mariadb-java-client:3.5.10`（Boot4.1.1 BOM管理）に新規4件。OSV **advisory4（MODERATE3/LOW1）**、Trivy **library4（MEDIUM3/LOW1）**、OS32（MEDIUM28/LOW4）は不変、CRITICAL/HIGH0、CVE-2026-111497非検出。
+
+|GHSA / CVE|Severity|影響範囲（3.5系）→修正版|概要（[GitHub Advisory](https://github.com/advisories)・[3.5.11 release](https://github.com/mariadb-corporation/mariadb-connector-j/releases/tag/3.5.11)）|
+|---|---|---|---|
+|[GHSA-fhx5-2xqw-2cgm](https://github.com/advisories/GHSA-fhx5-2xqw-2cgm) / CVE-2026-119210|MEDIUM|>=3.5.0 <3.5.11 → 3.5.11|LOAD DATA LOCAL INFILEのファイル検査迂回|
+|[GHSA-h599-m3w5-9m7x](https://github.com/advisories/GHSA-h599-m3w5-9m7x) / CVE-2026-119276|MEDIUM|>=3.5.0 <3.5.11 → 3.5.11|OK packetの宣言長による大きなheap確保|
+|[GHSA-grfq-r75j-rw9x](https://github.com/advisories/GHSA-grfq-r75j-rw9x) / CVE-2026-119281|MEDIUM|>=3.5.0 <3.5.11 → 3.5.11|character_set_resultsの無通知切替|
+|[GHSA-4jq2-8v3c-97w8](https://github.com/advisories/GHSA-4jq2-8v3c-97w8) / CVE-2026-119280|LOW|>=3.5.0 <3.5.11 → 3.5.11|XA recover()の長さ値信頼|
+
+4. **専用PR**: [Issue #173](https://github.com/utl-flaxy/inventory-management-system/issues/173)で追跡し、`pom.xml`のBoot管理property `mariadb.version`だけを3.5.11へoverride。Boot/Java/Hibernate/Flyway/Testcontainers/MariaDB server/Docker baseは変更せず、4.xへ移行しない。解決済み依存の差分はConnector/Jの1行のみで、推移依存の増減なし。
+5. **新PR HEAD**: 実装・依存（SBOM/runtime JAR）・OSV・Trivy・Java全回帰・Docker業務/B1〜B3をPR HEADのCIで再検証し、結果はPR本文へ記録する。scannerの無効化・抑制・DB固定・severity除外はしない。
+
+悪意あるDB server/経路を前提とする問題だが、到達性は未検証で「使っていないから安全」とは扱わない。3.5.11はサーバーエラーのlog levelも変更するため、prodのdriver/Hibernate診断OFFと本番ログ非漏えいを[ProductionLoggingIT](../src/test/java/com/example/demo/logging/ProductionLoggingIT.java)の実MariaDB回帰で確認する。
+P2は是正PRの独立レビュー・merge後のmain CIで再判定する。OS32、Flyway WARN、#145、#166 BLOCKED、異なる旧binaryへのrollback未検証は不変で、PRODUCTION NO GOを維持する。
 
 <details>
 <summary>是正前の基準snapshot・初回HIGH発見・P2保留（原文保存）</summary>
@@ -136,7 +162,7 @@ Gitingestの初回参照は旧main `1a647a393dac147825293e0ccba0fd84f30bc5fa`、
 - [#75](https://github.com/utl-flaxy/inventory-management-system/issues/75): backend/bootstrap/syntheticの定義・mockと実運用は別。B01〜B14未承認、TF-C BLOCKED。実AWS/既存state操作をしていない。
 - [#134](https://github.com/utl-flaxy/inventory-management-system/issues/134): 個別jti失効は保留。B1〜B3の全端末失効と混同しない。refresh/reset/role変更APIも未実装。
 - [#86](https://github.com/utl-flaxy/inventory-management-system/issues/86) / [#87](https://github.com/utl-flaxy/inventory-management-system/issues/87) / [#89](https://github.com/utl-flaxy/inventory-management-system/issues/89): ソース是正と本番適用/外部設定の未確認を分離し、#166へ追跡。独断で閉じない。
-- 現行mainのTrivyはOS32（MEDIUM28/LOW4）、CRITICAL/HIGH0。旧OS33/HIGH1の発見・P2保留と#172是正は別snapshotとして保存し、残32件を受容済み/解消済みとしない。Flyway WARN、本番DB restore・schema drift、旧binary/鍵/過去DBへのrollback、実hostのRAM/CPU/負荷/容量/監視/SLA/RPO/RTOは未検証。
+- main `808df99`のTrivyはOS32（MEDIUM28/LOW4）、CRITICAL/HIGH0に加え、Connector/J 3.5.10のlibrary4（MEDIUM3/LOW1）を11月3日に検出し、[#173で是正中](#connector-j-remediation-2026-11-03)。旧OS33/HIGH1の発見・P2保留と#172是正は別snapshotとして保存し、残32件を受容済み/解消済みとしない。Flyway WARN、本番DB restore・schema drift、旧binary/鍵/過去DBへのrollback、実hostのRAM/CPU/負荷/容量/監視/SLA/RPO/RTOは未検証。
 - 実AWS配備、公的TLS/実DNS、実artifact/digest・外部profile・secret/信頼proxy peer、運用担当/承認者/期限は未確認または未合意。[#166](https://github.com/utl-flaxy/inventory-management-system/issues/166)は**BLOCKED BY OWNER / APPROVAL**。
 
 これらを開示した応募用作品の完成候補と、実利用者向け本番承認を分離する。Deployはdisabled_manually、PRODUCTION NO GO。
